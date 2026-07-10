@@ -1,0 +1,142 @@
+// Terminal UI — history, rendering, prompt.
+window.TERM = {
+    history: [],
+    historyIdx: -1,
+    inputEl: null,
+    outputEl: null,
+    promptEl: null,
+
+    init() {
+        this.inputEl = document.getElementById('termInput');
+        this.outputEl = document.getElementById('termOutput');
+        this.promptEl = document.getElementById('prompt');
+
+        this.inputEl.addEventListener('keydown', (e) => this.onKey(e));
+        document.getElementById('terminal').addEventListener('click', () => this.inputEl.focus());
+
+        this.inputEl.focus();
+    },
+
+    onKey(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const raw = this.inputEl.value;
+            this.submit(raw);
+            this.inputEl.value = '';
+            this.historyIdx = -1;
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (this.history.length === 0) return;
+            if (this.historyIdx === -1) this.historyIdx = this.history.length - 1;
+            else this.historyIdx = Math.max(0, this.historyIdx - 1);
+            this.inputEl.value = this.history[this.historyIdx];
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (this.historyIdx === -1) return;
+            this.historyIdx++;
+            if (this.historyIdx >= this.history.length) {
+                this.historyIdx = -1;
+                this.inputEl.value = '';
+            } else {
+                this.inputEl.value = this.history[this.historyIdx];
+            }
+        } else if (e.key === 'l' && e.ctrlKey) {
+            e.preventDefault();
+            this.outputEl.innerHTML = '';
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            this.tabComplete();
+        }
+    },
+
+    tabComplete() {
+        const val = this.inputEl.value;
+        const tokens = val.split(' ');
+        const last = tokens[tokens.length - 1];
+        if (!last) return;
+        // Try to complete path
+        const parent = last.includes('/') ? last.slice(0, last.lastIndexOf('/') + 1) : '';
+        const stub = last.includes('/') ? last.slice(last.lastIndexOf('/') + 1) : last;
+        const dir = parent ? FS.normalize(parent) : SESSION.cwd;
+        const list = FS.listDir(dir);
+        if (!list) return;
+        const matches = list.map(l => l.name).filter(n => n.startsWith(stub));
+        if (matches.length === 1) {
+            const completed = parent + matches[0];
+            tokens[tokens.length - 1] = completed;
+            this.inputEl.value = tokens.join(' ');
+        } else if (matches.length > 1) {
+            this.print([{ text: matches.join('  '), cls: 'dim' }]);
+            this.renderPromptEcho(val);
+        }
+    },
+
+    submit(raw) {
+        // Echo the prompt + input
+        this.renderPromptEcho(raw);
+        if (raw.trim()) this.history.push(raw);
+        const lines = window.CMD.execute(raw);
+        this.print(lines);
+        this.scrollToBottom();
+    },
+
+    renderPromptEcho(cmd) {
+        const isRoot = SESSION.isRoot;
+        const promptText = this.getPromptText(true);
+        const div = document.createElement('div');
+        div.className = 'line';
+        div.innerHTML = `<span class="prompt-line" style="color:${isRoot ? 'var(--root)' : 'var(--accent)'}">${promptText}</span><span class="cmd-echo">${this.escapeHtml(cmd)}</span>`;
+        this.outputEl.appendChild(div);
+    },
+
+    print(lines) {
+        for (const line of lines) {
+            const div = document.createElement('div');
+            div.className = 'line ' + (line.cls || '');
+            div.textContent = line.text;
+            this.outputEl.appendChild(div);
+        }
+    },
+
+    printHtml(html) {
+        const div = document.createElement('div');
+        div.className = 'line';
+        div.innerHTML = html;
+        this.outputEl.appendChild(div);
+    },
+
+    printLines(text, cls = '') {
+        if (Array.isArray(text)) {
+            for (const t of text) this.print([{ text: t, cls }]);
+        } else {
+            this.print([{ text, cls }]);
+        }
+    },
+
+    getPromptText(forEcho) {
+        const isRoot = SESSION.isRoot;
+        const user = isRoot ? 'root' : SESSION.user;
+        const host = SESSION.host;
+        let cwdDisplay = SESSION.cwd;
+        if (cwdDisplay === '/home/player') cwdDisplay = '~';
+        else if (cwdDisplay.startsWith('/home/player/')) cwdDisplay = '~' + cwdDisplay.slice('/home/player'.length);
+        const symbol = isRoot ? '#' : '$';
+        // Kali/Parrot style two-line prompt
+        return `┌──(${user}㉿${host})-[${cwdDisplay}]<br>└─${symbol}&nbsp;`;
+    },
+
+    updatePrompt() {
+        this.promptEl.innerHTML = this.getPromptText();
+    },
+
+    scrollToBottom() {
+        const term = document.getElementById('terminal');
+        term.scrollTop = term.scrollHeight;
+    },
+
+    escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+};
+
+window.updatePrompt = () => window.TERM.updatePrompt();

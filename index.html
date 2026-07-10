@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>rootQuest — Linux PrivEsc Challenges</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <header class="topbar">
+            <div class="brand">
+                <span class="brand-dot"></span>
+                <span class="brand-name">rootQuest</span>
+                <span class="brand-tag" data-i18n="brandTag">Linux Privilege Escalation Playground</span>
+            </div>
+            <div class="topbar-actions">
+                <div class="level-pill" id="levelPill">
+                    <span data-i18n="levelLabel">Level</span>
+                    <strong id="levelNum">1</strong>
+                    <span>/ 5</span>
+                </div>
+                <button class="btn-ghost" id="hintBtn" data-testid="hint-button">
+                    <span data-i18n="hintBtn">Hint</span>
+                </button>
+                <button class="btn-ghost" id="resetBtn" data-testid="reset-button">
+                    <span data-i18n="resetBtn">Reset</span>
+                </button>
+                <div class="lang-toggle" data-testid="lang-toggle">
+                    <button class="lang-btn active" data-lang="en" data-testid="lang-en">EN</button>
+                    <button class="lang-btn" data-lang="fr" data-testid="lang-fr">FR</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="layout">
+            <aside class="sidebar">
+                <div class="mission-card">
+                    <div class="mission-header">
+                        <span class="mission-tag" data-i18n="missionTag">MISSION</span>
+                        <span class="mission-status" id="missionStatus" data-i18n="statusActive">Active</span>
+                    </div>
+                    <h2 id="missionTitle" data-testid="mission-title">—</h2>
+                    <p id="missionBrief" data-testid="mission-brief">—</p>
+
+                    <div class="objectives">
+                        <div class="objectives-title" data-i18n="objectiveLabel">Objective</div>
+                        <ul id="objectivesList" data-testid="objectives-list"></ul>
+                    </div>
+
+                    <div class="target-box">
+                        <div class="target-label" data-i18n="targetLabel">Target</div>
+                        <code id="targetInfo">player@box-01</code>
+                    </div>
+
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+
+                    <div class="levels-map" id="levelsMap"></div>
+                </div>
+
+                <div class="cheatsheet">
+                    <div class="cheatsheet-title" data-i18n="cheatsheetTitle">Useful commands</div>
+                    <ul>
+                        <li><code>ls -la</code></li>
+                        <li><code>cat &lt;file&gt;</code></li>
+                        <li><code>find / -perm -4000 2&gt;/dev/null</code></li>
+                        <li><code>sudo -l</code></li>
+                        <li><code>getcap -r / 2&gt;/dev/null</code></li>
+                        <li><code>cat /etc/crontab</code></li>
+                        <li><code>whoami</code> / <code>id</code></li>
+                        <li><code>help</code></li>
+                    </ul>
+                </div>
+            </aside>
+
+            <section class="terminal-wrap">
+                <div class="term-titlebar">
+                    <div class="term-dots">
+                        <span class="dot dot-red"></span>
+                        <span class="dot dot-yellow"></span>
+                        <span class="dot dot-green"></span>
+                    </div>
+                    <div class="term-title" id="termTitle">player@box-01: ~</div>
+                    <div class="term-badges">
+                        <span class="badge badge-root" id="rootBadge" style="display:none">root</span>
+                    </div>
+                </div>
+                <div class="terminal" id="terminal" data-testid="terminal">
+                    <div id="termOutput" class="term-output" data-testid="term-output"></div>
+                    <div class="term-inputline">
+                        <span class="prompt" id="prompt">┌──(player㉿box-01)-[~]<br>└─$&nbsp;</span>
+                        <input type="text" id="termInput" class="term-input" autocomplete="off" spellcheck="false" autofocus data-testid="term-input">
+                    </div>
+                </div>
+                <div class="term-footer">
+                    <span data-i18n="hintTypeHelp">Type <code>help</code> to list available commands.</span>
+                </div>
+            </section>
+        </main>
+
+        <div class="modal-backdrop" id="winModal" style="display:none">
+            <div class="modal">
+                <div class="modal-glow"></div>
+                <h3 data-i18n="rootShellTitle">ROOT SHELL OBTAINED</h3>
+                <p id="winFlag">flag{—}</p>
+                <p class="win-sub" id="winSub" data-i18n="winSub">You escalated to root. Ready for the next machine?</p>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="nextLevelBtn" data-testid="next-level-btn">
+                        <span data-i18n="nextLevelBtn">Next machine →</span>
+                    </button>
+                    <button class="btn-ghost" id="replayBtn" data-testid="replay-btn">
+                        <span data-i18n="replayBtn">Replay</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="finalModal" style="display:none">
+            <div class="modal">
+                <div class="modal-glow"></div>
+                <h3 data-i18n="completedTitle">ALL MACHINES OWNED</h3>
+                <p data-i18n="completedSub">You cleared every privesc challenge. Nice hunt.</p>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="restartAllBtn" data-testid="restart-all-btn">
+                        <span data-i18n="restartAllBtn">Restart from Level 1</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/i18n.js"></script>
+    <script src="js/levels.js"></script>
+    <script src="js/fs.js"></script>
+    <script src="js/commands.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
