@@ -3,16 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#04060a">
     <title>rootQuest — Linux PrivEsc Challenges</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
+    <!-- Background FX layers (decorative, non-interactive) -->
+    <div class="fx" aria-hidden="true">
+        <canvas id="matrixCanvas" class="fx-matrix"></canvas>
+        <div class="fx-grid"></div>
+        <div class="fx-aurora"></div>
+        <div class="fx-scanlines"></div>
+        <div class="fx-flicker"></div>
+        <div class="fx-vignette"></div>
+    </div>
     <div id="app">
         <header class="topbar">
             <div class="brand">
                 <span class="brand-dot"></span>
-                <span class="brand-name">rootQuest</span>
+                <span class="brand-name" data-text="rootQuest">rootQuest</span>
                 <span class="brand-tag" data-i18n="brandTag">Linux Privilege Escalation Playground</span>
             </div>
             <div class="topbar-actions">
@@ -36,7 +46,7 @@
 
         <main class="layout">
             <aside class="sidebar">
-                <div class="mission-card">
+                <div class="mission-card hud">
                     <div class="mission-header">
                         <span class="mission-tag" data-i18n="missionTag">MISSION</span>
                         <span class="mission-status" id="missionStatus" data-i18n="statusActive">Active</span>
@@ -61,7 +71,7 @@
                     <div class="levels-map" id="levelsMap"></div>
                 </div>
 
-                <div class="cheatsheet">
+                <div class="cheatsheet hud">
                     <div class="cheatsheet-title" data-i18n="cheatsheetTitle">Useful commands</div>
                     <ul>
                         <li><code>ls -la</code></li>
@@ -76,7 +86,7 @@
                 </div>
             </aside>
 
-            <section class="terminal-wrap">
+            <section class="terminal-wrap hud">
                 <div class="term-titlebar">
                     <div class="term-dots">
                         <span class="dot dot-red"></span>
@@ -138,5 +148,6 @@
     <script src="js/commands.js"></script>
     <script src="js/terminal.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/fx.js"></script>
 </body>
 </html>
