@@ -80,6 +80,46 @@ Le moteur ne gère aujourd'hui que 5 vecteurs. Idées de niveaux supplémentaire
 
 ---
 
+## 10. 🚀 MOONSHOTS — idées complètement folles
+
+> Section « et si on n'avait aucune limite ». Presque tout est 🏗️/💡, souvent hors-scope raisonnable — mais c'est là que rootQuest devient légendaire au lieu d'être « encore un jeu de terminal ».
+
+### 🧠 Un adversaire vivant qui te traque (Blue Team IA)
+- 💡 🏗️ **Sysadmin IA en temps réel** : un NPC qui *surveille les logs pendant que tu joues*. Tu tapes `find / -perm -4000` → il reçoit une alerte, patche le SUID **sous tes yeux**, kill ton shell, change les mots de passe. Tu dois aller plus vite que lui. Machine d'état scriptée au départ, puis pilotée par un vrai LLM (Claude API) qui « lit » ton terminal et décide de sa réaction.
+- 💡 🏗️ **Score de furtivité** : chaque commande génère des traces (auth.log, bash_history, timestamps). Un vrai **SIEM simulé** monte une jauge de détection. Objectif bonus : rooter *sans déclencher l'IDS* — timestomping, `unset HISTFILE`, log wiping. → branchement naturel avec ton projet **[[projet-pulse]]** (IDS/IPS) comme moteur de détection.
+- 💡 🔨 **Mentor IA** : un tuteur LLM qui observe ta session, comprend où tu bloques et te coache en langage naturel (« tu as vu le bit `s` sur `find` ? pense à GTFOBins ») au lieu des 3 indices figés.
+
+### 🐧 Un VRAI Linux dans le navigateur (le graal technique)
+- 💡 🏗️ **Booter un noyau Linux réel en WebAssembly** (v86 / WebVM / une image busybox) et faire de la **vraie escalade de privilèges sur un vrai kernel** sandboxé dans l'onglet. Fini la simulation : les payloads GTFOBins fonctionnent *pour de vrai*. C'est le passage de « jeu » à « lab d'entraînement OSCP jouable offline ».
+- 💡 🏗️ **Interpréteur bash complet** (étape intermédiaire) : pipes, variables, boucles `for`, sous-shells, substitution `$(...)`, vrais `grep/awk/sed`. Remplace le mini-parseur actuel par un shell POSIX crédible.
+
+### ⚔️ Multijoueur & compétition
+- 💡 🏗️ **Course PvP en temps réel** (WebRTC/WebSocket) : deux joueurs, la même box, premier à `/root/flag.txt` gagne. Tu vois l'avancement de l'adversaire.
+- 💡 🏗️ **Mode « Twitch plays rootQuest »** : le chat vote les commandes.
+- 💡 🔨 **Speedrun + leaderboard mondial** : chrono, splits par machine, **ghost replay** (rejoue la session d'un autre joueur en surimpression), carte « root proof » partageable signée cryptographiquement.
+
+### 🎲 Génération infinie (roguelike)
+- 💡 🏗️ **Générateur procédural de machines** : un moteur qui compose aléatoirement des vulnérabilités (SUID + cron + caps…) pour une box inédite à chaque run. Rejouabilité infinie.
+- 💡 🏗️ **Campagne roguelike / metroidvania** : progression persistante, arbre de compétences, on *débloque des outils et des exploits* comme du loot, runs en permadeath, difficulté qui monte.
+- 💡 🔨 **Ingestion de la vraie base GTFOBins** : parser le JSON GTFOBins pour **auto-générer des niveaux** à partir de failles réelles et rester à jour tout seul.
+
+### 🌐 Réseau & pivoting — fusion de ton écosystème
+- 💡 🏗️ **Réseau complet de machines** : plus une box isolée mais une topologie — `ssh` vers d'autres hôtes simulés, mouvement latéral, credential reuse, pivot user → user → root → autre serveur. La topologie viendrait de **[[projet-netforge]]** (VLAN/ACL), la cible réelle générée par **[[projet-vagrantforge]]**, la détection par **[[projet-pulse]]**. Un seul univers « SISR » relié.
+- 💡 🏗️ **Filesystem vivant** : des process qui tournent, des logs qui s'écrivent, d'autres « users » qui se connectent et laissent des credentials en clair, cron qui **tic pour de vrai** sur un timer.
+
+### 🎬 Immersion totale
+- 💡 🔨 **Mode histoire** : thriller hacker avec personnages, cinématiques ASCII dans le terminal, choix narratifs branchés, un mentor mystérieux qui te file des missions.
+- 💡 🔨 **Après le root : générer un « attack graph » animé** (kill chain) qui rejoue visuellement ta chaîne d'exploitation — parfait pour un portfolio / un rapport de pentest.
+- 🟢 🔨 **Esthétique CRT rétro** : phosphore, scanlines, glitch, matrix rain, tremblement d'écran quand tu passes root. Thèmes déblocables.
+- 💡 🔨 **Mode Chaos** : la box se défend activement (fork bomb, disque qui se remplit, réseau qui drop) — tu dois rooter sous pression.
+
+### 🏆 Méta & social
+- 💡 🔨 **Éditeur de niveaux + machines communautaires** : créer sa box, l'exporter en URL (JSON encodé) ou fichier, importer celles des autres. « Steam Workshop » du privesc.
+- 💡 🔨 **Preuve de root vérifiable** : la chaîne de flags signe un certificat → badge GitHub / open-badge affichable sur ton profil.
+- 💡 🔨 **PWA + push notifications** : le cron du niveau 2 t'envoie une notif « [+] cron fired as root » même onglet fermé. Hacking « on the toilet ».
+
+---
+
 ## Prochaines étapes suggérées (ordre conseillé)
 
 1. **localStorage** (progression + langue) — gros gain, effort minime. 🔴⚡
