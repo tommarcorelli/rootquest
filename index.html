@@ -151,6 +151,33 @@
         </div>
     </div>
 
+    <!-- Home / machine-select hub -->
+    <section id="homeScreen" class="home" data-testid="home-screen">
+        <div class="home-scroll">
+            <div class="home-hero">
+                <div class="home-badge" data-i18n="homeBadge">// NEURAL BREACH TRAINING SIMULATOR</div>
+                <h1 class="home-title" data-text="rootQuest">rootQuest</h1>
+                <p class="home-sub" data-i18n="homeSub">Terrain d'entraînement à l'escalade de privilèges Linux. 5 machines, 5 vulnérabilités, un seul objectif : root.</p>
+                <div class="home-cta">
+                    <button class="btn-primary home-start" id="homeStartBtn" data-testid="home-start-btn">
+                        <span data-i18n="homeStart">▶ INITIALIZE BREACH</span>
+                    </button>
+                    <div class="lang-toggle" data-testid="home-lang-toggle">
+                        <button class="lang-btn active" data-lang="en">EN</button>
+                        <button class="lang-btn" data-lang="fr">FR</button>
+                    </div>
+                </div>
+            </div>
+            <div class="home-select">
+                <div class="home-select-head">
+                    <span class="home-select-title" data-i18n="homeSelect">SELECT TARGET</span>
+                    <span class="home-select-meta"><strong id="homeProgressText">0 / 5</strong> <span data-i18n="homeOwned">owned</span></span>
+                </div>
+                <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
+            </div>
+        </div>
+    </section>
+
     <script src="js/i18n.js"></script>
     <script src="js/levels.js"></script>
     <script src="js/fs.js"></script>

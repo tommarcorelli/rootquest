@@ -1,15 +1,26 @@
+// Per-machine metadata for the home hub (indexed like LEVELS)
+window.MACHINE_META = [
+    { cat: 'SUID', diff: 'EASY' },
+    { cat: 'CRON', diff: 'EASY' },
+    { cat: 'CAP',  diff: 'MEDIUM' },
+    { cat: 'PATH', diff: 'MEDIUM' },
+    { cat: 'SUDO', diff: 'HARD' }
+];
+
 // Main game orchestration
 window.GAME = {
     currentLevel: 0,   // index into LEVELS
     completed: [],     // level ids completed
+    started: false,    // a machine has been entered at least once
 
     level() { return LEVELS[this.currentLevel]; },
 
     boot() {
         TERM.init();
-        this.loadLevel(0);
         this.buildLevelsMap();
+        this.buildHomeGrid();
         this.wireUi();
+        this.showHome();
     },
 
     loadLevel(idx) {
@@ -51,7 +62,78 @@ window.GAME = {
         this.updateLevelsMap();
         document.getElementById('levelNum').textContent = lvl.id;
         document.getElementById('termTitle').textContent = `${lvl.user}@${lvl.host}: ~`;
+        document.getElementById('missionStatus').textContent = t('statusActive');
         this.updateProgress();
+    },
+
+    // ── Home / machine-select hub ───────────────────────────────
+    buildHomeGrid() {
+        const grid = document.getElementById('homeGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+        for (let i = 0; i < LEVELS.length; i++) {
+            const lvl = LEVELS[i];
+            const meta = MACHINE_META[i] || { cat: '???', diff: '' };
+            const owned = this.completed.includes(lvl.id);
+            const vuln = (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim();
+
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'machine-card hud' + (owned ? ' is-owned' : '');
+            card.setAttribute('data-idx', i);
+            card.setAttribute('data-testid', `machine-card-${lvl.id}`);
+            card.innerHTML =
+                '<div class="mc-top">' +
+                    `<span class="mc-id">${lvl.codename.toUpperCase()}</span>` +
+                    `<span class="mc-cat">${meta.cat}</span>` +
+                '</div>' +
+                `<div class="mc-name">${vuln}</div>` +
+                `<div class="mc-brief">${lvl.brief[currentLang]}</div>` +
+                '<div class="mc-foot">' +
+                    `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}</span>` +
+                    `<span class="mc-diff">${meta.diff}</span>` +
+                    `<span class="mc-enter">${t('homeEnter')} →</span>` +
+                '</div>';
+            card.addEventListener('click', () => this.selectMachine(i));
+            grid.appendChild(card);
+        }
+        this.updateHomeProgress();
+    },
+
+    updateHomeProgress() {
+        const el = document.getElementById('homeProgressText');
+        if (el) el.textContent = `${this.completed.length} / ${LEVELS.length}`;
+    },
+
+    selectMachine(idx) {
+        this.started = true;
+        this.loadLevel(idx);
+        this.hideHome();
+        if (TERM.inputEl) TERM.inputEl.focus();
+    },
+
+    startBreach() {
+        // Jump to the first machine not yet owned, else the first one.
+        let idx = LEVELS.findIndex(l => !this.completed.includes(l.id));
+        if (idx < 0) idx = 0;
+        this.selectMachine(idx);
+    },
+
+    showHome() {
+        this.buildHomeGrid();
+        document.getElementById('winModal').style.display = 'none';
+        document.getElementById('finalModal').style.display = 'none';
+        const home = document.getElementById('homeScreen');
+        if (home) home.classList.remove('home--hidden');
+    },
+
+    hideHome() {
+        const home = document.getElementById('homeScreen');
+        if (home) home.classList.add('home--hidden');
+    },
+
+    returnToMenu() {
+        this.showHome();
     },
 
     renderMission() {
@@ -162,6 +244,12 @@ window.GAME = {
             this.loadLevel(0);
         });
 
+        // Home hub wiring
+        document.getElementById('menuBtn').addEventListener('click', () => this.returnToMenu());
+        document.getElementById('homeStartBtn').addEventListener('click', () => this.startBreach());
+        document.getElementById('winMenuBtn').addEventListener('click', () => this.returnToMenu());
+        document.getElementById('finalMenuBtn').addEventListener('click', () => this.returnToMenu());
+
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.addEventListener('click', () => window.setLanguage(btn.getAttribute('data-lang')));
         });
@@ -177,6 +265,7 @@ window.setLanguage = function(lang) {
     window.applyI18n();
     if (window.GAME && window.GAME.level) {
         window.GAME.renderMission();
+        if (window.GAME.buildHomeGrid) window.GAME.buildHomeGrid();
     }
 };
 
