@@ -44,26 +44,10 @@ window.CMD = {
             redirect = { op: redirMatch[2], target: redirMatch[3] };
         }
 
-        // Handle pipe (only support simple `| cat` for now, otherwise ignore)
-        // Keep it minimal.
-
-        // Tokenize (naïve — handles single/double quotes)
-        const tokens = this.tokenize(cmdStr);
-        if (tokens.length === 0) return [];
-        const cmd = tokens[0];
-        const args = tokens.slice(1);
-
-        // Handle python one-liners specially before dispatch
-        const handler = this.handlers[cmd] || this.handlers[this.resolvePath(cmd)];
-        let result;
-        if (handler) {
-            result = handler.call(this, args, cmdStr);
-        } else if (cmd.startsWith('/') || cmd.startsWith('./')) {
-            result = this.runBinary(cmd, args, cmdStr);
-        } else {
-            // Check if cmd is in PATH via /tmp (PATH hijack detection happens in run of SUID)
-            result = [{ text: t('cmdNotFound', cmd), cls: 'err' }];
-        }
+        // Pipeline: cmd1 | cmd2 | cmd3 (quote-aware). A single stage is the common
+        // case and behaves exactly like before.
+        const stages = this.splitPipes(cmdStr);
+        let result = stages.length > 1 ? this.runPipeline(stages) : this.dispatch(stages[0] ?? cmdStr);
 
         // Apply redirect
         if (redirect && result && result._captured !== undefined) {
@@ -88,6 +72,125 @@ window.CMD = {
         }
 
         return Array.isArray(result) ? result : (result?.lines || []);
+    },
+
+    // Dispatch a single (pipe-free) command string to its handler.
+    dispatch(cmdStr) {
+        const tokens = this.tokenize(cmdStr);
+        if (tokens.length === 0) return [];
+        const cmd = tokens[0];
+        const args = tokens.slice(1);
+        const handler = this.handlers[cmd] || this.handlers[this.resolvePath(cmd)];
+        if (handler) return handler.call(this, args, cmdStr);
+        if (cmd.startsWith('/') || cmd.startsWith('./')) return this.runBinary(cmd, args, cmdStr);
+        return [{ text: t('cmdNotFound', cmd), cls: 'err' }];
+    },
+
+    // Quote-aware split on `|` (keeps quotes so the tokenizer strips them later).
+    splitPipes(str) {
+        const parts = [];
+        let cur = '', inS = false, inD = false;
+        for (let i = 0; i < str.length; i++) {
+            const c = str[i];
+            if (c === "'" && !inD) { inS = !inS; cur += c; continue; }
+            if (c === '"' && !inS) { inD = !inD; cur += c; continue; }
+            if (c === '|' && !inS && !inD) { parts.push(cur); cur = ''; continue; }
+            cur += c;
+        }
+        parts.push(cur);
+        return parts.map(s => s.trim()).filter(Boolean);
+    },
+
+    // Run stage 0 normally, then thread each subsequent stage as a filter over
+    // the previous stage's output lines.
+    runPipeline(stages) {
+        let result = this.dispatch(stages[0]);
+        let lines = Array.isArray(result) ? result : (result?.lines || []);
+        for (let i = 1; i < stages.length; i++) {
+            lines = this.applyFilter(stages[i], lines);
+        }
+        return lines;
+    },
+
+    // Apply a filter stage (grep/wc/head/tail/sort/cat) to piped-in lines.
+    // Unknown stages pass the lines through unchanged.
+    applyFilter(stageStr, lines) {
+        const tokens = this.tokenize(stageStr);
+        if (tokens.length === 0) return lines;
+        const name = tokens[0];
+        const args = tokens.slice(1).filter(a => a !== '-');
+        const FILTERS = ['grep', 'egrep', 'wc', 'head', 'tail', 'sort', 'uniq', 'cat'];
+        if (FILTERS.includes(name)) return this._filter(name, args, lines);
+        return lines; // not a filter — leave the stream untouched
+    },
+
+    // Shared text-stream operators, used by both pipelines and the standalone
+    // grep/head/tail/wc/sort handlers.
+    _filter(name, args, lines) {
+        const flags = args.filter(a => a.startsWith('-'));
+        const rest = args.filter(a => !a.startsWith('-'));
+        const has = (f) => flags.some(x => x.includes(f.replace('-', '')));
+        switch (name) {
+            case 'grep': case 'egrep': {
+                const pattern = rest[0] || '';
+                const ci = has('i');
+                const inv = has('v');
+                let rx;
+                try { rx = new RegExp(pattern, ci ? 'i' : ''); }
+                catch { rx = { test: (s) => (ci ? s.toLowerCase().includes(pattern.toLowerCase()) : s.includes(pattern)) }; }
+                let out = lines.filter(l => rx.test(l.text) !== inv);
+                if (has('c')) return [{ text: String(out.length) }];
+                return out.length ? out : [];
+            }
+            case 'wc': {
+                const text = lines.map(l => l.text).join('\n');
+                const nl = lines.length;
+                if (has('l')) return [{ text: String(nl) }];
+                const words = text.split(/\s+/).filter(Boolean).length;
+                const chars = text.length + (nl ? 1 : 0);
+                return [{ text: `${String(nl).padStart(7)} ${String(words).padStart(7)} ${String(chars).padStart(7)}` }];
+            }
+            case 'head': {
+                const n = parseInt(rest[0] || flags.find(f => /^-\d+$/.test(f))?.slice(1) || '10', 10);
+                return lines.slice(0, n);
+            }
+            case 'tail': {
+                const n = parseInt(rest[0] || flags.find(f => /^-\d+$/.test(f))?.slice(1) || '10', 10);
+                return lines.slice(-n);
+            }
+            case 'sort': {
+                let out = [...lines].sort((a, b) => a.text.localeCompare(b.text));
+                if (has('r')) out.reverse();
+                if (has('u')) {
+                    const seen = new Set();
+                    out = out.filter(l => (seen.has(l.text) ? false : seen.add(l.text)));
+                }
+                return out;
+            }
+            case 'uniq': {
+                const out = [];
+                for (const l of lines) if (!out.length || out[out.length - 1].text !== l.text) out.push(l);
+                return out;
+            }
+            case 'cat':
+            default:
+                return lines;
+        }
+    },
+
+    // Read one or more files into a line stream (for standalone text filters).
+    _linesFromFiles(files) {
+        const lines = [];
+        for (const f of files) {
+            const node = FS.get(FS.normalize(f));
+            if (!node) { lines.push({ text: t('noSuchFile', f), cls: 'err' }); continue; }
+            if (node.type === 'dir') { lines.push({ text: t('isDirectory', f), cls: 'err' }); continue; }
+            (node.content || '').split('\n').forEach((line, i, arr) => {
+                if (i === arr.length - 1 && line === '') return;
+                lines.push({ text: line });
+            });
+        }
+        return lines;
     },
 
     tokenize(str) {
@@ -168,6 +271,11 @@ window.CMD = {
                 { text: '  python3 -c "<code>"       execute Python one-liner', cls: 'dim' },
                 { text: '  vim <file>                edit file (limited support)', cls: 'dim' },
                 { text: '  wait                      wait for cron to trigger', cls: 'dim' },
+                { text: '  ps [aux] / env / mount    inspect processes / environment / mounts', cls: 'dim' },
+                { text: '  uname [-a] / hostname     system & kernel information', cls: 'dim' },
+                { text: '  which <cmd> / file <path> locate a command / identify a file', cls: 'dim' },
+                { text: '  grep <pat> <f> / wc / head / tail / sort / uniq / history', cls: 'dim' },
+                { text: '  <cmd> | <filter>          pipe output into grep/wc/head/tail/sort', cls: 'dim' },
                 { text: '  hint / clear / reset / next / lang <en|fr>', cls: 'dim' },
                 { text: '', cls: '' }
             ];
@@ -358,6 +466,127 @@ window.CMD = {
             if (!node) return [{ text: t('noSuchFile', args[0]), cls: 'err' }];
             const c = node.content || '';
             return c.split('\n').filter(l => l.length > 0).map(l => ({ text: l }));
+        },
+
+        // ── Text-stream filters (also usable at the start of a pipeline) ──
+        grep(args) {
+            const flags = args.filter(a => a.startsWith('-'));
+            const rest = args.filter(a => !a.startsWith('-'));
+            const pattern = rest[0];
+            const files = rest.slice(1);
+            if (pattern === undefined || files.length === 0) return [{ text: 'usage: grep [-iv] PATTERN FILE...', cls: 'err' }];
+            return this._filter('grep', [...flags, pattern], this._linesFromFiles(files));
+        },
+        head(args) {
+            let n = 10; const files = [];
+            for (let i = 0; i < args.length; i++) {
+                const a = args[i];
+                if (a === '-n') n = parseInt(args[++i] || '10', 10);
+                else if (/^-\d+$/.test(a)) n = parseInt(a.slice(1), 10);
+                else if (!a.startsWith('-')) files.push(a);
+            }
+            return this._linesFromFiles(files).slice(0, n);
+        },
+        tail(args) {
+            let n = 10; const files = [];
+            for (let i = 0; i < args.length; i++) {
+                const a = args[i];
+                if (a === '-n') n = parseInt(args[++i] || '10', 10);
+                else if (/^-\d+$/.test(a)) n = parseInt(a.slice(1), 10);
+                else if (!a.startsWith('-')) files.push(a);
+            }
+            return this._linesFromFiles(files).slice(-n);
+        },
+        wc(args) {
+            const flags = args.filter(a => a.startsWith('-'));
+            const files = args.filter(a => !a.startsWith('-'));
+            if (files.length === 0) return [{ text: 'usage: wc [-l] FILE...', cls: 'err' }];
+            return this._filter('wc', flags, this._linesFromFiles(files));
+        },
+        sort(args) {
+            const flags = args.filter(a => a.startsWith('-'));
+            const files = args.filter(a => !a.startsWith('-'));
+            return this._filter('sort', flags, this._linesFromFiles(files));
+        },
+        uniq(args) {
+            const files = args.filter(a => !a.startsWith('-'));
+            return this._filter('uniq', [], this._linesFromFiles(files));
+        },
+
+        // ── Enumeration commands (authentic tool output — locale-neutral) ──
+        ps(args) {
+            const joined = args.join(' ');
+            if (/aux|-ef|-e/.test(joined)) {
+                return [
+                    { text: 'USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND', cls: 'dim' },
+                    { text: 'root         1  0.0  0.1 168300 11208 ?        Ss   09:12   0:01 /sbin/init', cls: '' },
+                    { text: 'root       231  0.0  0.0  25976  4884 ?        Ss   09:12   0:00 /usr/sbin/cron -f', cls: '' },
+                    { text: 'root       402  0.0  0.2  72304  6720 ?        Ss   09:12   0:00 /usr/sbin/sshd -D', cls: '' },
+                    { text: `${(SESSION.user + '   ').slice(0, 8)} 1442  0.0  0.0  21532  5312 pts/0    Ss   09:20   0:00 -bash`, cls: '' },
+                    { text: `${(SESSION.user + '   ').slice(0, 8)} 1650  0.0  0.0  19100  3288 pts/0    R+   09:21   0:00 ps ${joined}`.trimEnd(), cls: '' },
+                ];
+            }
+            return [
+                { text: '  PID TTY          TIME CMD', cls: 'dim' },
+                { text: ' 1442 pts/0    00:00:00 bash', cls: '' },
+                { text: ' 1650 pts/0    00:00:00 ps', cls: '' },
+            ];
+        },
+        env() {
+            const home = SESSION.user === 'root' ? '/root' : '/home/' + SESSION.user;
+            const lines = Object.entries(SESSION.env).map(([k, v]) => ({ text: `${k}=${v}` }));
+            lines.push({ text: `USER=${SESSION.user}` });
+            lines.push({ text: `HOME=${home}` });
+            lines.push({ text: `SHELL=/bin/bash` });
+            lines.push({ text: `PWD=${SESSION.cwd}` });
+            lines.push({ text: `TERM=xterm-256color` });
+            return lines;
+        },
+        uname(args) {
+            const a = args.join(' ');
+            const p = { s: 'Linux', n: SESSION.host, r: '5.4.0-42-generic', v: '#46-Ubuntu SMP Fri Jul 10 00:24:02 UTC 2020', m: 'x86_64', o: 'GNU/Linux' };
+            if (a.includes('-a')) return [{ text: `${p.s} ${p.n} ${p.r} ${p.v} ${p.m} ${p.m} ${p.m} ${p.o}` }];
+            if (a.includes('-r')) return [{ text: p.r }];
+            if (a.includes('-m')) return [{ text: p.m }];
+            if (a.includes('-n')) return [{ text: p.n }];
+            return [{ text: p.s }];
+        },
+        hostname() { return [{ text: SESSION.host }]; },
+        which(args) {
+            const dirs = (SESSION.env.PATH || '').split(':');
+            const out = [];
+            for (const name of args) {
+                if (name.startsWith('-')) continue;
+                for (const d of dirs) {
+                    if (FS.get(d + '/' + name)) { out.push({ text: d + '/' + name }); break; }
+                }
+            }
+            return out;
+        },
+        file(args) {
+            if (args.length === 0) return [{ text: 'usage: file FILE...', cls: 'err' }];
+            return args.map(a => {
+                const node = FS.get(FS.normalize(a));
+                if (!node) return { text: `${a}: cannot open '${a}' (No such file or directory)`, cls: 'err' };
+                if (node.type === 'dir') return { text: `${a}: directory` };
+                const c = node.content || '';
+                if (c.startsWith('ELF')) return { text: `${a}: ELF 64-bit LSB ${node.suid ? 'executable (setuid)' : 'executable'}, x86-64, dynamically linked` };
+                if (c.includes('unix socket')) return { text: `${a}: socket` };
+                if (c.startsWith('#!')) return { text: `${a}: POSIX shell script, ASCII text executable` };
+                return { text: `${a}: ASCII text` };
+            });
+        },
+        history() {
+            const h = (window.TERM && window.TERM.history) || [];
+            return h.map((c, i) => ({ text: `${String(i + 1).padStart(5)}  ${c}` }));
+        },
+        mount() {
+            return [
+                { text: 'sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)', cls: 'dim' },
+                { text: 'proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)', cls: 'dim' },
+                { text: '/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)', cls: '' },
+                { text: 'tmpfs on /tmp type tmpfs (rw,nosuid,nodev)', cls: '' },
+            ];
         },
 
         sudo(args) {
