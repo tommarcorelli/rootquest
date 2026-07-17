@@ -60,6 +60,11 @@ window.LEVELS = [
         wins: [
             { type: 'suid_shell_via', binary: '/usr/bin/find' }
         ],
+        harden: {
+            type: 'unset_suid', target: '/usr/bin/find',
+            obj: { en: 'Remove the SUID bit from /usr/bin/find', fr: 'Retire le bit SUID de /usr/bin/find' },
+            hint: { en: 'chmod u-s /usr/bin/find', fr: 'chmod u-s /usr/bin/find' }
+        },
         debrief: {
             en: {
                 vuln: 'SUID misconfiguration (find)',
@@ -146,6 +151,11 @@ echo "backup at $(date)" >> /var/log/backup.log
         wins: [
             { type: 'cron_hijack', path: '/opt/backup.sh' }
         ],
+        harden: {
+            type: 'lock_perms', target: '/opt/backup.sh',
+            obj: { en: 'Make /opt/backup.sh no longer world-writable', fr: 'Rends /opt/backup.sh non modifiable par tous' },
+            hint: { en: 'chmod 700 /opt/backup.sh', fr: 'chmod 700 /opt/backup.sh' }
+        },
         debrief: {
             en: {
                 vuln: 'World-writable cron script',
@@ -204,13 +214,14 @@ echo "backup at $(date)" >> /var/log/backup.log
             '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{c4p_setuid_ftw}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
-            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['python3', 'ls', 'cat', 'sh', 'bash', 'getcap'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['python3', 'ls', 'cat', 'sh', 'bash', 'getcap', 'setcap'] },
             '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', capabilities: 'cap_setuid+ep', content: 'ELF binary' },
             '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/getcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/setcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
             '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
@@ -219,6 +230,11 @@ echo "backup at $(date)" >> /var/log/backup.log
         wins: [
             { type: 'python_setuid' }
         ],
+        harden: {
+            type: 'unset_cap', target: '/usr/bin/python3',
+            obj: { en: 'Strip the cap_setuid capability from python3', fr: 'Retire la capability cap_setuid de python3' },
+            hint: { en: 'setcap -r /usr/bin/python3', fr: 'setcap -r /usr/bin/python3' }
+        },
         debrief: {
             en: {
                 vuln: 'Linux capability cap_setuid+ep on python3',
@@ -302,6 +318,11 @@ Embedded strings:
         wins: [
             { type: 'path_hijack', target: '/usr/local/bin/status', hijack_cmd: 'ps' }
         ],
+        harden: {
+            type: 'unset_suid', target: '/usr/local/bin/status',
+            obj: { en: 'Remove the SUID bit from /usr/local/bin/status', fr: 'Retire le bit SUID de /usr/local/bin/status' },
+            hint: { en: 'chmod u-s /usr/local/bin/status', fr: 'chmod u-s /usr/local/bin/status' }
+        },
         debrief: {
             en: {
                 vuln: 'PATH hijack against a SUID helper',
@@ -455,6 +476,11 @@ Embedded strings:
         wins: [
             { type: 'passwd_write' }
         ],
+        harden: {
+            type: 'lock_perms', target: '/etc/passwd',
+            obj: { en: 'Restore safe permissions on /etc/passwd (644)', fr: 'Restaure des permissions sûres sur /etc/passwd (644)' },
+            hint: { en: 'chmod 644 /etc/passwd', fr: 'chmod 644 /etc/passwd' }
+        },
         debrief: {
             en: {
                 vuln: 'World-writable /etc/passwd',
@@ -607,6 +633,11 @@ Embedded strings:
         wins: [
             { type: 'kernel_exploit' }
         ],
+        harden: {
+            type: 'unset_suid', target: '/usr/bin/pkexec',
+            obj: { en: 'Drop the SUID bit from the vulnerable pkexec', fr: 'Retire le bit SUID du pkexec vulnérable' },
+            hint: { en: 'chmod u-s /usr/bin/pkexec', fr: 'chmod u-s /usr/bin/pkexec' }
+        },
         debrief: {
             en: {
                 vuln: 'Unpatched local privilege escalation (CVE-2021-4034, PwnKit)',

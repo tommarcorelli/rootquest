@@ -22,6 +22,7 @@ window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD'];
 window.GAME = {
     currentLevel: 0,   // index into LEVELS
     completed: [],     // level ids completed
+    hardened: [],      // level ids also hardened (blue-team bonus)
     started: false,    // a machine has been entered at least once
 
     STORAGE_KEY: 'rootquest_save_v1',
@@ -35,6 +36,7 @@ window.GAME = {
             if (!raw) return;
             const data = JSON.parse(raw);
             if (Array.isArray(data.completed)) this.completed = data.completed;
+            if (Array.isArray(data.hardened)) this.hardened = data.hardened;
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
         } catch (e) {
@@ -46,6 +48,7 @@ window.GAME = {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
                 completed: this.completed,
+                hardened: this.hardened,
                 lang: window.currentLang,
                 theme: window.currentTheme || 'kali'
             }));
@@ -57,6 +60,7 @@ window.GAME = {
     resetProgress() {
         if (!window.confirm(t('resetProgressConfirm'))) return;
         this.completed = [];
+        this.hardened = [];
         this.saveProgress();
         this.buildHomeGrid();
         this.updateLevelsMap();
@@ -85,6 +89,7 @@ window.GAME = {
         SESSION.cronPayload = null;
         SESSION.cmdCount = 0;
         SESSION.startTime = Date.now();
+        SESSION.blueTeam = false;
         document.body.classList.remove('is-root');
 
         // Load filesystem for level
@@ -161,7 +166,7 @@ window.GAME = {
             `<div class="mc-name">${vuln}</div>` +
             `<div class="mc-brief">${lvl.brief[currentLang]}</div>` +
             '<div class="mc-foot">' +
-                `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}</span>` +
+                `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}${this.hardened.includes(lvl.id) ? ' 🛡' : ''}</span>` +
                 `<span class="mc-diff">${meta.diff}</span>` +
                 `<span class="mc-enter">${t('homeEnter')} →</span>` +
             '</div>';
@@ -279,7 +284,33 @@ window.GAME = {
         document.getElementById('winFlag').textContent = lvl.flag;
         this.renderDebrief(lvl);
         this.renderStats();
+        const btBtn = document.getElementById('blueTeamBtn');
+        if (btBtn) btBtn.style.display = (lvl.harden && !this.hardened.includes(lvl.id)) ? '' : 'none';
         document.getElementById('winModal').style.display = 'flex';
+    },
+
+    // Blue-team phase: drop back into the terminal (still root) to harden the box.
+    startBlueTeam() {
+        const lvl = this.level();
+        if (!lvl.harden) return;
+        document.getElementById('winModal').style.display = 'none';
+        SESSION.blueTeam = true;
+        const h = lvl.harden;
+        TERM.print([
+            { text: '', cls: '' },
+            { text: '━━━ ' + t('blueTeamTag') + ' ━━━', cls: 'info' },
+            { text: t('blueTeamIntro'), cls: 'dim' },
+            { text: '» ' + h.obj[currentLang], cls: 'warn' },
+            { text: '  ' + t('blueTeamHintLabel') + ': ' + h.hint[currentLang], cls: 'dim' },
+            { text: '', cls: '' }
+        ]);
+        TERM.scrollToBottom();
+        if (TERM.inputEl) TERM.inputEl.focus();
+    },
+
+    markHardened(level) {
+        if (!this.hardened.includes(level.id)) this.hardened.push(level.id);
+        this.saveProgress();
     },
 
     // Victory scorecard: time, hints, commands, score + rank.
@@ -351,6 +382,8 @@ window.GAME = {
             document.getElementById('winModal').style.display = 'none';
             this.reset();
         });
+        const blueTeamBtn = document.getElementById('blueTeamBtn');
+        if (blueTeamBtn) blueTeamBtn.addEventListener('click', () => this.startBlueTeam());
         document.getElementById('restartAllBtn').addEventListener('click', () => {
             document.getElementById('finalModal').style.display = 'none';
             this.completed = [];

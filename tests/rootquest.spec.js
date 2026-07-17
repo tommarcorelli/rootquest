@@ -74,6 +74,19 @@ test('theme switch applies and persists across reload', async ({ page }) => {
     await expect(page.locator('[data-testid="home-theme-select"]')).toHaveValue('dracula');
 });
 
+test('blue team: harden box-01 after rooting', async ({ page }) => {
+    await enter(page, 1);
+    await run(page, 'find . -exec /bin/sh -p \\;');
+    await expect(page.locator('#winModal')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#blueTeamBtn')).toBeVisible();
+    await page.click('#blueTeamBtn');
+    await expect(page.locator('#winModal')).toBeHidden();
+    await run(page, 'chmod u-s /usr/bin/find');
+    await expect(page.locator('#termOutput')).toContainText('hardened');
+    await page.click('[data-testid="menu-button"]');
+    await expect(page.locator('[data-testid="machine-card-1"]')).toContainText('🛡');
+});
+
 test('sound toggle flips state and persists', async ({ page }) => {
     await page.goto('/');
     const btn = page.locator('[data-testid="home-sound-btn"]');

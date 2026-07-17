@@ -38,6 +38,7 @@ sandbox.GAME = {
     giveHint: () => [],
     nextLevel: () => [],
     reset: () => {},
+    markHardened: () => {},
 };
 
 function loadLevel(level) {
@@ -92,6 +93,19 @@ play(['echo hello', 'ls -la', 'cat /etc/passwd']);
 const neg = sandbox.SESSION.isRoot === false;
 console.log(`${neg ? 'PASS' : 'FAIL'}  negative (no accidental root on box-01)`);
 neg ? pass++ : fail++;
+
+// Blue-team: for boxes that declare a fix, root then harden and confirm it closes.
+console.log('');
+for (const level of LEVELS) {
+    if (!level.harden) continue;
+    loadLevel(level);
+    play(SOLUTIONS[level.id]);       // reach root
+    sandbox.SESSION.blueTeam = true; // enter harden phase
+    play([level.harden.hint.en]);    // apply the documented fix
+    const ok = sandbox.CMD.checkHardened(level) === true && sandbox.SESSION.blueTeam === false;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  harden box-${String(level.id).padStart(2, '0')}  (${level.harden.type})`);
+    ok ? pass++ : fail++;
+}
 
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail === 0 ? 0 : 1);

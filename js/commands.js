@@ -13,6 +13,7 @@ window.SESSION = {
     cronPayload: null,
     cmdCount: 0,   // commands typed this machine (for the victory scorecard)
     startTime: 0,  // Date.now() when the machine was loaded
+    blueTeam: false, // in the post-root "harden the box" phase
 };
 
 window.CMD = {
@@ -30,6 +31,17 @@ window.CMD = {
         for (const chunk of chunks) {
             const lines = this.runOne(chunk);
             if (lines) out.push(...lines);
+        }
+        // Blue-team hardening: once the fix command lands, confirm the box is closed.
+        if (SESSION.blueTeam) {
+            const level = window.GAME.level();
+            if (this.checkHardened(level)) {
+                SESSION.blueTeam = false;
+                if (window.GAME && window.GAME.markHardened) window.GAME.markHardened(level);
+                out.push({ text: '', cls: '' });
+                out.push({ text: t('blueTeamDone'), cls: 'ok' });
+                if (window.SFX) window.SFX.win();
+            }
         }
         return out;
     },
@@ -417,14 +429,38 @@ window.CMD = {
             if (!FS.canWrite(n) && node.owner !== SESSION.user && !SESSION.isRoot) {
                 return [{ text: t('permDenied', file), cls: 'err' }];
             }
-            // Handle +x, +s, or numeric
+            // Handle +x, +s / -s (drop SUID), or numeric
             if (mode.includes('+x')) node.mode = (node.mode || '644').slice(0, -1) + '5';
+            else if (/-s/.test(mode)) {   // u-s, a-s, g-s → remove SUID (blue-team fix)
+                node.suid = false;
+                node.mode = (node.mode && node.mode.length === 4) ? node.mode.slice(1) : (node.mode || '755');
+            }
             else if (mode.includes('+s')) { node.mode = '4' + (node.mode || '755'); node.suid = true; }
             else if (/^\d{3,4}$/.test(mode)) {
                 node.mode = mode;
-                if (mode.length === 4 && mode.startsWith('4')) node.suid = true;
+                node.suid = (mode.length === 4 && mode.startsWith('4'));
+                // Tightening the "other" write bit closes world-writability.
+                const others = parseInt(mode[mode.length - 1], 10);
+                if (!(others & 2)) node.writable_by_all = false;
             }
             return [];
+        },
+
+        setcap(args) {
+            // setcap -r FILE  → drop capabilities (blue-team fix); setcap CAP FILE → set
+            if (args[0] === '-r' && args[1]) {
+                const node = FS.get(FS.normalize(args[1]));
+                if (!node) return [{ text: t('noSuchFile', args[1]), cls: 'err' }];
+                delete node.capabilities;
+                return [];
+            }
+            if (args.length >= 2) {
+                const node = FS.get(FS.normalize(args[args.length - 1]));
+                if (!node) return [{ text: t('noSuchFile', args[args.length - 1]), cls: 'err' }];
+                node.capabilities = args.slice(0, -1).join(' ');
+                return [];
+            }
+            return [{ text: 'usage: setcap -r FILE | setcap CAP+ep FILE', cls: 'err' }];
         },
 
         export(args) {
@@ -841,6 +877,23 @@ window.CMD = {
         if (!type) return true; // no declared type to check against (legacy/manual call)
         const wins = window.GAME.level().wins || [];
         return wins.some(w => w.type === type);
+    },
+
+    // Blue-team: has the player's fix actually closed the declared vulnerability?
+    checkHardened(level) {
+        const h = level && level.harden;
+        if (!h) return false;
+        const node = FS.get(FS.normalize(h.target));
+        if (!node) return false;
+        switch (h.type) {
+            case 'unset_suid': return !node.suid;
+            case 'unset_cap': return !node.capabilities;
+            case 'lock_perms': {
+                const others = parseInt((node.mode || '000').slice(-1), 10);
+                return !node.writable_by_all && !(others & 2);
+            }
+            default: return false;
+        }
     },
 
     // Known one-shot GTFOBins escapes for `sudo <bin>`. Returns true if the given

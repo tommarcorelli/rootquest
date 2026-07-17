@@ -114,6 +114,11 @@ window.I18N = {
         wildcardNoScript: '(cron ran tar, but the --checkpoint-action script was not found)',
         wildcardFired: '[+] cron ran: tar -czf ... *  (as root)',
         wildcardExplain: (name, script) => `# tar parsed '${name}' as an option → executed ${script} as root`,
+        blueTeamBtn: '🛡 Blue Team',
+        blueTeamTag: 'BLUE TEAM · HARDEN THE BOX',
+        blueTeamIntro: 'You rooted it. Now switch sides: fix the flaw so it can never be exploited again.',
+        blueTeamHintLabel: 'fix',
+        blueTeamDone: '[+] Box hardened — the vulnerability is closed. Type "next" to continue.',
     },
     fr: {
         brandTag: "Terrain de jeu d'escalade de privilèges Linux",
@@ -226,6 +231,11 @@ window.I18N = {
         wildcardNoScript: '(cron a lancé tar, mais le script --checkpoint-action est introuvable)',
         wildcardFired: '[+] cron a lancé : tar -czf ... *  (en root)',
         wildcardExplain: (name, script) => `# tar a interprété '${name}' comme une option → a exécuté ${script} en root`,
+        blueTeamBtn: '🛡 Blue Team',
+        blueTeamTag: 'BLUE TEAM · DURCIS LA BOX',
+        blueTeamIntro: "Tu l'as rootée. Change de camp : corrige la faille pour qu'elle ne soit plus jamais exploitable.",
+        blueTeamHintLabel: 'correctif',
+        blueTeamDone: '[+] Box durcie — la vulnérabilité est fermée. Tape "next" pour continuer.',
     }
 };
 
