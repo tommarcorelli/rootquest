@@ -68,10 +68,11 @@ Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2)
 
 ## 8. Qualité, tests & CI
 
-- 🔴 🔨 **Tests end-to-end** : les `data-testid` sont déjà partout dans le HTML (`terminal`, `term-input`, `level-node-*`, `hint-button`…) → il ne manque que la suite Playwright. Un test par machine qui joue la solution et vérifie le flag.
-- 🟠 ⚡ **GitHub Actions** : lint (ESLint) + exécution des tests + déploiement GitHub Pages automatique.
-- 🟠 ⚡ **Déploiement GitHub Pages** pour une démo jouable en ligne (comme tes autres projets).
+- ✅ 🔴 🔨 **Tests end-to-end** — *fait (v1.2).* Suite **Playwright** (`tests/rootquest.spec.js`) : un test par machine qui joue la solution dans un vrai navigateur et vérifie root + flag + scorecard, plus rendu du hub et pipes. Doublée d'un **harnais Node** browserless (`tests/harness.js`, 14/14, EN+FR) et d'un serveur statique sans dépendance (`tests/serve.js`). **16/16 verts** en local.
+- ✅ 🟠 ⚡ **GitHub Actions** — *fait (v1.2).* `.github/workflows/ci.yml` : `node --check` + harnais (EN/FR) + Playwright sur chaque push/PR.
+- ✅ 🟠 ⚡ **Déploiement GitHub Pages** — *fait (v1.2).* `.github/workflows/deploy-pages.yml` publie les fichiers de l'app à chaque push sur `main` (à activer une fois dans Settings → Pages → Source: GitHub Actions).
 - 🟢 ⚡ **Fichier `LICENSE`** — le README annonce MIT mais le fichier n'existe pas.
+- 🟢 ⚡ **Lint ESLint** — non fait (le CI se contente de `node --check`).
 - 🟢 ⚡ **Validation d'accessibilité** : rôles ARIA sur le terminal (`role="log"`, `aria-live`), focus visible, navigation clavier complète.
 
 ## 9. Architecture / dette technique

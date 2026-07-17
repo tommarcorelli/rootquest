@@ -18,3 +18,9 @@ package-lock.json
 *.log
 tmp/
 .cache/
+
+# Test / build artifacts
+test-results/
+playwright-report/
+.playwright/
+_site/

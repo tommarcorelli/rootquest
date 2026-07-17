@@ -66,6 +66,22 @@ privesc-game/
     └── main.js        # Game orchestration
 ```
 
+## Development & tests
+
+No build step for the game itself. For the test suite:
+
+```
+npm install                 # installs @playwright/test (dev only)
+npm run serve               # preview at http://localhost:4173
+npm run test:logic          # fast browserless harness (plays all 13 boxes)
+npm test                    # Playwright e2e (drives a real browser)
+```
+
+- `tests/harness.js` — loads the real engine in a sandbox and plays each box's solution, asserting root (runs in EN and, with `RQLANG=fr`, in French).
+- `tests/rootquest.spec.js` — Playwright: one test per machine (solution → root → flag + scorecard), plus hub-render and pipe tests. Locally it uses your installed Chrome; CI uses bundled Chromium.
+- CI (`.github/workflows/ci.yml`) runs syntax checks + the harness + Playwright on every push/PR.
+- Deploy (`.github/workflows/deploy-pages.yml`) publishes to GitHub Pages on push to `main` (enable once via Settings → Pages → Source: GitHub Actions).
+
 ## License
 
 MIT — do whatever. Educational content, no real systems harmed.
