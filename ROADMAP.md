@@ -22,7 +22,7 @@ Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
 
 ## 3. Contenu — nouvelles machines / vulnérabilités
 
-Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2). Statut des idées :
+Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2). Statut des idées :
 
 - ✅ 🟠 🔨 **Writable `/etc/passwd`** — *fait (box-06).* Ajout d'un root sans mot de passe (`r00t::0:0::/root:/bin/bash`) puis `su r00t`.
 - ✅ 🟠 🔨 **`sudo awk` (GTFOBins)** — *fait (box-07).* NOPASSWD sur `awk` → `sudo awk 'BEGIN{system("/bin/sh")}'`.
@@ -32,7 +32,9 @@ Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2)
 - ✅ 🟠 🔨 **`sudo` avec `LD_PRELOAD` / `env_keep`** — *fait (box-11).* `env_keep+=LD_PRELOAD` + `.so` compilé via `gcc` → `sudo LD_PRELOAD=/tmp/x.so apache2ctl`.
 - ✅ 🟠 🔨 **Wildcard injection** — *fait (box-12).* `tar -czf ... *` dans un cron root + fichiers-options `./--checkpoint-action=exec=sh runme.sh`.
 - ✅ 🟢 🔨 **Clé SSH root lisible** — *fait (box-13).* Clé privée world-readable dans une sauvegarde → `ssh -i /opt/backup/id_rsa root@localhost`.
-- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`**, **`chown`/wildcard sur autre binaire** — *encore ouvert.*
+- ✅ 🟠 🔨 **`/etc/sudoers.d` modifiable** — *fait (box-14).* Drop-in NOPASSWD écrit par le joueur, parsé par `sudo`.
+- ✅ 🟠 🔨 **`/etc/ld.so.preload` modifiable** — *fait (box-15).* Préchargement global d'un `.so` sur tout binaire SUID.
+- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** — *encore ouvert.*
 
 ## 4. Moteur terminal & réalisme du shell
 

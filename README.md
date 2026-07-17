@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 13 independent Linux machines, 13 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 15 independent Linux machines, 15 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -29,6 +29,8 @@ start index.html         # Windows
 | 11 | box-11 | Medium | `sudo` env_keep leaks `LD_PRELOAD` | `gcc -shared … x.so`, `sudo LD_PRELOAD=/tmp/x.so apache2ctl` |
 | 12 | box-12 | Hard | Wildcard injection into a root `tar` cron | `touch ./--checkpoint-action=exec=sh runme.sh`, `wait` |
 | 13 | box-13 | Easy | World-readable root SSH private key | `ssh -i /opt/backup/id_rsa root@localhost` |
+| 14 | box-14 | Medium | World-writable `/etc/sudoers.d` drop-in | `echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn`, `sudo bash` |
+| 15 | box-15 | Hard | World-writable `/etc/ld.so.preload` | `echo /tmp/x.so > /etc/ld.so.preload`, run any SUID |
 
 ## Controls
 
@@ -63,7 +65,7 @@ privesc-game/
 ├── styles.css         # Kali/Parrot-inspired terminal styling
 └── js/
     ├── i18n.js        # Bilingual dictionary
-    ├── levels.js      # 13 machines with their filesystems
+    ├── levels.js      # 15 machines with their filesystems
     ├── fs.js          # Simulated filesystem
     ├── commands.js    # Command interpreter
     ├── terminal.js    # Terminal UI (history, prompt, rendering)
@@ -77,7 +79,7 @@ No build step for the game itself. For the test suite:
 ```
 npm install                 # installs @playwright/test (dev only)
 npm run serve               # preview at http://localhost:4173
-npm run test:logic          # fast browserless harness (plays all 13 boxes)
+npm run test:logic          # fast browserless harness (plays all 15 boxes)
 npm test                    # Playwright e2e (drives a real browser)
 ```
 

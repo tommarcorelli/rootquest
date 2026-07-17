@@ -254,6 +254,15 @@ window.CMD = {
 
         // Generic SUID binary being invoked directly
         if (node.suid) {
+            // /etc/ld.so.preload: any SUID binary loads the libs it lists. If the
+            // level declares this vector and the preload points at a real lib → root.
+            if ((window.GAME.level().wins || []).some(w => w.type === 'ld_so_preload')) {
+                const pre = FS.get('/etc/ld.so.preload');
+                const libs = ((pre && pre.content) || '').split(/\s+/).filter(Boolean);
+                if (libs.some(l => FS.get(FS.normalize(l)))) {
+                    return this.spawnShell(true, { via: 'ld.so.preload → ' + FS.basename(resolved), type: 'ld_so_preload' });
+                }
+            }
             return [{ text: '[status] system uptime: 3d 04h 12m; load: 0.34 0.22 0.19', cls: 'dim' }];
         }
 
@@ -658,7 +667,7 @@ window.CMD = {
         sudo(args) {
             if (args[0] === '-l') {
                 const level = window.GAME.level();
-                const entries = level.sudoers?.[SESSION.user] || [];
+                const entries = this.sudoEntries(level);
                 if (entries.length === 0) {
                     return [{ text: 'Sorry, user player may not run sudo on ' + SESSION.host + '.', cls: 'err' }];
                 }
@@ -678,7 +687,7 @@ window.CMD = {
             // sudo [VAR=value ...] <cmd> [args]
             if (args.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
             const level = window.GAME.level();
-            const entries = level.sudoers?.[SESSION.user] || [];
+            const entries = this.sudoEntries(level);
 
             // Capture leading VAR=value tokens (environment passed through sudo).
             const envAssigns = {};
@@ -894,6 +903,25 @@ window.CMD = {
             }
             default: return false;
         }
+    },
+
+    // Effective sudo rules for the current user: the level's static sudoers plus
+    // any rule the player dropped into a writable /etc/sudoers.d (box-14).
+    sudoEntries(level) {
+        const entries = [...(level.sudoers?.[SESSION.user] || [])];
+        const dropDir = FS.get('/etc/sudoers.d');
+        if (dropDir && Array.isArray(dropDir.children)) {
+            for (const name of dropDir.children) {
+                const f = FS.get('/etc/sudoers.d/' + name);
+                ((f && f.content) || '').split('\n').forEach(line => {
+                    const mm = line.match(/^\s*(%?\w+)\s+ALL\s*=\s*\([^)]*\)\s*(NOPASSWD:\s*)?(.+?)\s*$/);
+                    if (mm && (mm[1] === SESSION.user || mm[1] === '%' + SESSION.user)) {
+                        entries.push({ cmd: mm[3] === 'ALL' ? 'ALL' : mm[3], nopasswd: !!mm[2], runas: 'root' });
+                    }
+                });
+            }
+        }
+        return entries;
     },
 
     // Known one-shot GTFOBins escapes for `sudo <bin>`. Returns true if the given

