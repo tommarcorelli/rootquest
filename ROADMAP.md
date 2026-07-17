@@ -1,7 +1,7 @@
 # 🗺️ Fiche de route — rootQuest
 
 Feuille de route des améliorations possibles pour **rootQuest** (jeu de terminal d'escalade de privilèges Linux, 100 % vanilla JS).
-Statut actuel : **v1.0 fonctionnelle** — 5 machines, 5 vulnérabilités, bilingue EN/FR, aucune dépendance de build.
+Statut actuel : **v1.1 fonctionnelle** — 10 machines réparties en 3 tiers (Débutant / Intermédiaire / Avancé), 10 vulnérabilités, hub par tiers + scorecard de victoire, bilingue EN/FR, aucune dépendance de build.
 
 Légende : 🔴 prioritaire · 🟠 important · 🟢 confort · 💡 idée long terme
 Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
@@ -10,30 +10,32 @@ Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
 
 ## 1. Persistance & état du jeu
 
-- 🔴 ⚡ **Sauvegarder la progression en `localStorage`** — actuellement `GAME.completed` est perdu à chaque rechargement. Restaurer les niveaux terminés + le niveau courant au boot.
-- 🟠 ⚡ **Bouton « Reset progression »** distinct du reset de machine (le `reset` actuel ne recharge que la machine courante).
-- 🟢 🔨 **Statistiques par machine** : nombre d'indices utilisés, nombre de commandes tapées, temps de résolution → stockés et affichés dans le modal de victoire.
+- ✅ 🔴 ⚡ **Sauvegarder la progression en `localStorage`** — *fait.* `GAME.completed` + langue persistés dans `localStorage` (clé `rootquest_save_v1`), restaurés au boot.
+- ✅ 🟠 ⚡ **Bouton « Reset progression »** distinct du reset de machine — *fait.* Bouton dédié sur l'écran d'accueil, avec confirmation avant effacement.
+- ✅ 🟢 🔨 **Statistiques par machine** — *fait.* Indices utilisés, commandes tapées et temps de résolution sont suivis et affichés dans un **scorecard** de la modale de victoire, avec un score et un rang S/A/B/C (0 indice = rang S doré).
 
 ## 2. PWA & offline (alignement avec tes autres projets)
 
-- 🔴 🔨 **Passer en vraie PWA** : `manifest.webmanifest` + `service-worker.js` + icônes (192/512). Tes projets Labs, Revision-it, Annuaire, LinuxDojo sont déjà des PWA — rootQuest ne l'est pas encore.
-- 🔴 ⚡ **Supprimer la dépendance Google Fonts** (`index.html` charge JetBrains Mono + Space Grotesk depuis un CDN). Le README affirme « no dependencies / no server » : héberger les polices en local (ou fallback `monospace`) pour un vrai offline-first.
-- 🟢 ⚡ **Favicon** + `theme-color` + meta description/OpenGraph pour le partage.
+- ✅ 🔴 🔨 **Passer en vraie PWA** — *fait.* `manifest.webmanifest` + `service-worker.js` (cache-first de l'app shell, fallback offline sur `index.html`) + icônes 192/512 (+ maskable) + logo cyberpunk dédié.
+- ⚠️ 🔴 ⚡ **Supprimer la dépendance Google Fonts** — *pas fait.* Le CDN reste en place (pas d'accès réseau à `fonts.gstatic.com` depuis l'environnement où j'ai travaillé). Le service worker ne cache que les assets same-origin ; les polices retombent sur `monospace`/`sans-serif` hors-ligne. Pour un vrai offline-first : héberger les `.woff2` dans `assets/fonts/` et basculer sur `@font-face` locales.
+- ✅ 🟢 ⚡ **Favicon** + `theme-color` + meta description/OpenGraph — *fait.*
 
 ## 3. Contenu — nouvelles machines / vulnérabilités
 
-Le moteur ne gère aujourd'hui que 5 vecteurs. Idées de niveaux supplémentaires (chacune une faille classique GTFOBins / privesc) :
+Le moteur gère désormais **10 vecteurs** (5 d'origine + 5 ajoutés en v1.1). Statut des idées :
 
-- 🟠 🔨 **Writable `/etc/passwd`** — ajouter un utilisateur root sans mot de passe (`openssl passwd` / hash `::0:0:`).
-- 🟠 🔨 **`sudo` avec `LD_PRELOAD` / `env_keep`** — bibliothèque malveillante.
-- 🟠 🔨 **Wildcard injection** (`tar`/`chown` avec `*` dans un cron ou script root).
-- 🟠 🏗️ **Groupe `docker`** — `docker run -v /:/mnt` pour lire/écrire l'hôte.
-- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`**, **kernel exploit (style Dirty COW / PwnKit)** en version simulée pédagogique.
-- 💡 🏗️ **Chaînes multi-étapes** : une machine qui exige énumération → pivot user intermédiaire → root (plusieurs UID).
+- ✅ 🟠 🔨 **Writable `/etc/passwd`** — *fait (box-06).* Ajout d'un root sans mot de passe (`r00t::0:0::/root:/bin/bash`) puis `su r00t`.
+- ✅ 🟠 🔨 **`sudo awk` (GTFOBins)** — *fait (box-07).* NOPASSWD sur `awk` → `sudo awk 'BEGIN{system("/bin/sh")}'`.
+- ✅ 🟢 🏗️ **Kernel exploit simulé** — *fait (box-08).* PwnKit / CVE-2021-4034 en version pédagogique (`./pwnkit`).
+- ✅ 💡 🏗️ **Chaîne multi-étapes** — *fait (box-09).* Creds en clair → pivot `su svc` → `sudo bash` (plusieurs UID).
+- ✅ 🟠 🏗️ **Groupe `docker`** — *fait (box-10).* `docker run -v /:/mnt` pour monter l'hôte.
+- 🟠 🔨 **`sudo` avec `LD_PRELOAD` / `env_keep`** — *encore ouvert.* Bibliothèque malveillante.
+- 🟠 🔨 **Wildcard injection** (`tar`/`chown` avec `*` dans un cron ou script root) — *encore ouvert.*
+- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** — *encore ouvert.*
 
 ## 4. Moteur terminal & réalisme du shell
 
-- 🔴 🔨 **Découpler la logique de « win » des données `levels[].wins`** — actuellement les conditions de victoire sont codées en dur dans `commands.js` (`spawnShell(true)` dispersé) alors que chaque niveau déclare déjà un tableau `wins` **inutilisé**. Piloter la victoire par ces données rendrait l'ajout de niveaux trivial.
+- ✅ 🔴 🔨 **Découpler la logique de « win » des données `levels[].wins`** — *fait.* `spawnShell(true, { type })` vérifie désormais le `type` contre `level.wins[]` via `CMD.winConditionMet()` avant d'accorder root ; les 5 exploits référencent leur type déclaré (`suid_shell_via`, `cron_hijack`, `python_setuid`, `path_hijack`, `sudo_vim_escape`). `wins[]` est la source de vérité : oublier l'entrée ou se tromper de type bloque l'exploit au lieu de planter silencieusement. **v1.1** a poussé le data-driven plus loin : un nœud fs peut déclarer `exploit: '<type>'` (exploit auto-contenu), un **détecteur générique d'évasions sudo GTFOBins** (vim, awk, env, find, bash/sh, less…) pilote le bon type de victoire depuis `level.wins`, et les mécaniques cron/PATH sont dé-hardcodées (chemin lu depuis `wins`, plus de `level.id === 2`). Reste ouvert : un moteur totalement générique qui déduirait *comment* déclencher l'exploit depuis la donnée seule.
 - 🟠 🔨 **Support des pipes (`|`)** — le code note « only support simple `| cat` for now » mais rien n'est implémenté. Ajouter `grep`, `wc`, `head`, `tail`, `sort`.
 - 🟠 ⚡ **Commandes manquantes courantes** : `grep`, `env`, `uname -a`, `hostname`, `mount`, `ps` (en tant que vraie commande), `which`, `file`, `history`.
 - 🟢 ⚡ **`sudo -l` sans NOPASSWD** devrait demander un mot de passe simulé (immersion).
@@ -49,14 +51,14 @@ Le moteur ne gère aujourd'hui que 5 vecteurs. Idées de niveaux supplémentaire
 
 ## 6. Pédagogie & valeur d'apprentissage
 
-- 🔴 🔨 **Écran « débrief » après chaque root** : rappel de la faille, pourquoi elle existe, comment la corriger (blue team), lien GTFOBins/HackTricks. C'est le vrai différenciateur pédagogique.
+- ✅ 🔴 🔨 **Écran « débrief » après chaque root** — *fait.* Chaque niveau a maintenant un `debrief` (EN/FR) affiché dans la modale de victoire : nom de la faille, pourquoi elle marche, correction blue team, lien GTFOBins/HackTricks. Se met à jour si on change de langue pendant que la modale est ouverte.
 - 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution.
 - 🟢 ⚡ **Cheatsheet contextuelle** : la sidebar affiche toujours les mêmes commandes ; les adapter à la machine courante.
 - 💡 🏗️ **Mode « blue team »** : à partir d'une machine vulnérable, l'utilisateur doit la *durcir* (retirer le SUID, corriger le cron…).
 
 ## 7. UX / UI
 
-- 🟠 ⚡ **Badge root (`#rootBadge`)** : présent dans le HTML (`display:none`) mais jamais activé par le JS — soit le câbler à `is-root`, soit le retirer.
+- ✅ 🟠 ⚡ **Badge root (`#rootBadge`)** : présent dans le HTML, câblé sur `body.is-root` — *fait.*
 - 🟠 🔨 **Responsive mobile** : le terminal + sidebar en 2 colonnes n'est pas pensé pour petit écran ; layout empilé + gestion du clavier virtuel.
 - 🟢 ⚡ **Effet machine à écrire / délai** sur les bannières et sorties root (immersion).
 - 🟢 ⚡ **Son optionnel** (frappe clavier, « root obtained »).
@@ -73,7 +75,7 @@ Le moteur ne gère aujourd'hui que 5 vecteurs. Idées de niveaux supplémentaire
 
 ## 9. Architecture / dette technique
 
-- 🟠 🔨 **Sortir le patch monkey-patch de `runOne`** (fin de `commands.js`, cas cron du niveau 2 câblé en dur) vers un système de hooks par niveau propre.
+- ✅ 🟠 🔨 **Sortir le patch monkey-patch de `runOne`** — *fait (v1.1).* Le cas cron n'est plus câblé sur `level.id === 2`/un chemin en dur : il lit le chemin depuis `wins: [{ type: 'cron_hijack', path }]`. Même traitement pour le PATH-hijack (`runStatusBinary` → `runSuidHelper` générique). Un système de hooks par niveau plus formel reste envisageable si le nombre de mécaniques explose.
 - 🟢 🔨 **Modules ES (`import`/`export`)** au lieu de tout mettre sur `window.*` — plus maintenable si le projet grossit.
 - 🟢 ⚡ **Constantes partagées** : les chemins/UID/messages « ELF binary » sont répétés dans chaque `fs` de niveau ; factoriser un système de fichiers de base + overrides.
 - 🟢 ⚡ **`data-testid`** de test à conserver mais documenter leur rôle.
@@ -122,13 +124,14 @@ Le moteur ne gère aujourd'hui que 5 vecteurs. Idées de niveaux supplémentaire
 
 ## Prochaines étapes suggérées (ordre conseillé)
 
-1. **localStorage** (progression + langue) — gros gain, effort minime. 🔴⚡
-2. **Supprimer la dépendance Google Fonts + PWA** — tenir la promesse « offline, no deps ». 🔴🔨
-3. **Piloter les victoires par `levels[].wins`** — débloque l'ajout facile de machines. 🔴🔨
-4. **Écran de débrief pédagogique** — la vraie valeur ajoutée. 🔴🔨
-5. **Suite de tests Playwright + GitHub Pages + CI**. 🔴🟠
-6. Puis enrichir le contenu (nouvelles machines) et l'i18n du terminal.
+1. ✅ **localStorage** (progression + langue) — fait.
+2. ✅ **PWA** (manifest + service worker + icônes) — fait. Google Fonts CDN pas retiré (voir note plus haut).
+3. ✅ **Piloter les victoires par `levels[].wins`** — fait.
+4. ✅ **Écran de débrief pédagogique** — fait.
+5. ✅ **Enrichissement contenu v1.1** — fait. 5 nouvelles box (6→10), hub par tiers, scorecard, refactor moteur data-driven. Vérifié (harnais Node 11/11 + Chrome headless e2e).
+6. **Suite de tests Playwright + GitHub Pages + CI**. 🔴🟠 ← prochaine étape la plus utile (les `data-testid` sont déjà en place).
+7. Puis **i18n du terminal** (beaucoup de sortie encore en anglais dur dans `commands.js`) et **réalisme shell** (pipes + `grep`/`ps`/`env` pour l'énumération des nouvelles box).
 
 ---
 
-*Généré le 2026-07-11. Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
+*Généré le 2026-07-11, révisé le 2026-07-17 (v1.1 : 10 box + tiers + scorecard). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*

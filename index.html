@@ -4,7 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#04060a">
+    <meta name="description" content="rootQuest — a 100% browser-based terminal game to train Linux privilege escalation. 5 machines, 5 vulnerabilities, bilingual EN/FR.">
+    <meta property="og:title" content="rootQuest — Linux Privilege Escalation Playground">
+    <meta property="og:description" content="5 machines, 5 privesc vulnerabilities, one terminal. Enumerate, identify, exploit, root.">
+    <meta property="og:image" content="assets/icons/icon-512.png">
+    <meta property="og:type" content="website">
     <title>rootQuest — Linux PrivEsc Challenges</title>
+
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon-source.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 </head>
@@ -21,7 +32,7 @@
     <div id="app">
         <header class="topbar">
             <div class="brand">
-                <span class="brand-dot"></span>
+                <img src="assets/icons/icon-source.svg" alt="" class="brand-logo" width="32" height="32">
                 <span class="brand-name" data-text="rootQuest">rootQuest</span>
                 <span class="brand-tag" data-i18n="brandTag">Linux Privilege Escalation Playground</span>
             </div>
@@ -32,7 +43,7 @@
                 <div class="level-pill" id="levelPill">
                     <span data-i18n="levelLabel">Level</span>
                     <strong id="levelNum">1</strong>
-                    <span>/ 5</span>
+                    <span>/ <span id="levelTotal">10</span></span>
                 </div>
                 <button class="btn-ghost" id="hintBtn" data-testid="hint-button">
                     <span data-i18n="hintBtn">Hint</span>
@@ -98,7 +109,7 @@
                     </div>
                     <div class="term-title" id="termTitle">player@box-01: ~</div>
                     <div class="term-badges">
-                        <span class="badge badge-root" id="rootBadge" style="display:none">root</span>
+                        <span class="badge badge-root" id="rootBadge">root</span>
                     </div>
                 </div>
                 <div class="terminal" id="terminal" data-testid="terminal">
@@ -115,11 +126,38 @@
         </main>
 
         <div class="modal-backdrop" id="winModal" style="display:none">
-            <div class="modal">
+            <div class="modal modal--debrief">
                 <div class="modal-glow"></div>
                 <h3 data-i18n="rootShellTitle">ROOT SHELL OBTAINED</h3>
                 <p id="winFlag">flag{—}</p>
                 <p class="win-sub" id="winSub" data-i18n="winSub">You escalated to root. Ready for the next machine?</p>
+
+                <div class="win-stats" id="winStats" data-testid="win-stats">
+                    <div class="stat"><span class="stat-val" id="statTime">00:00</span><span class="stat-label" data-i18n="statTime">Time</span></div>
+                    <div class="stat"><span class="stat-val" id="statHints">0/3</span><span class="stat-label" data-i18n="statHints">Hints</span></div>
+                    <div class="stat"><span class="stat-val" id="statCmds">0</span><span class="stat-label" data-i18n="statCmds">Commands</span></div>
+                    <div class="stat"><span class="stat-val" id="statScore">0</span><span class="stat-label" data-i18n="statScore">Score</span></div>
+                    <div class="stat stat--rank"><span class="stat-rank rank-S" id="statRank">S</span><span class="stat-label" data-i18n="statRank">Rank</span></div>
+                </div>
+
+                <div class="debrief" id="winDebrief" data-testid="win-debrief">
+                    <div class="debrief-head">
+                        <span class="debrief-tag" data-i18n="debriefTag">DEBRIEF</span>
+                        <span class="debrief-vuln" id="debriefVuln"></span>
+                    </div>
+                    <div class="debrief-row">
+                        <span class="debrief-label" data-i18n="debriefWhy">Why it works</span>
+                        <p id="debriefWhy"></p>
+                    </div>
+                    <div class="debrief-row">
+                        <span class="debrief-label" data-i18n="debriefFix">Blue-team fix</span>
+                        <p id="debriefFix"></p>
+                    </div>
+                    <a class="debrief-link" id="debriefLink" href="#" target="_blank" rel="noopener noreferrer">
+                        ↗ <span data-i18n="debriefLearnMore">Learn more</span>
+                    </a>
+                </div>
+
                 <div class="modal-actions">
                     <button class="btn-primary" id="nextLevelBtn" data-testid="next-level-btn">
                         <span data-i18n="nextLevelBtn">Next machine →</span>
@@ -155,6 +193,7 @@
     <section id="homeScreen" class="home" data-testid="home-screen">
         <div class="home-scroll">
             <div class="home-hero">
+                <img src="assets/icons/icon-source.svg" alt="rootQuest" class="home-logo" width="88" height="88">
                 <div class="home-badge" data-i18n="homeBadge">// NEURAL BREACH TRAINING SIMULATOR</div>
                 <h1 class="home-title" data-text="rootQuest">rootQuest</h1>
                 <p class="home-sub" data-i18n="homeSub">Terrain d'entraînement à l'escalade de privilèges Linux. 5 machines, 5 vulnérabilités, un seul objectif : root.</p>
@@ -171,7 +210,12 @@
             <div class="home-select">
                 <div class="home-select-head">
                     <span class="home-select-title" data-i18n="homeSelect">SELECT TARGET</span>
-                    <span class="home-select-meta"><strong id="homeProgressText">0 / 5</strong> <span data-i18n="homeOwned">owned</span></span>
+                    <div class="home-select-meta-wrap">
+                        <span class="home-select-meta"><strong id="homeProgressText">0 / 5</strong> <span data-i18n="homeOwned">owned</span></span>
+                        <button class="btn-ghost home-reset-btn" id="resetProgressBtn" data-testid="reset-progress-btn">
+                            <span data-i18n="resetProgressBtn">Reset progress</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
             </div>
@@ -185,5 +229,14 @@
     <script src="js/terminal.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js').catch(() => {
+                    // Offline mode simply won't be available; the game still works online.
+                });
+            });
+        }
+    </script>
 </body>
 </html>

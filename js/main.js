@@ -1,11 +1,19 @@
 // Per-machine metadata for the home hub (indexed like LEVELS)
 window.MACHINE_META = [
-    { cat: 'SUID', diff: 'EASY' },
-    { cat: 'CRON', diff: 'EASY' },
-    { cat: 'CAP',  diff: 'MEDIUM' },
-    { cat: 'PATH', diff: 'MEDIUM' },
-    { cat: 'SUDO', diff: 'HARD' }
+    { cat: 'SUID',   diff: 'EASY' },
+    { cat: 'CRON',   diff: 'EASY' },
+    { cat: 'CAP',    diff: 'MEDIUM' },
+    { cat: 'PATH',   diff: 'MEDIUM' },
+    { cat: 'SUDO',   diff: 'HARD' },
+    { cat: 'PASSWD', diff: 'EASY' },
+    { cat: 'SUDO',   diff: 'EASY' },
+    { cat: 'KERNEL', diff: 'MEDIUM' },
+    { cat: 'CHAIN',  diff: 'HARD' },
+    { cat: 'DOCKER', diff: 'HARD' }
 ];
+
+// Difficulty tiers rendered on the hub, in order.
+window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD'];
 
 // Main game orchestration
 window.GAME = {
@@ -13,7 +21,42 @@ window.GAME = {
     completed: [],     // level ids completed
     started: false,    // a machine has been entered at least once
 
+    STORAGE_KEY: 'rootquest_save_v1',
+
     level() { return LEVELS[this.currentLevel]; },
+
+    // ── Persistence (progression + language) ────────────────────
+    loadSave() {
+        try {
+            const raw = localStorage.getItem(this.STORAGE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (Array.isArray(data.completed)) this.completed = data.completed;
+            if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
+        } catch (e) {
+            // Corrupted or unavailable storage (private browsing, quota) — start fresh.
+        }
+    },
+
+    saveProgress() {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
+                completed: this.completed,
+                lang: window.currentLang
+            }));
+        } catch (e) {
+            // Storage unavailable — progress just won't persist across reloads.
+        }
+    },
+
+    resetProgress() {
+        if (!window.confirm(t('resetProgressConfirm'))) return;
+        this.completed = [];
+        this.saveProgress();
+        this.buildHomeGrid();
+        this.updateLevelsMap();
+        this.updateProgress();
+    },
 
     boot() {
         TERM.init();
@@ -35,6 +78,8 @@ window.GAME = {
         SESSION.hintIndex = 0;
         SESSION.pendingCron = false;
         SESSION.cronPayload = null;
+        SESSION.cmdCount = 0;
+        SESSION.startTime = Date.now();
         document.body.classList.remove('is-root');
 
         // Load filesystem for level
@@ -61,6 +106,8 @@ window.GAME = {
 
         this.updateLevelsMap();
         document.getElementById('levelNum').textContent = lvl.id;
+        const totalEl = document.getElementById('levelTotal');
+        if (totalEl) totalEl.textContent = LEVELS.length;
         document.getElementById('termTitle').textContent = `${lvl.user}@${lvl.host}: ~`;
         document.getElementById('missionStatus').textContent = t('statusActive');
         this.updateProgress();
@@ -71,33 +118,50 @@ window.GAME = {
         const grid = document.getElementById('homeGrid');
         if (!grid) return;
         grid.innerHTML = '';
-        for (let i = 0; i < LEVELS.length; i++) {
-            const lvl = LEVELS[i];
-            const meta = MACHINE_META[i] || { cat: '???', diff: '' };
-            const owned = this.completed.includes(lvl.id);
-            const vuln = (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim();
-
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = 'machine-card hud' + (owned ? ' is-owned' : '');
-            card.setAttribute('data-idx', i);
-            card.setAttribute('data-testid', `machine-card-${lvl.id}`);
-            card.innerHTML =
-                '<div class="mc-top">' +
-                    `<span class="mc-id">${lvl.codename.toUpperCase()}</span>` +
-                    `<span class="mc-cat">${meta.cat}</span>` +
-                '</div>' +
-                `<div class="mc-name">${vuln}</div>` +
-                `<div class="mc-brief">${lvl.brief[currentLang]}</div>` +
-                '<div class="mc-foot">' +
-                    `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}</span>` +
-                    `<span class="mc-diff">${meta.diff}</span>` +
-                    `<span class="mc-enter">${t('homeEnter')} →</span>` +
-                '</div>';
-            card.addEventListener('click', () => this.selectMachine(i));
-            grid.appendChild(card);
+        // Group machines by difficulty tier so the hub scales as boxes are added.
+        for (const tier of (window.DIFF_TIERS || ['EASY', 'MEDIUM', 'HARD'])) {
+            const idxs = [];
+            for (let i = 0; i < LEVELS.length; i++) {
+                if ((MACHINE_META[i]?.diff || '') === tier) idxs.push(i);
+            }
+            if (!idxs.length) continue;
+            const owned = idxs.filter(i => this.completed.includes(LEVELS[i].id)).length;
+            const label = document.createElement('div');
+            label.className = 'home-tier-label tier-' + tier.toLowerCase();
+            label.innerHTML =
+                `<span class="tier-name">${t('tier' + tier[0] + tier.slice(1).toLowerCase())}</span>` +
+                `<span class="tier-count">${owned}/${idxs.length}</span>`;
+            grid.appendChild(label);
+            for (const i of idxs) grid.appendChild(this.buildMachineCard(i));
         }
         this.updateHomeProgress();
+    },
+
+    buildMachineCard(i) {
+        const lvl = LEVELS[i];
+        const meta = MACHINE_META[i] || { cat: '???', diff: '' };
+        const owned = this.completed.includes(lvl.id);
+        const vuln = (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim();
+
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'machine-card hud' + (owned ? ' is-owned' : '');
+        card.setAttribute('data-idx', i);
+        card.setAttribute('data-testid', `machine-card-${lvl.id}`);
+        card.innerHTML =
+            '<div class="mc-top">' +
+                `<span class="mc-id">${lvl.codename.toUpperCase()}</span>` +
+                `<span class="mc-cat">${meta.cat}</span>` +
+            '</div>' +
+            `<div class="mc-name">${vuln}</div>` +
+            `<div class="mc-brief">${lvl.brief[currentLang]}</div>` +
+            '<div class="mc-foot">' +
+                `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}</span>` +
+                `<span class="mc-diff">${meta.diff}</span>` +
+                `<span class="mc-enter">${t('homeEnter')} →</span>` +
+            '</div>';
+        card.addEventListener('click', () => this.selectMachine(i));
+        return card;
     },
 
     updateHomeProgress() {
@@ -197,6 +261,7 @@ window.GAME = {
     win() {
         const lvl = this.level();
         if (!this.completed.includes(lvl.id)) this.completed.push(lvl.id);
+        this.saveProgress();
         this.updateLevelsMap();
         this.updateProgress();
         document.getElementById('missionStatus').textContent = t('statusDone');
@@ -207,7 +272,50 @@ window.GAME = {
             return;
         }
         document.getElementById('winFlag').textContent = lvl.flag;
+        this.renderDebrief(lvl);
+        this.renderStats();
         document.getElementById('winModal').style.display = 'flex';
+    },
+
+    // Victory scorecard: time, hints, commands, score + rank.
+    renderStats() {
+        const el = document.getElementById('winStats');
+        if (!el) return;
+        const sec = SESSION.startTime ? Math.max(0, Math.round((Date.now() - SESSION.startTime) / 1000)) : 0;
+        const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+        const ss = String(sec % 60).padStart(2, '0');
+        const hints = SESSION.hintIndex || 0;
+        const totalHints = (this.level().hints[currentLang] || []).length;
+        const cmds = SESSION.cmdCount || 0;
+        const score = Math.max(50, 1000 - hints * 200 - Math.floor(sec / 10) * 5 - cmds * 3);
+        const rank = hints === 0 ? 'S' : hints === 1 ? 'A' : hints === 2 ? 'B' : 'C';
+        const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
+        set('statTime', `${mm}:${ss}`);
+        set('statHints', `${hints}/${totalHints}`);
+        set('statCmds', cmds);
+        set('statScore', score);
+        const rankEl = document.getElementById('statRank');
+        if (rankEl) { rankEl.textContent = rank; rankEl.className = 'stat-rank rank-' + rank; }
+    },
+
+    renderDebrief(lvl) {
+        const debrief = lvl.debrief && lvl.debrief[currentLang];
+        const el = document.getElementById('winDebrief');
+        if (!debrief || !el) {
+            if (el) el.style.display = 'none';
+            return;
+        }
+        el.style.display = '';
+        document.getElementById('debriefVuln').textContent = debrief.vuln;
+        document.getElementById('debriefWhy').textContent = debrief.why;
+        document.getElementById('debriefFix').textContent = debrief.fix;
+        const link = document.getElementById('debriefLink');
+        if (debrief.link) {
+            link.href = debrief.link;
+            link.style.display = '';
+        } else {
+            link.style.display = 'none';
+        }
     },
 
     nextLevel() {
@@ -241,8 +349,12 @@ window.GAME = {
         document.getElementById('restartAllBtn').addEventListener('click', () => {
             document.getElementById('finalModal').style.display = 'none';
             this.completed = [];
+            this.saveProgress();
             this.loadLevel(0);
         });
+
+        const resetProgressBtn = document.getElementById('resetProgressBtn');
+        if (resetProgressBtn) resetProgressBtn.addEventListener('click', () => this.resetProgress());
 
         // Home hub wiring
         document.getElementById('menuBtn').addEventListener('click', () => this.returnToMenu());
@@ -266,10 +378,19 @@ window.setLanguage = function(lang) {
     if (window.GAME && window.GAME.level) {
         window.GAME.renderMission();
         if (window.GAME.buildHomeGrid) window.GAME.buildHomeGrid();
+        const winModal = document.getElementById('winModal');
+        if (winModal && winModal.style.display === 'flex' && window.GAME.renderDebrief) {
+            window.GAME.renderDebrief(window.GAME.level());
+        }
+        window.GAME.saveProgress();
     }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    window.GAME.loadSave();
+    document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
+    });
     window.applyI18n();
     window.GAME.boot();
 });

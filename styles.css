@@ -158,15 +158,16 @@ html, body {
     box-shadow: 0 1px 0 rgba(var(--accent-rgb), 0.15), 0 10px 30px -10px rgba(0,0,0,0.8);
 }
 
-.brand { display: flex; align-items: baseline; gap: 12px; }
-.brand-dot {
-    align-self: center;
-    width: 11px; height: 11px; border-radius: 2px;
-    background: var(--accent);
-    box-shadow: 0 0 10px var(--accent), 0 0 22px rgba(var(--accent-rgb), 0.6);
-    animation: dotPulse 1.6s ease-in-out infinite;
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo {
+    display: block;
+    filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.55));
+    animation: logoPulse 2.4s ease-in-out infinite;
 }
-@keyframes dotPulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.7); opacity: 0.6; } }
+@keyframes logoPulse {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(var(--accent-rgb), 0.55)); }
+    50% { filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), 0.85)); }
+}
 
 /* Glitchy brand wordmark */
 .brand-name {
@@ -395,7 +396,8 @@ html, body {
 .term-title::before { content: '▶ '; color: var(--accent); }
 .term-badges { display: flex; gap: 6px; min-width: 44px; justify-content: flex-end; }
 .badge { font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 3px 9px; letter-spacing: 1.5px; clip-path: polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%); }
-.badge-root { background: var(--root); color: #fff; animation: pulse-root 1.2s infinite; box-shadow: 0 0 14px var(--root); }
+.badge-root { background: var(--root); color: #fff; animation: pulse-root 1.2s infinite; box-shadow: 0 0 14px var(--root); display: none; }
+body.is-root .badge-root { display: inline-flex; align-items: center; }
 @keyframes pulse-root { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 .terminal {
@@ -499,8 +501,84 @@ html, body {
     font-family: var(--font-mono); color: var(--magenta); font-size: 17px; margin-bottom: 14px;
     text-shadow: 0 0 12px rgba(255,43,214,0.6);
 }
-.modal .win-sub { color: var(--text-dim); font-size: 13px; font-family: var(--font-ui); margin-bottom: 26px; text-shadow: none; }
+.modal .win-sub { color: var(--text-dim); font-size: 13px; font-family: var(--font-ui); margin-bottom: 18px; text-shadow: none; }
 .modal-actions { display: flex; gap: 14px; justify-content: center; position: relative; z-index: 1; }
+
+/* Victory scorecard */
+.win-stats {
+    position: relative; z-index: 1;
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 22px;
+}
+.win-stats .stat {
+    flex: 1 1 0; min-width: 72px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 8px;
+    background: var(--glass-1); border: 1px solid var(--line);
+    clip-path: polygon(0 8px, 8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+.win-stats .stat-val {
+    font-family: var(--font-mono); font-size: 19px; font-weight: 700;
+    color: var(--accent); text-shadow: 0 0 10px rgba(var(--accent-rgb), 0.4);
+}
+.win-stats .stat-label {
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-muted);
+}
+.win-stats .stat--rank { flex: 0 0 auto; min-width: 64px; }
+.win-stats .stat-rank {
+    font-family: var(--font-display); font-size: 22px; font-weight: 900; line-height: 1;
+    color: var(--green); text-shadow: 0 0 12px currentColor;
+}
+.win-stats .stat-rank.rank-S { color: #ffd23f; }
+.win-stats .stat-rank.rank-A { color: var(--green); }
+.win-stats .stat-rank.rank-B { color: var(--accent); }
+.win-stats .stat-rank.rank-C { color: var(--text-dim); }
+
+/* Post-root pedagogical debrief */
+.modal.modal--debrief { max-width: 620px; text-align: left; }
+.modal.modal--debrief h3,
+.modal.modal--debrief > .win-sub,
+.modal.modal--debrief > #winFlag { text-align: center; }
+.debrief {
+    position: relative; z-index: 1;
+    background: var(--glass-1);
+    border: 1px solid var(--line);
+    padding: 18px 20px;
+    margin-bottom: 24px;
+    max-height: 38vh;
+    overflow-y: auto;
+    clip-path: polygon(0 10px, 10px 0, 100% 0, 100% 100%, 0 100%);
+}
+.debrief-head {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 12px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+}
+.debrief-tag {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    color: var(--green); text-shadow: 0 0 8px rgba(77, 255, 158, 0.5);
+}
+.debrief-vuln {
+    font-family: var(--font-ui); font-weight: 700; font-size: 14px; color: var(--text);
+}
+.debrief-row { margin-bottom: 14px; }
+.debrief-row:last-of-type { margin-bottom: 0; }
+.debrief-label {
+    display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;
+}
+.debrief-row p {
+    font-family: var(--font-ui); font-size: 13px; line-height: 1.5;
+    color: var(--text-dim); text-shadow: none; margin: 0;
+}
+.debrief-link {
+    display: inline-block; margin-top: 4px;
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.5px;
+    color: var(--accent); text-decoration: none;
+    border-bottom: 1px solid rgba(var(--accent-rgb), 0.4);
+}
+.debrief-link:hover { color: #fff; border-color: #fff; }
 
 .btn-primary {
     background: var(--accent); color: var(--bg-0); border: 0;
@@ -583,6 +661,11 @@ body.is-root .brand-name { animation: rootShake 0.4s ease; }
 
 /* Hero */
 .home-hero { text-align: center; max-width: 760px; }
+.home-logo {
+    display: block; margin: 0 auto 18px;
+    filter: drop-shadow(0 0 18px rgba(var(--accent-rgb), 0.5));
+    animation: logoPulse 2.4s ease-in-out infinite;
+}
 .home-badge {
     font-family: var(--font-mono); font-size: 12px; letter-spacing: 3px;
     color: var(--accent); text-shadow: 0 0 12px rgba(var(--accent-rgb), 0.5);
@@ -632,11 +715,36 @@ body.is-root .brand-name { animation: rootShake 0.4s ease; }
 .home-select-title::before { content: '// '; color: var(--accent); }
 .home-select-meta { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
 .home-select-meta strong { color: var(--accent); text-shadow: 0 0 8px rgba(var(--accent-rgb), 0.5); }
+.home-select-meta-wrap { display: flex; align-items: center; gap: 14px; }
+.home-reset-btn { font-size: 10px; padding: 5px 10px; opacity: 0.7; }
+.home-reset-btn:hover { opacity: 1; color: var(--red); border-color: var(--red); }
 
 .home-grid {
     display: grid; gap: 16px;
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
 }
+
+/* Difficulty tier headers — span the whole grid row */
+.home-tier-label {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 12px;
+    margin: 6px 0 -2px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    letter-spacing: 2px; text-transform: uppercase;
+}
+.home-tier-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, currentColor, transparent);
+    opacity: 0.4;
+}
+.home-tier-label .tier-count {
+    flex: 0 0 auto; font-size: 10px; color: var(--text-muted);
+    letter-spacing: 1px; order: 3;
+}
+.home-tier-label .tier-name::before { content: '// '; opacity: 0.6; }
+.home-tier-label.tier-easy   { color: var(--green); }
+.home-tier-label.tier-medium { color: var(--accent); }
+.home-tier-label.tier-hard   { color: var(--magenta); }
 
 /* Machine cards */
 .machine-card {

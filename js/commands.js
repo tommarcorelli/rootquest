@@ -11,6 +11,8 @@ window.SESSION = {
     tmpBins: {}, // { name: content } for PATH-hijack fake binaries in /tmp
     pendingCron: false,
     cronPayload: null,
+    cmdCount: 0,   // commands typed this machine (for the victory scorecard)
+    startTime: 0,  // Date.now() when the machine was loaded
 };
 
 window.CMD = {
@@ -18,6 +20,7 @@ window.CMD = {
     execute(raw) {
         raw = (raw || '').trim();
         if (!raw) return [];
+        SESSION.cmdCount++;
         // Strip shell noise that we don't emulate
         raw = raw.replace(/\s*2>\s*\/dev\/null/g, '')
                  .replace(/\s*>\s*\/dev\/null/g, ' ');
@@ -117,14 +120,21 @@ window.CMD = {
         if (!node) return [{ text: t('noSuchFile', path), cls: 'err' }];
         if (node.type === 'dir') return [{ text: t('isDirectory', path), cls: 'err' }];
 
+        // Self-contained exploit binary (e.g. simulated kernel PoC). The fs node
+        // declares `exploit: '<win-type>'`; running it fires that win directly.
+        if (node.exploit) {
+            return this.spawnShell(true, { via: FS.basename(resolved), type: node.exploit });
+        }
+
         // If it's a fake binary in /tmp (created by user for PATH hijack)
         if (node.content && node.content.includes('/bin/sh')) {
             return this.spawnShell(false);
         }
 
-        // /usr/local/bin/status — the SUID PATH-hijack binary in level 4
-        if (resolved === '/usr/local/bin/status' && node.suid) {
-            return this.runStatusBinary();
+        // SUID helper that shells out to an unqualified command → PATH-hijack surface.
+        // The fs node declares `calls_unqualified: '<cmd>'`; no hard-coded path.
+        if (node.suid && node.calls_unqualified) {
+            return this.runSuidHelper(resolved, node);
         }
 
         // Generic SUID binary being invoked directly
@@ -150,6 +160,8 @@ window.CMD = {
                 { text: '  chmod <mode> <file>       change permissions', cls: 'dim' },
                 { text: '  export VAR=value          set environment variable', cls: 'dim' },
                 { text: '  sudo [-l] <cmd>           run as another user', cls: 'dim' },
+                { text: '  su <user>                 switch user', cls: 'dim' },
+                { text: '  docker run ...            run a container (if in docker group)', cls: 'dim' },
                 { text: '  crontab -l                list user cron jobs', cls: 'dim' },
                 { text: '  getcap -r /               list file capabilities', cls: 'dim' },
                 { text: '  strings <file>            printable strings in a binary', cls: 'dim' },
@@ -167,7 +179,12 @@ window.CMD = {
 
         id() {
             if (SESSION.isRoot) return [{ text: 'uid=0(root) gid=0(root) groups=0(root)', cls: '' }];
-            return [{ text: 'uid=1000(player) gid=1000(player) groups=1000(player)', cls: '' }];
+            const lvl = window.GAME.level();
+            const inDocker = (lvl.wins || []).some(w => w.type === 'docker_sock') && SESSION.user === 'player';
+            const uid = SESSION.user === 'player' ? 1000 : 1001;
+            let groups = `${uid}(${SESSION.user})`;
+            if (inDocker) groups += ',999(docker)';
+            return [{ text: `uid=${uid}(${SESSION.user}) gid=${uid}(${SESSION.user}) groups=${groups}`, cls: inDocker ? 'warn' : '' }];
         },
 
         pwd() { return [{ text: SESSION.cwd, cls: '' }]; },
@@ -260,7 +277,7 @@ window.CMD = {
                 // Requires SUID find in current level (level 1)
                 const findNode = FS.get('/usr/bin/find');
                 if (findNode && findNode.suid) {
-                    return this.spawnShell(true, { via: '/usr/bin/find' });
+                    return this.spawnShell(true, { via: '/usr/bin/find', type: 'suid_shell_via' });
                 }
                 return [{ text: '(no SUID on find — normal shell)', cls: 'dim' }];
             }
@@ -371,18 +388,67 @@ window.CMD = {
             if (!allowed) {
                 return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${args.join(' ')}' as root.`, cls: 'err' }];
             }
-            // Special-case vim escape: sudo vim -c ':!/bin/sh'
-            if ((args[0] === 'vim' || args[0] === '/usr/bin/vim')) {
-                const joined = args.join(' ');
-                if (joined.includes(':!/bin/sh') || joined.includes(':!/bin/bash') || joined.includes(':shell') || joined.includes(':sh')) {
-                    return this.spawnShell(true, { via: 'sudo vim' });
-                }
+            // Generic GTFOBins-style shell escape. The type granted is whatever sudo
+            // win the level declares, so both sudo_vim_escape (box-05) and the newer
+            // generic sudo_shell boxes are driven from data, not hard-coded here.
+            const binBase = FS.basename(allowed.cmd);
+            const joined = args.join(' ');
+            if (this.sudoEscapes(binBase, joined)) {
+                const sudoWin = (level.wins || []).find(w => w.type === 'sudo_vim_escape' || w.type === 'sudo_shell');
+                return this.spawnShell(true, { via: 'sudo ' + binBase, type: sudoWin ? sudoWin.type : 'sudo_shell' });
+            }
+            // Allowed, but no shell-escape attempted yet — nudge for interactive editors.
+            if (binBase === 'vim' || binBase === 'vi') {
                 return [
                     { text: '(vim opened as root — type ":!/bin/sh" to escape, or ":q" to quit)', cls: 'dim' },
                     { text: '(simulator: use  sudo vim -c \':!/bin/sh\'  to escape in one command)', cls: 'dim' }
                 ];
             }
             return [{ text: `sudo: executed ${args.join(' ')} as root`, cls: 'ok' }];
+        },
+
+        su(args) {
+            let target = args[0];
+            if (target === '-' || target === '-l' || target === '--login') target = args[1];
+            if (!target) target = 'root';
+            const passwd = FS.get('/etc/passwd');
+            const line = (passwd?.content || '').split('\n').find(l => l.split(':')[0] === target);
+            if (!line) return [{ text: `su: user ${target} does not exist`, cls: 'err' }];
+            const fields = line.split(':');
+            const uid = fields[2];
+            const pwField = fields[1];
+            if (uid === '0') {
+                // Becoming root only works if the account has NO password (the
+                // classic writable-/etc/passwd attack: an injected UID-0 line).
+                if (pwField === '') {
+                    return this.spawnShell(true, { via: 'su ' + target, type: 'passwd_write' });
+                }
+                return [{ text: 'su: Authentication failure', cls: 'err' }];
+            }
+            // Lateral move to another non-root account (creds recovered by enumeration).
+            SESSION.user = target;
+            const home = '/home/' + target;
+            if (FS.get(home)) SESSION.cwd = home;
+            window.updatePrompt();
+            return [
+                { text: `[+] switched user → ${target}`, cls: 'ok' },
+                { text: '    enumerate this account (try: sudo -l)', cls: 'dim' }
+            ];
+        },
+
+        docker(args) {
+            const joined = args.join(' ');
+            if (args[0] === 'run' && (joined.includes('/:/') || /-v\s+\/:\S*/.test(joined))) {
+                const win = (window.GAME.level().wins || []).find(w => w.type === 'docker_sock');
+                if (win) return this.spawnShell(true, { via: 'docker run -v /:/mnt', type: 'docker_sock' });
+                return [{ text: 'docker: permission denied while trying to connect to the Docker daemon socket', cls: 'err' }];
+            }
+            if (args[0] === 'ps') return [{ text: 'CONTAINER ID   IMAGE   COMMAND   STATUS   NAMES', cls: 'dim' }];
+            if (args[0] === 'images') return [
+                { text: 'REPOSITORY   TAG      IMAGE ID       SIZE', cls: 'dim' },
+                { text: 'alpine       latest   c059bfaa849c   7.4MB', cls: '' }
+            ];
+            return [{ text: "docker: try  docker run -v /:/mnt -it alpine chroot /mnt sh", cls: 'dim' }];
         },
 
         python3(args, raw) { return CMD.handlers.python.call(this, args, raw); },
@@ -399,7 +465,7 @@ window.CMD = {
             const pyNode = FS.get('/usr/bin/python3');
             const hasCapSetuid = pyNode && pyNode.capabilities && pyNode.capabilities.includes('cap_setuid');
             if (has_setuid && has_shell && hasCapSetuid) {
-                return this.spawnShell(true, { via: 'python3 cap_setuid' });
+                return this.spawnShell(true, { via: 'python3 cap_setuid', type: 'python_setuid' });
             }
             if (has_setuid && !hasCapSetuid) {
                 return [{ text: 'PermissionError: [Errno 1] Operation not permitted', cls: 'err' }];
@@ -427,7 +493,7 @@ window.CMD = {
                 if (p.includes('chmod +s') || p.includes('chmod 4755') || p.includes('/bin/sh') || p.includes('/bin/bash')) {
                     lines.push({ text: '', cls: '' });
                     // Grant root
-                    lines.push(...this.spawnShell(true, { via: 'cron' }));
+                    lines.push(...this.spawnShell(true, { via: 'cron', type: 'cron_hijack' }));
                 }
                 return lines;
             }
@@ -460,9 +526,46 @@ window.CMD = {
     },
 
     // ── Special routines ────────────────────────────────────────
+    // Win conditions are declared per-level in levels.js (`wins: [{ type, ... }]`).
+    // spawnShell(true, { type }) checks against that declared list before granting
+    // root, so a level's data is the actual source of truth — not just documentation.
+    winConditionMet(type) {
+        if (!type) return true; // no declared type to check against (legacy/manual call)
+        const wins = window.GAME.level().wins || [];
+        return wins.some(w => w.type === type);
+    },
+
+    // Known one-shot GTFOBins escapes for `sudo <bin>`. Returns true if the given
+    // invocation would drop a root shell.
+    sudoEscapes(bin, joined) {
+        switch (bin) {
+            case 'vim': case 'vi':
+                return /:!\/bin\/(sh|bash)|:!sh|:shell/.test(joined);
+            case 'awk': case 'gawk':
+                return joined.includes('system(') && /\/bin\/(sh|bash)/.test(joined);
+            case 'env':
+                return /\/bin\/(sh|bash)/.test(joined);
+            case 'find':
+                return joined.includes('-exec') && /\/bin\/(sh|bash)/.test(joined);
+            case 'python': case 'python3': case 'perl': case 'ruby':
+                return /os\.system|pty\.spawn|exec|system\(/.test(joined);
+            case 'less': case 'more': case 'man':
+                return joined.includes('!/bin/sh') || joined.includes('!sh');
+            case 'bash': case 'sh': case 'dash':
+                return true; // running a shell itself as root == root
+            default:
+                return false;
+        }
+    },
+
     spawnShell(asRoot, meta = {}) {
         if (asRoot) {
             if (SESSION.isRoot) return [{ text: t('alreadyRoot'), cls: 'dim' }];
+            if (!this.winConditionMet(meta.type)) {
+                // The exploit fired but doesn't match this machine's declared win
+                // condition — treat as a no-op rather than silently granting root.
+                return [{ text: '(nothing happens — this exploit path isn\'t valid here)', cls: 'dim' }];
+            }
             SESSION.isRoot = true;
             SESSION.user = 'root';
             document.body.classList.add('is-root');
@@ -483,21 +586,25 @@ window.CMD = {
         return [{ text: '$ /bin/sh spawned (still as ' + SESSION.user + ')', cls: 'dim' }];
     },
 
-    runStatusBinary() {
-        // Level 4: this is a SUID binary that calls `ps` without absolute path.
-        // If PATH has /tmp first and /tmp/ps is executable & content triggers shell → root.
-        const path = SESSION.env.PATH || '';
-        const pathParts = path.split(':');
+    // A SUID helper that shells out to an unqualified command (declared on the fs
+    // node as `calls_unqualified`). If a writable dir earlier in PATH holds a fake
+    // version of that command whose payload spawns a shell → root. Fully generic:
+    // any level can add a PATH-hijack box just with data.
+    runSuidHelper(binPath, node) {
+        const cmd = node.calls_unqualified;
+        const trusted = ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin'];
+        const pathParts = (SESSION.env.PATH || '').split(':');
         for (const p of pathParts) {
-            const fakePs = FS.get(p + '/ps');
-            if (fakePs && p !== '/usr/bin' && p !== '/bin' && p !== '/sbin' && p !== '/usr/sbin') {
-                const content = fakePs.content || '';
+            if (trusted.includes(p)) continue;
+            const fake = FS.get(p + '/' + cmd);
+            if (fake) {
+                const content = fake.content || '';
                 if (content.includes('/bin/sh') || content.includes('/bin/bash')) {
-                    return this.spawnShell(true, { via: 'PATH hijack on /usr/local/bin/status' });
+                    return this.spawnShell(true, { via: `PATH hijack on ${binPath}`, type: 'path_hijack' });
                 }
             }
         }
-        // Otherwise, run legitimate ps
+        // Otherwise, run the legitimate command output.
         return [
             { text: '=== status v1.2 ===', cls: 'info' },
             { text: 'System status:', cls: 'dim' },
@@ -505,7 +612,7 @@ window.CMD = {
             { text: 'root         1  /sbin/init', cls: '' },
             { text: 'root       231  /usr/sbin/cron', cls: '' },
             { text: 'player    1442  -bash', cls: '' },
-            { text: 'player    1501  ps -eo user,pid,cmd', cls: '' }
+            { text: `player    1501  ${cmd}`, cls: '' }
         ];
     }
 };
@@ -513,24 +620,27 @@ window.CMD = {
 // ── Handle redirection during echo ──
 // Intercept echo for redirect capture. Simpler: rely on the generic redirect logic in execute().
 
-// ── Override redirect handling to also detect cron hijack ──
+// ── Cron-hijack hook (data-driven, no hard-coded level id / path) ──
+// If the current level declares a `cron_hijack` win, writing to the script path it
+// names arms the pending cron job. Any future cron box works with data alone.
 const _origRunOne = window.CMD.runOne.bind(window.CMD);
 window.CMD.runOne = function(input) {
-    // Pre-check: if writing to /opt/backup.sh in level 2 while not root, mark cron pending
     const level = window.GAME.level();
-    const redirMatch = input.match(/^(.*?)\s*(>>|>)\s*(\S+)\s*$/);
-    if (redirMatch && level.id === 2) {
-        const target = FS.normalize(redirMatch[3]);
-        if (target === '/opt/backup.sh' && !SESSION.isRoot) {
-            const payload = redirMatch[1].trim();
-            const result = _origRunOne(input);
-            // Mark cron as pending
-            SESSION.pendingCron = true;
-            SESSION.cronPayload = payload;
-            return [
-                ...result,
-                { text: t('cronWaiting'), cls: 'warn' }
-            ];
+    const cronWin = (level.wins || []).find(w => w.type === 'cron_hijack');
+    if (cronWin && cronWin.path && !SESSION.isRoot) {
+        const redirMatch = input.match(/^(.*?)\s*(>>|>)\s*(\S+)\s*$/);
+        if (redirMatch) {
+            const target = FS.normalize(redirMatch[3]);
+            if (target === FS.normalize(cronWin.path)) {
+                const payload = redirMatch[1].trim();
+                const result = _origRunOne(input);
+                SESSION.pendingCron = true;
+                SESSION.cronPayload = payload;
+                return [
+                    ...result,
+                    { text: t('cronWaiting'), cls: 'warn' }
+                ];
+            }
         }
     }
     return _origRunOne(input);
