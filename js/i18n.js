@@ -125,6 +125,8 @@ window.I18N = {
         opHardened: 'hardened',
         opComplete: 'complete',
         cheatInsert: 'Click to drop into the prompt',
+        achTitle: 'ACHIEVEMENTS',
+        achUnlocked: 'ACHIEVEMENT UNLOCKED',
     },
     fr: {
         brandTag: "Terrain de jeu d'escalade de privilèges Linux",
@@ -248,6 +250,8 @@ window.I18N = {
         opHardened: 'durcies',
         opComplete: 'complété',
         cheatInsert: 'Clique pour insérer dans le prompt',
+        achTitle: 'SUCCÈS',
+        achUnlocked: 'SUCCÈS DÉBLOQUÉ',
     }
 };
 

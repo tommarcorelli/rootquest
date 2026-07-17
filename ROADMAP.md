@@ -66,7 +66,8 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - 🟠 🔨 **Responsive mobile** : le terminal + sidebar en 2 colonnes n'est pas pensé pour petit écran ; layout empilé + gestion du clavier virtuel.
 - 🟢 ⚡ **Effet machine à écrire / délai** sur les bannières et sorties root (immersion).
 - 🟢 ⚡ **Son optionnel** (frappe clavier, « root obtained »).
-- 🟢 ⚡ **Copie en un clic** des payloads d'indices.
+- ✅ 🟢 ⚡ **Copie en un clic** — *fait (v1.2).* Clic sur une commande de la cheatsheet → insertion dans le prompt + copie presse-papiers.
+- ✅ 🟢 🔨 **Succès / achievements** — *fait (v1.2).* 8 badges (First Blood, Apprentice, Halfway, Root Wizard, Defender, Blue-Team Legend, Ghost/rang S, Speedrunner) affichés sur le hub, toast au déblocage, persistés en localStorage.
 - ✅ 🟢 ⚡ **Thèmes** — *fait (v1.2).* Sélecteur (topbar + hub) de 5 palettes — **Kali** (défaut), **Matrix**, **Dracula**, **Amber** (CRT), **Light** — via `data-theme` sur `<html>`, persisté en `localStorage`. Chaque surface lit des variables CSS, donc un thème = un override de variables.
 
 ## 8. Qualité, tests & CI

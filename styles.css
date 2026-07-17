@@ -464,6 +464,37 @@ html, body {
 }
 .operator-status .op-metrics strong { color: var(--text); }
 
+/* ---- Achievements (hub) ---- */
+.achievements { margin-bottom: 22px; }
+.ach-title { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 10px; }
+.ach-title .ach-count { color: var(--accent); }
+.ach-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ach {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--glass-1); border: 1px solid var(--line);
+    padding: 7px 12px; border-radius: 3px;
+    font-family: var(--font-mono); font-size: 11px;
+}
+.ach-icon { font-size: 15px; line-height: 1; }
+.ach.is-earned { color: var(--text); border-color: rgba(var(--accent-rgb), 0.4); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.12); }
+.ach.is-earned .ach-name { color: var(--accent); }
+.ach.is-locked { opacity: 0.45; filter: grayscale(0.6); }
+
+/* Achievement toast */
+.ach-toast {
+    position: fixed; right: 24px; bottom: 24px; z-index: 500;
+    display: flex; align-items: center; gap: 14px;
+    background: var(--glass-3); border: 1px solid var(--accent);
+    box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.4);
+    padding: 14px 20px; border-radius: 4px; max-width: 320px;
+    transform: translateY(160%); opacity: 0;
+    transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.4s ease;
+}
+.ach-toast.show { transform: translateY(0); opacity: 1; }
+.ach-toast-icon { font-size: 26px; line-height: 1; }
+.ach-toast-txt { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
+.ach-toast-txt strong { display: block; color: var(--accent); letter-spacing: 1px; font-size: 10px; margin-bottom: 2px; }
+
 /* ============================================================================
    TERMINAL
    ========================================================================== */

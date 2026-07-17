@@ -38,11 +38,25 @@ window.CHEATS_BY_CAT = {
     'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload']
 };
 
+// Achievements — checked against a small progress snapshot.
+window.ACHIEVEMENTS = [
+    { id: 'first_blood', icon: '🩸', name: { en: 'First Blood', fr: 'Premier sang' }, desc: { en: 'Root your first machine', fr: 'Rooter ta première machine' }, check: s => s.owned >= 1 },
+    { id: 'apprentice', icon: '🎓', name: { en: 'Apprentice', fr: 'Apprenti' }, desc: { en: 'Own 5 machines', fr: 'Posséder 5 machines' }, check: s => s.owned >= 5 },
+    { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin' }, desc: { en: 'Own 8 machines', fr: 'Posséder 8 machines' }, check: s => s.owned >= 8 },
+    { id: 'root_wizard', icon: '👑', name: { en: 'Root Wizard', fr: 'Magicien du root' }, desc: { en: 'Own all machines', fr: 'Posséder toutes les machines' }, check: s => s.owned >= s.total },
+    { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)' }, check: s => s.hardened >= 1 },
+    { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team' }, desc: { en: 'Harden all 6 fixable boxes', fr: 'Durcir les 6 box corrigeables' }, check: s => s.hardened >= 6 },
+    { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)' }, check: s => s.sRank },
+    { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s' }, check: s => s.speed }
+];
+
 // Main game orchestration
 window.GAME = {
     currentLevel: 0,   // index into LEVELS
     completed: [],     // level ids completed
     hardened: [],      // level ids also hardened (blue-team bonus)
+    achievements: [],  // earned achievement ids
+    flags: { sRank: false, speed: false }, // one-shot achievement triggers
     started: false,    // a machine has been entered at least once
 
     STORAGE_KEY: 'rootquest_save_v1',
@@ -57,6 +71,8 @@ window.GAME = {
             const data = JSON.parse(raw);
             if (Array.isArray(data.completed)) this.completed = data.completed;
             if (Array.isArray(data.hardened)) this.hardened = data.hardened;
+            if (Array.isArray(data.achievements)) this.achievements = data.achievements;
+            if (data.flags && typeof data.flags === 'object') this.flags = { sRank: !!data.flags.sRank, speed: !!data.flags.speed };
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
         } catch (e) {
@@ -69,6 +85,8 @@ window.GAME = {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
                 completed: this.completed,
                 hardened: this.hardened,
+                achievements: this.achievements,
+                flags: this.flags,
                 lang: window.currentLang,
                 theme: window.currentTheme || 'kali'
             }));
@@ -81,6 +99,8 @@ window.GAME = {
         if (!window.confirm(t('resetProgressConfirm'))) return;
         this.completed = [];
         this.hardened = [];
+        this.achievements = [];
+        this.flags = { sRank: false, speed: false };
         this.saveProgress();
         this.buildHomeGrid();
         this.updateLevelsMap();
@@ -89,6 +109,7 @@ window.GAME = {
 
     boot() {
         TERM.init();
+        this.updateAchievements(false); // retroactively sync from saved progress
         this.buildLevelsMap();
         this.buildHomeGrid();
         this.wireUi();
@@ -168,6 +189,7 @@ window.GAME = {
         }
         this.updateHomeProgress();
         this.renderOperatorStatus();
+        this.renderAchievements();
     },
 
     buildMachineCard(i) {
@@ -352,12 +374,14 @@ window.GAME = {
 
         if (this.currentLevel >= LEVELS.length - 1) {
             // All done
+            this.updateAchievements(true);
             document.getElementById('finalModal').style.display = 'flex';
             return;
         }
         document.getElementById('winFlag').textContent = lvl.flag;
         this.renderDebrief(lvl);
         this.renderStats();
+        this.updateAchievements(true);
         const btBtn = document.getElementById('blueTeamBtn');
         if (btBtn) btBtn.style.display = (lvl.harden && !this.hardened.includes(lvl.id)) ? '' : 'none';
         document.getElementById('winModal').style.display = 'flex';
@@ -406,6 +430,48 @@ window.GAME = {
         set('statScore', score);
         const rankEl = document.getElementById('statRank');
         if (rankEl) { rankEl.textContent = rank; rankEl.className = 'stat-rank rank-' + rank; }
+        if (rank === 'S') this.flags.sRank = true;
+        if (sec > 0 && sec < 45) this.flags.speed = true;
+    },
+
+    // ── Achievements ────────────────────────────────────────────
+    achState() {
+        return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
+    },
+    updateAchievements(toast) {
+        const s = this.achState();
+        const earned = ACHIEVEMENTS.filter(a => a.check(s)).map(a => a.id);
+        const fresh = earned.filter(id => !this.achievements.includes(id));
+        if (fresh.length) {
+            this.achievements = earned;
+            this.saveProgress();
+            if (toast) fresh.forEach(id => this.achievementToast(ACHIEVEMENTS.find(a => a.id === id)));
+        }
+        return earned;
+    },
+    renderAchievements() {
+        const el = document.getElementById('achievements');
+        if (!el) return;
+        const earned = new Set(this.achievements);
+        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        el.innerHTML =
+            `<div class="ach-title">${t('achTitle')} <span class="ach-count">${earned.size}/${ACHIEVEMENTS.length}</span></div>` +
+            '<div class="ach-row">' + ACHIEVEMENTS.map(a => {
+                const got = earned.has(a.id);
+                return `<div class="ach ${got ? 'is-earned' : 'is-locked'}" title="${esc(a.name[currentLang])} — ${esc(a.desc[currentLang])}">` +
+                    `<span class="ach-icon">${got ? a.icon : '🔒'}</span>` +
+                    `<span class="ach-name">${esc(a.name[currentLang])}</span></div>`;
+            }).join('') + '</div>';
+    },
+    achievementToast(a) {
+        if (!a) return;
+        const div = document.createElement('div');
+        div.className = 'ach-toast';
+        div.innerHTML = `<span class="ach-toast-icon">${a.icon}</span><span class="ach-toast-txt"><strong>${t('achUnlocked')}</strong><br>${a.name[currentLang]}</span>`;
+        document.body.appendChild(div);
+        if (window.SFX) window.SFX.win();
+        requestAnimationFrame(() => div.classList.add('show'));
+        setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 2800);
     },
 
     renderDebrief(lvl) {

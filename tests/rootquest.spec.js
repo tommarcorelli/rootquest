@@ -99,6 +99,17 @@ test('operator status + contextual cheatsheet (click to insert)', async ({ page 
     await expect(page.locator('#termInput')).toHaveValue(/getcap/);
 });
 
+test('achievements unlock and appear on the hub', async ({ page }) => {
+    await enter(page, 8); // one-command S-rank solve
+    await run(page, './pwnkit');
+    await expect(page.locator('#winModal')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.ach-toast').first()).toBeVisible();
+    await page.click('#winMenuBtn');
+    const ach = page.locator('#achievements');
+    await expect(ach).toContainText('First Blood');
+    await expect(ach.locator('.ach.is-earned').first()).toBeVisible();
+});
+
 test('man page, command tab-completion and cd -', async ({ page }) => {
     await enter(page, 1);
     await run(page, 'man sudo');
