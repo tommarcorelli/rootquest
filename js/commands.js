@@ -5,6 +5,7 @@ window.SESSION = {
     user: 'player',
     host: 'box-01',
     cwd: '/home/player',
+    prevCwd: null, // for `cd -`
     env: { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' },
     isRoot: false,
     hintIndex: 0,
@@ -278,6 +279,24 @@ window.CMD = {
             ];
         },
 
+        man(args) {
+            const name = args[0];
+            if (!name) return [{ text: 'What manual page do you want? (usage: man <command>)', cls: 'dim' }];
+            const m = CMD.MANPAGES[name];
+            if (!m) return [{ text: `No manual entry for ${name}`, cls: 'err' }];
+            const lang = window.currentLang === 'fr' ? 'fr' : 'en';
+            const out = [
+                { text: `${name.toUpperCase()}(1)`, cls: 'ok' },
+                { text: 'NAME', cls: 'info' },
+                { text: `    ${name} — ${m.d[lang] || m.d.en}`, cls: '' },
+                { text: 'SYNOPSIS', cls: 'info' },
+                { text: `    ${m.s}`, cls: 'dim' }
+            ];
+            if (m.e) out.push({ text: 'EXAMPLE', cls: 'info' }, { text: `    ${m.e}`, cls: 'dim' });
+            out.push({ text: '', cls: '' });
+            return out;
+        },
+
         clear() { document.getElementById('termOutput').innerHTML = ''; return []; },
 
         whoami() { return [{ text: SESSION.user, cls: '' }]; },
@@ -331,11 +350,13 @@ window.CMD = {
         },
 
         cd(args) {
-            const target = args[0] || '/home/player';
+            let target = args[0] || '/home/player';       // no arg → home
+            if (target === '-') target = SESSION.prevCwd || SESSION.cwd; // previous dir
             const n = FS.normalize(target);
             const node = FS.get(n);
             if (!node) return [{ text: t('noSuchFile', target), cls: 'err' }];
             if (node.type !== 'dir') return [{ text: t('notDirectory', target), cls: 'err' }];
+            SESSION.prevCwd = SESSION.cwd;
             SESSION.cwd = n;
             return [];
         },
@@ -876,6 +897,31 @@ window.CMD = {
             }
             return [{ text: 'logout', cls: 'dim' }];
         },
+    },
+
+    // In-game manual pages (d = bilingual description, s = synopsis, e = example).
+    MANPAGES: {
+        ls:     { d: { en: 'list directory contents', fr: 'lister le contenu d\'un dossier' }, s: 'ls [-la] [path]', e: 'ls -la /etc' },
+        cd:     { d: { en: 'change the working directory', fr: 'changer de dossier courant' }, s: 'cd [dir | - ]', e: 'cd /tmp ; cd -' },
+        cat:    { d: { en: 'print file contents', fr: 'afficher le contenu d\'un fichier' }, s: 'cat <file>...', e: 'cat /etc/passwd' },
+        find:   { d: { en: 'search the filesystem; -perm -4000 finds SUID', fr: 'chercher dans le FS ; -perm -4000 trouve les SUID' }, s: 'find <path> [-perm -4000] [-exec cmd \\;]', e: 'find / -perm -4000 2>/dev/null' },
+        chmod:  { d: { en: 'change permissions; u-s drops the SUID bit', fr: 'changer les permissions ; u-s retire le SUID' }, s: 'chmod <mode|u-s|+x> <file>', e: 'chmod u-s /usr/bin/find' },
+        getcap: { d: { en: 'list file capabilities', fr: 'lister les capabilities des fichiers' }, s: 'getcap -r <path>', e: 'getcap -r / 2>/dev/null' },
+        setcap: { d: { en: 'set or (-r) remove file capabilities', fr: 'définir ou (-r) retirer les capabilities' }, s: 'setcap -r <file>', e: 'setcap -r /usr/bin/python3' },
+        sudo:   { d: { en: 'run a command as another user; -l lists your rights', fr: 'exécuter en tant qu\'autre user ; -l liste tes droits' }, s: 'sudo [-l] [VAR=val] <cmd>', e: 'sudo -l' },
+        su:     { d: { en: 'switch user (root if the account has no password)', fr: 'changer d\'utilisateur (root si le compte n\'a pas de mot de passe)' }, s: 'su <user>', e: 'su root' },
+        ssh:    { d: { en: 'connect over SSH, optionally with a key', fr: 'se connecter en SSH, éventuellement avec une clé' }, s: 'ssh [-i keyfile] user@host', e: 'ssh -i id_rsa root@localhost' },
+        gcc:    { d: { en: 'compile C source into a binary/shared object', fr: 'compiler du C en binaire/objet partagé' }, s: 'gcc [-shared -fPIC] -o <out> <src.c>', e: 'gcc -shared -fPIC -o /tmp/x.so /tmp/x.c' },
+        touch:  { d: { en: 'create an empty file (./ prefix avoids option parsing)', fr: 'créer un fichier vide (préfixe ./ pour éviter l\'analyse d\'options)' }, s: 'touch <file>', e: "touch ./--checkpoint=1" },
+        echo:   { d: { en: 'print text; redirect with > or >>', fr: 'afficher du texte ; rediriger avec > ou >>' }, s: 'echo <text> [> file]', e: "echo 'hi' > /tmp/f" },
+        export: { d: { en: 'set an environment variable', fr: 'définir une variable d\'environnement' }, s: 'export VAR=value', e: 'export PATH=/tmp:$PATH' },
+        python3:{ d: { en: 'run a Python one-liner', fr: 'exécuter un one-liner Python' }, s: "python3 -c '<code>'", e: "python3 -c 'import os; os.setuid(0); os.system(\"/bin/sh\")'" },
+        grep:   { d: { en: 'filter lines matching a pattern', fr: 'filtrer les lignes correspondant à un motif' }, s: 'grep [-ivc] <pattern> <file>', e: 'cat /etc/passwd | grep -v nologin' },
+        ps:     { d: { en: 'report running processes', fr: 'lister les processus en cours' }, s: 'ps [aux]', e: 'ps aux | grep root' },
+        docker: { d: { en: 'control containers; docker group ~= root', fr: 'gérer des conteneurs ; groupe docker ~= root' }, s: 'docker run -v /:/mnt ...', e: 'docker run -v /:/mnt -it alpine chroot /mnt sh' },
+        crontab:{ d: { en: 'list cron jobs (see also /etc/crontab)', fr: 'lister les tâches cron (voir aussi /etc/crontab)' }, s: 'crontab -l', e: 'cat /etc/crontab' },
+        wait:   { d: { en: 'wait for a scheduled cron job to fire', fr: 'attendre le déclenchement d\'un job cron' }, s: 'wait', e: 'wait' },
+        man:    { d: { en: 'show this manual for a command', fr: 'afficher ce manuel pour une commande' }, s: 'man <command>', e: 'man sudo' }
     },
 
     // ── Special routines ────────────────────────────────────────

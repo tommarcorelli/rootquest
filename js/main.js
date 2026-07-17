@@ -102,6 +102,7 @@ window.GAME = {
         SESSION.user = lvl.user;
         SESSION.host = lvl.host;
         SESSION.cwd = lvl.cwd;
+        SESSION.prevCwd = null;
         SESSION.env = { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' };
         SESSION.isRoot = false;
         SESSION.hintIndex = 0;

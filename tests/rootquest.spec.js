@@ -99,6 +99,20 @@ test('operator status + contextual cheatsheet (click to insert)', async ({ page 
     await expect(page.locator('#termInput')).toHaveValue(/getcap/);
 });
 
+test('man page, command tab-completion and cd -', async ({ page }) => {
+    await enter(page, 1);
+    await run(page, 'man sudo');
+    await expect(page.locator('#termOutput')).toContainText('SYNOPSIS');
+    await expect(page.locator('#termOutput')).toContainText('sudo [-l]');
+    await page.fill('#termInput', 'getc');
+    await page.locator('#termInput').press('Tab');
+    await expect(page.locator('#termInput')).toHaveValue('getcap ');
+    await run(page, 'cd /tmp');
+    await run(page, 'cd -');
+    await run(page, 'pwd');
+    await expect(page.locator('#termOutput')).toContainText('/home/player');
+});
+
 test('sound toggle flips state and persists', async ({ page }) => {
     await page.goto('/');
     const btn = page.locator('[data-testid="home-sound-btn"]');

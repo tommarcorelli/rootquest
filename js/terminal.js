@@ -53,8 +53,28 @@ window.TERM = {
         }
     },
 
+    commonPrefix(arr) {
+        if (!arr.length) return '';
+        let p = arr[0];
+        for (const s of arr) { while (!s.startsWith(p)) p = p.slice(0, -1); }
+        return p;
+    },
+
     tabComplete() {
         const val = this.inputEl.value;
+        // First token, still being typed → complete against command names.
+        if (val && !val.includes(' ')) {
+            const names = Object.keys(window.CMD.handlers).filter(n => /^[a-z0-9]+$/.test(n));
+            const matches = names.filter(n => n.startsWith(val)).sort();
+            if (matches.length === 1) { this.inputEl.value = matches[0] + ' '; return; }
+            if (matches.length > 1) {
+                const common = this.commonPrefix(matches);
+                if (common.length > val.length) this.inputEl.value = common;
+                this.print([{ text: matches.join('  '), cls: 'dim' }]);
+                this.scrollToBottom();
+            }
+            return;
+        }
         const tokens = val.split(' ');
         const last = tokens[tokens.length - 1];
         if (!last) return;

@@ -42,8 +42,9 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟠 🔨 **Support des pipes (`|`)** — *fait (v1.2).* Pipelines quote-aware `cmd1 | cmd2 | cmd3` avec filtres `grep [-ivc]`, `wc [-l]`, `head`/`tail [-n]`, `sort [-ru]`, `uniq` (cœur partagé `_filter()`, utilisables aussi en autonome).
 - ✅ 🟠 ⚡ **Commandes manquantes courantes** — *fait (v1.2).* `ps [aux]`, `env`, `uname -a`, `hostname`, `mount`, `which`, `file`, `history` (+ `touch`, `gcc`, `ssh` pour les nouvelles box). Sortie technique authentique.
 - 🟢 ⚡ **`sudo -l` sans NOPASSWD** devrait demander un mot de passe simulé (immersion).
-- 🟢 🔨 **Auto-complétion des commandes** (pas seulement des chemins) sur `Tab`.
-- 🟢 ⚡ **`cd -` / `cd` sans argument** → home ; gérer `pushd`/`popd` optionnel.
+- ✅ 🟢 🔨 **Auto-complétion des commandes** — *fait (v1.2).* `Tab` complète le nom de commande (1er token) en plus des chemins (préfixe commun + liste si ambigu).
+- ✅ 🟢 ⚡ **`cd -` / `cd` sans argument** — *fait (v1.2).* Sans argument → home, `cd -` → dossier précédent (`SESSION.prevCwd`). `pushd`/`popd` non gérés.
+- ✅ 🟢 🔨 **Pages de manuel en jeu** — *fait (v1.2).* `man <commande>` affiche NAME/SYNOPSIS/EXAMPLE bilingue pour ~22 commandes (`CMD.MANPAGES`).
 - 🟢 🔨 **Persistance de l'historique** entre machines (localStorage) + navigation `Ctrl+R` (recherche).
 
 ## 5. Internationalisation (i18n)

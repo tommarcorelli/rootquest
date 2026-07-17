@@ -97,6 +97,7 @@ window.I18N = {
             '  touch <file>              create an empty file',
             '  gcc -o <out> <src.c>      compile a source file',
             '  ssh [-i key] user@host    connect over SSH',
+            '  man <command>             read a command\'s manual page',
             '  hint / clear / reset / next / lang <en|fr>',
             ''
         ],
@@ -219,6 +220,7 @@ window.I18N = {
             '  touch <file>              créer un fichier vide',
             '  gcc -o <out> <src.c>      compiler un fichier source',
             '  ssh [-i key] user@host    se connecter en SSH',
+            '  man <command>             lire le manuel d\'une commande',
             '  hint / clear / reset / next / lang <en|fr>',
             ''
         ],

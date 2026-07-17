@@ -40,12 +40,13 @@ start index.html         # Windows
 - `reset` — restart the current machine
 - `lang en` / `lang fr` — switch language
 - `↑ / ↓` — command history
-- `Tab` — path completion
+- `Tab` — command & path completion
 - `Ctrl+L` — clear screen
+- `man <command>` — read a command's manual page; `cd -` — previous directory
 
 ## Commands supported
 
-`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `whoami`, `id`, `wait`.
+`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `setcap`, `python3 -c '...'`, `awk`, `vim`, `whoami`, `id`, `wait`, `man <cmd>`.
 
 **Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`).
 
