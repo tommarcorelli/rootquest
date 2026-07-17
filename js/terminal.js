@@ -18,6 +18,10 @@ window.TERM = {
     },
 
     onKey(e) {
+        if (window.SFX) {
+            if (e.key === 'Enter') window.SFX.enter();
+            else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) window.SFX.key();
+        }
         if (e.key === 'Enter') {
             e.preventDefault();
             const raw = this.inputEl.value;
@@ -77,6 +81,7 @@ window.TERM = {
         if (raw.trim()) this.history.push(raw);
         const lines = window.CMD.execute(raw);
         this.print(lines);
+        if (window.SFX && lines.some(l => l.cls === 'err')) window.SFX.error();
         this.scrollToBottom();
     },
 

@@ -73,3 +73,14 @@ test('theme switch applies and persists across reload', async ({ page }) => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula');
     await expect(page.locator('[data-testid="home-theme-select"]')).toHaveValue('dracula');
 });
+
+test('sound toggle flips state and persists', async ({ page }) => {
+    await page.goto('/');
+    const btn = page.locator('[data-testid="home-sound-btn"]');
+    await expect(btn).toHaveText('🔇'); // muted by default
+    await btn.click();
+    await expect(btn).toHaveText('🔊');
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+    await page.reload();
+    await expect(page.locator('[data-testid="home-sound-btn"]')).toHaveText('🔊');
+});

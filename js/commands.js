@@ -878,6 +878,7 @@ window.CMD = {
             SESSION.user = 'root';
             document.body.classList.add('is-root');
             window.updatePrompt();
+            if (window.SFX) window.SFX.win();
             const via = meta.via ? ` (via ${meta.via})` : '';
             const lines = [
                 { text: '# ' + t('rootObtained') + via, cls: 'ok' },

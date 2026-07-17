@@ -374,6 +374,10 @@ window.GAME = {
         document.querySelectorAll('.theme-select').forEach(sel => {
             sel.addEventListener('change', () => window.setTheme(sel.value));
         });
+
+        document.querySelectorAll('.sound-btn').forEach(b => {
+            b.addEventListener('click', () => window.SFX && window.SFX.toggle());
+        });
     }
 };
 
@@ -410,6 +414,7 @@ window.setLanguage = function(lang) {
 document.addEventListener('DOMContentLoaded', () => {
     window.GAME.loadSave();
     window.setTheme(window.currentTheme || 'kali');
+    if (window.SFX) window.SFX.init();
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });

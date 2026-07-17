@@ -305,6 +305,11 @@ html, body {
 .theme-select:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .theme-select option { background: var(--bg-0); color: var(--text); }
 
+/* Sound toggle — square ghost button holding an emoji */
+.sound-btn { padding: 6px 10px; font-size: 13px; line-height: 1; }
+.sound-btn.is-on { color: var(--accent); border-color: var(--accent); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.35); }
+.sound-btn.is-on:hover { color: var(--bg-0); }
+
 /* ============================================================================
    LAYOUT
    ========================================================================== */
