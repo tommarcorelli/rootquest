@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 10 independent Linux machines, 10 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 13 independent Linux machines, 13 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -26,6 +26,9 @@ start index.html         # Windows
 | 8 | box-08 | Medium | Unpatched local root — PwnKit (CVE-2021-4034) | `./pwnkit` |
 | 9 | box-09 | Hard | Credential reuse → lateral move → sudo | `su svc`, `sudo bash` |
 | 10 | box-10 | Hard | `docker` group membership | `docker run -v /:/mnt -it alpine chroot /mnt sh` |
+| 11 | box-11 | Medium | `sudo` env_keep leaks `LD_PRELOAD` | `gcc -shared … x.so`, `sudo LD_PRELOAD=/tmp/x.so apache2ctl` |
+| 12 | box-12 | Hard | Wildcard injection into a root `tar` cron | `touch ./--checkpoint-action=exec=sh runme.sh`, `wait` |
+| 13 | box-13 | Easy | World-readable root SSH private key | `ssh -i /opt/backup/id_rsa root@localhost` |
 
 ## Controls
 
@@ -40,7 +43,9 @@ start index.html         # Windows
 
 ## Commands supported
 
-`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `docker`, `crontab -l`, `getcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `python3 -c '...'`, `awk`, `vim`, `whoami`, `id`, `wait`, plus meta commands.
+`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `whoami`, `id`, `wait`.
+
+**Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`).
 
 ## Language
 
@@ -54,7 +59,7 @@ privesc-game/
 ├── styles.css         # Kali/Parrot-inspired terminal styling
 └── js/
     ├── i18n.js        # Bilingual dictionary
-    ├── levels.js      # 10 machines with their filesystems
+    ├── levels.js      # 13 machines with their filesystems
     ├── fs.js          # Simulated filesystem
     ├── commands.js    # Command interpreter
     ├── terminal.js    # Terminal UI (history, prompt, rendering)

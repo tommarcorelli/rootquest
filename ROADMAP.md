@@ -1,7 +1,7 @@
 # 🗺️ Fiche de route — rootQuest
 
 Feuille de route des améliorations possibles pour **rootQuest** (jeu de terminal d'escalade de privilèges Linux, 100 % vanilla JS).
-Statut actuel : **v1.1 fonctionnelle** — 10 machines réparties en 3 tiers (Débutant / Intermédiaire / Avancé), 10 vulnérabilités, hub par tiers + scorecard de victoire, bilingue EN/FR, aucune dépendance de build.
+Statut actuel : **v1.2 fonctionnelle** — 13 machines réparties en 3 tiers (Débutant / Intermédiaire / Avancé), 13 vulnérabilités, hub par tiers + scorecard de victoire, terminal réaliste (pipes + `grep`/`ps`/`env`/…), bilingue EN/FR, aucune dépendance de build.
 
 Légende : 🔴 prioritaire · 🟠 important · 🟢 confort · 💡 idée long terme
 Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
@@ -22,22 +22,23 @@ Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
 
 ## 3. Contenu — nouvelles machines / vulnérabilités
 
-Le moteur gère désormais **10 vecteurs** (5 d'origine + 5 ajoutés en v1.1). Statut des idées :
+Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2). Statut des idées :
 
 - ✅ 🟠 🔨 **Writable `/etc/passwd`** — *fait (box-06).* Ajout d'un root sans mot de passe (`r00t::0:0::/root:/bin/bash`) puis `su r00t`.
 - ✅ 🟠 🔨 **`sudo awk` (GTFOBins)** — *fait (box-07).* NOPASSWD sur `awk` → `sudo awk 'BEGIN{system("/bin/sh")}'`.
 - ✅ 🟢 🏗️ **Kernel exploit simulé** — *fait (box-08).* PwnKit / CVE-2021-4034 en version pédagogique (`./pwnkit`).
 - ✅ 💡 🏗️ **Chaîne multi-étapes** — *fait (box-09).* Creds en clair → pivot `su svc` → `sudo bash` (plusieurs UID).
 - ✅ 🟠 🏗️ **Groupe `docker`** — *fait (box-10).* `docker run -v /:/mnt` pour monter l'hôte.
-- 🟠 🔨 **`sudo` avec `LD_PRELOAD` / `env_keep`** — *encore ouvert.* Bibliothèque malveillante.
-- 🟠 🔨 **Wildcard injection** (`tar`/`chown` avec `*` dans un cron ou script root) — *encore ouvert.*
-- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** — *encore ouvert.*
+- ✅ 🟠 🔨 **`sudo` avec `LD_PRELOAD` / `env_keep`** — *fait (box-11).* `env_keep+=LD_PRELOAD` + `.so` compilé via `gcc` → `sudo LD_PRELOAD=/tmp/x.so apache2ctl`.
+- ✅ 🟠 🔨 **Wildcard injection** — *fait (box-12).* `tar -czf ... *` dans un cron root + fichiers-options `./--checkpoint-action=exec=sh runme.sh`.
+- ✅ 🟢 🔨 **Clé SSH root lisible** — *fait (box-13).* Clé privée world-readable dans une sauvegarde → `ssh -i /opt/backup/id_rsa root@localhost`.
+- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`**, **`chown`/wildcard sur autre binaire** — *encore ouvert.*
 
 ## 4. Moteur terminal & réalisme du shell
 
 - ✅ 🔴 🔨 **Découpler la logique de « win » des données `levels[].wins`** — *fait.* `spawnShell(true, { type })` vérifie désormais le `type` contre `level.wins[]` via `CMD.winConditionMet()` avant d'accorder root ; les 5 exploits référencent leur type déclaré (`suid_shell_via`, `cron_hijack`, `python_setuid`, `path_hijack`, `sudo_vim_escape`). `wins[]` est la source de vérité : oublier l'entrée ou se tromper de type bloque l'exploit au lieu de planter silencieusement. **v1.1** a poussé le data-driven plus loin : un nœud fs peut déclarer `exploit: '<type>'` (exploit auto-contenu), un **détecteur générique d'évasions sudo GTFOBins** (vim, awk, env, find, bash/sh, less…) pilote le bon type de victoire depuis `level.wins`, et les mécaniques cron/PATH sont dé-hardcodées (chemin lu depuis `wins`, plus de `level.id === 2`). Reste ouvert : un moteur totalement générique qui déduirait *comment* déclencher l'exploit depuis la donnée seule.
-- 🟠 🔨 **Support des pipes (`|`)** — le code note « only support simple `| cat` for now » mais rien n'est implémenté. Ajouter `grep`, `wc`, `head`, `tail`, `sort`.
-- 🟠 ⚡ **Commandes manquantes courantes** : `grep`, `env`, `uname -a`, `hostname`, `mount`, `ps` (en tant que vraie commande), `which`, `file`, `history`.
+- ✅ 🟠 🔨 **Support des pipes (`|`)** — *fait (v1.2).* Pipelines quote-aware `cmd1 | cmd2 | cmd3` avec filtres `grep [-ivc]`, `wc [-l]`, `head`/`tail [-n]`, `sort [-ru]`, `uniq` (cœur partagé `_filter()`, utilisables aussi en autonome).
+- ✅ 🟠 ⚡ **Commandes manquantes courantes** — *fait (v1.2).* `ps [aux]`, `env`, `uname -a`, `hostname`, `mount`, `which`, `file`, `history` (+ `touch`, `gcc`, `ssh` pour les nouvelles box). Sortie technique authentique.
 - 🟢 ⚡ **`sudo -l` sans NOPASSWD** devrait demander un mot de passe simulé (immersion).
 - 🟢 🔨 **Auto-complétion des commandes** (pas seulement des chemins) sur `Tab`.
 - 🟢 ⚡ **`cd -` / `cd` sans argument** → home ; gérer `pushd`/`popd` optionnel.
@@ -129,9 +130,11 @@ Le moteur gère désormais **10 vecteurs** (5 d'origine + 5 ajoutés en v1.1). S
 3. ✅ **Piloter les victoires par `levels[].wins`** — fait.
 4. ✅ **Écran de débrief pédagogique** — fait.
 5. ✅ **Enrichissement contenu v1.1** — fait. 5 nouvelles box (6→10), hub par tiers, scorecard, refactor moteur data-driven. Vérifié (harnais Node 11/11 + Chrome headless e2e).
-6. **Suite de tests Playwright + GitHub Pages + CI**. 🔴🟠 ← prochaine étape la plus utile (les `data-testid` sont déjà en place).
-7. Puis **i18n du terminal** (beaucoup de sortie encore en anglais dur dans `commands.js`) et **réalisme shell** (pipes + `grep`/`ps`/`env` pour l'énumération des nouvelles box).
+6. ✅ **Réalisme shell (v1.2)** — fait. Pipes + filtres (`grep`/`wc`/`head`/`tail`/`sort`) + commandes d'énumération (`ps`/`env`/`uname`/…).
+7. ✅ **Contenu v1.2** — fait. 3 nouvelles box (11 LD_PRELOAD, 12 wildcard tar, 13 clé SSH). Harnais Node 14/14.
+8. **Suite de tests Playwright + GitHub Pages + CI**. 🔴🟠 ← en cours.
+9. Puis **i18n du terminal** (beaucoup de sortie encore en anglais dur dans `commands.js`). 🟠 ← en cours.
 
 ---
 
-*Généré le 2026-07-11, révisé le 2026-07-17 (v1.1 : 10 box + tiers + scorecard). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
+*Généré le 2026-07-11, révisé le 2026-07-17 (v1.2 : 13 box + réalisme shell + pipes). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*

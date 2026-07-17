@@ -276,6 +276,9 @@ window.CMD = {
                 { text: '  which <cmd> / file <path> locate a command / identify a file', cls: 'dim' },
                 { text: '  grep <pat> <f> / wc / head / tail / sort / uniq / history', cls: 'dim' },
                 { text: '  <cmd> | <filter>          pipe output into grep/wc/head/tail/sort', cls: 'dim' },
+                { text: '  touch <file>              create an empty file', cls: 'dim' },
+                { text: '  gcc -o <out> <src.c>      compile a source file', cls: 'dim' },
+                { text: '  ssh [-i key] user@host    connect over SSH', cls: 'dim' },
                 { text: '  hint / clear / reset / next / lang <en|fr>', cls: 'dim' },
                 { text: '', cls: '' }
             ];
@@ -589,6 +592,60 @@ window.CMD = {
             ];
         },
 
+        // ── Build / file-creation tools used by the newer boxes ──
+        gcc(args) {
+            let out = 'a.out';
+            const srcs = [];
+            for (let i = 0; i < args.length; i++) {
+                if (args[i] === '-o') { out = args[++i] || 'a.out'; continue; }
+                if (args[i].startsWith('-')) continue;
+                srcs.push(args[i]);
+            }
+            for (const s of srcs) {
+                if (!FS.get(FS.normalize(s))) return [{ text: `gcc: error: ${s}: No such file or directory`, cls: 'err' }];
+            }
+            if (!srcs.length) return [{ text: 'gcc: fatal error: no input files\ncompilation terminated.', cls: 'err' }];
+            FS.writeFile(FS.normalize(out), 'ELF 64-bit LSB shared object, x86-64 (compiled payload)');
+            return []; // gcc is silent on success
+        },
+        cc(args) { return CMD.handlers.gcc.call(this, args); },
+
+        touch(args) {
+            for (const a of args) {
+                if (a.startsWith('-')) continue;
+                const n = FS.normalize(a);
+                if (!FS.get(n)) FS.createFile(n, '');
+            }
+            return [];
+        },
+
+        ssh(args) {
+            const level = window.GAME.level();
+            let key = null, target = null;
+            for (let i = 0; i < args.length; i++) {
+                if (args[i] === '-i') { key = args[++i]; continue; }
+                if (args[i].startsWith('-')) continue;
+                if (!target) target = args[i];
+            }
+            if (!target) return [{ text: 'usage: ssh [-i keyfile] user@host', cls: 'dim' }];
+            const user = target.includes('@') ? target.split('@')[0] : SESSION.user;
+            const host = target.includes('@') ? target.split('@')[1] : target;
+            const sshWin = (level.wins || []).find(w => w.type === 'ssh_key');
+            if (key) {
+                const keyNode = FS.get(FS.normalize(key));
+                if (!keyNode) return [{ text: `Warning: Identity file ${key} not accessible: No such file or directory.`, cls: 'err' }];
+                const readable = FS.canRead(FS.normalize(key));
+                const isPriv = (keyNode.content || '').includes('PRIVATE KEY');
+                if (user === 'root' && readable && isPriv && sshWin) {
+                    return this.spawnShell(true, { via: `ssh -i ${FS.basename(key)} root@${host}`, type: 'ssh_key' });
+                }
+                if (user === 'root' && (!readable || !isPriv)) {
+                    return [{ text: `root@${host}: Permission denied (publickey).`, cls: 'err' }];
+                }
+            }
+            return [{ text: `${user}@${host}: Permission denied (publickey,password).`, cls: 'err' }];
+        },
+
         sudo(args) {
             if (args[0] === '-l') {
                 const level = window.GAME.level();
@@ -596,9 +653,10 @@ window.CMD = {
                 if (entries.length === 0) {
                     return [{ text: 'Sorry, user player may not run sudo on ' + SESSION.host + '.', cls: 'err' }];
                 }
+                const envKeep = (level.env_keep && level.env_keep.length) ? ', env_keep+="' + level.env_keep.join(' ') + '"' : '';
                 const lines = [
                     { text: `Matching Defaults entries for ${SESSION.user} on ${SESSION.host}:`, cls: '' },
-                    { text: '    env_reset, mail_badpass', cls: '' },
+                    { text: '    env_reset, mail_badpass' + envKeep, cls: envKeep ? 'warn' : '' },
                     { text: '', cls: '' },
                     { text: `User ${SESSION.user} may run the following commands on ${SESSION.host}:`, cls: '' }
                 ];
@@ -608,20 +666,44 @@ window.CMD = {
                 }
                 return lines;
             }
-            // sudo <cmd> [args]
+            // sudo [VAR=value ...] <cmd> [args]
             if (args.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
             const level = window.GAME.level();
             const entries = level.sudoers?.[SESSION.user] || [];
-            const cmdPath = args[0].startsWith('/') ? args[0] : '/usr/bin/' + args[0];
-            const allowed = entries.find(e => e.cmd === cmdPath || e.cmd === args[0]);
+
+            // Capture leading VAR=value tokens (environment passed through sudo).
+            const envAssigns = {};
+            let ai = 0;
+            while (ai < args.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(args[ai])) {
+                const eq = args[ai].indexOf('=');
+                envAssigns[args[ai].slice(0, eq)] = args[ai].slice(eq + 1);
+                ai++;
+            }
+            const cmdArgs = args.slice(ai);
+
+            // LD_PRELOAD abuse: sudoers kept LD_PRELOAD in env_keep, and the user can
+            // sudo *something*, so a malicious shared object runs as root.
+            if (envAssigns.LD_PRELOAD !== undefined) {
+                const preloadOk = (level.env_keep || []).includes('LD_PRELOAD');
+                const soNode = FS.get(FS.normalize(envAssigns.LD_PRELOAD));
+                if (preloadOk && soNode && entries.length) {
+                    return this.spawnShell(true, { via: 'sudo LD_PRELOAD=' + FS.basename(envAssigns.LD_PRELOAD), type: 'ld_preload' });
+                }
+                if (!preloadOk) return [{ text: 'sudo: LD_PRELOAD not preserved (not in env_keep) — ignored', cls: 'dim' }];
+                if (!soNode) return [{ text: `sudo: cannot preload '${envAssigns.LD_PRELOAD}': No such file or directory`, cls: 'err' }];
+            }
+
+            if (cmdArgs.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
+            const cmdPath = cmdArgs[0].startsWith('/') ? cmdArgs[0] : '/usr/bin/' + cmdArgs[0];
+            const allowed = entries.find(e => e.cmd === cmdPath || e.cmd === cmdArgs[0] || e.cmd === 'ALL');
             if (!allowed) {
-                return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${args.join(' ')}' as root.`, cls: 'err' }];
+                return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${cmdArgs.join(' ')}' as root.`, cls: 'err' }];
             }
             // Generic GTFOBins-style shell escape. The type granted is whatever sudo
             // win the level declares, so both sudo_vim_escape (box-05) and the newer
             // generic sudo_shell boxes are driven from data, not hard-coded here.
-            const binBase = FS.basename(allowed.cmd);
-            const joined = args.join(' ');
+            const binBase = FS.basename(allowed.cmd === 'ALL' ? cmdArgs[0] : allowed.cmd);
+            const joined = cmdArgs.join(' ');
             if (this.sudoEscapes(binBase, joined)) {
                 const sudoWin = (level.wins || []).find(w => w.type === 'sudo_vim_escape' || w.type === 'sudo_shell');
                 return this.spawnShell(true, { via: 'sudo ' + binBase, type: sudoWin ? sudoWin.type : 'sudo_shell' });
@@ -633,7 +715,7 @@ window.CMD = {
                     { text: '(simulator: use  sudo vim -c \':!/bin/sh\'  to escape in one command)', cls: 'dim' }
                 ];
             }
-            return [{ text: `sudo: executed ${args.join(' ')} as root`, cls: 'ok' }];
+            return [{ text: `sudo: executed ${cmdArgs.join(' ')} as root`, cls: 'ok' }];
         },
 
         su(args) {
@@ -725,6 +807,30 @@ window.CMD = {
                     lines.push(...this.spawnShell(true, { via: 'cron', type: 'cron_hijack' }));
                 }
                 return lines;
+            }
+
+            // Wildcard-injection cron (tar --checkpoint-action). If the target dir now
+            // holds a crafted option-filename pointing at a real script, tar runs it as root.
+            const wtar = (window.GAME.level().wins || []).find(w => w.type === 'wildcard_tar');
+            if (wtar) {
+                const listing = FS.listDir(wtar.dir) || [];
+                const action = listing.find(f => f.name.startsWith('--checkpoint-action='));
+                if (action) {
+                    const execPart = (action.name.split('exec=')[1] || '').trim();
+                    const scriptName = execPart.replace(/^(sh|bash)\s+/, '').replace(/^\.\//, '').trim();
+                    const scriptNode = scriptName && (FS.get(FS.normalize(wtar.dir + '/' + scriptName)) || FS.get(FS.normalize(scriptName)));
+                    if (scriptNode) {
+                        return [
+                            { text: '', cls: '' },
+                            { text: '[+] cron ran: tar -czf ... *  (as root)', cls: 'ok' },
+                            { text: `# tar parsed '${action.name}' as an option → executed ${scriptName} as root`, cls: 'dim' },
+                            { text: '', cls: '' },
+                            ...this.spawnShell(true, { via: 'wildcard injection (tar --checkpoint-action)', type: 'wildcard_tar' })
+                        ];
+                    }
+                    return [{ text: '(cron ran tar, but the --checkpoint-action script was not found)', cls: 'dim' }];
+                }
+                return [{ text: '[*] cron ran tar over the directory — craft --checkpoint / --checkpoint-action files first.', cls: 'dim' }];
             }
             return [{ text: '(no pending cron job)', cls: 'dim' }];
         },

