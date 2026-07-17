@@ -46,7 +46,7 @@ Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2)
 
 ## 5. Internationalisation (i18n)
 
-- 🟠 🔨 **Traduire la sortie du terminal** — aujourd'hui `commands.js` contient beaucoup de texte anglais en dur (`help`, sorties de `sudo`, `spawnShell`, `runStatusBinary`, messages `vim`/`python`). Seul l'UI statique (`data-i18n`) et les niveaux sont bilingues. La bascule FR laisse le terminal majoritairement en anglais.
+- ✅ 🟠 🔨 **Traduire la sortie du terminal** — *fait (v1.2), par choix de design.* Règle : la **voix du jeu** est localisée (menu `help`, notes du simulateur `(...)`, nudges `vim`/`python`, coaching `su`/wildcard, exploit invalide) via de nouvelles clés i18n ; les **sorties verbatim d'outils/OS** (ls, cat, `ps`/`env`/`uname`, refus `sudo`, erreurs `su`/`ssh`/`gcc`, `sudo -l`) **restent en anglais** — un vrai Linux les affiche en anglais et l'immersion d'un jeu de hacking en dépend. Vérifié EN+FR (aucune clé brute qui fuit).
 - 🟢 ⚡ **Mémoriser la langue choisie** en `localStorage`.
 - 💡 🔨 **3e langue** (ES/DE) une fois le dictionnaire consolidé.
 

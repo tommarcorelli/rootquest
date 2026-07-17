@@ -253,34 +253,7 @@ window.CMD = {
         help(args) {
             return [
                 { text: t('helpHeader'), cls: 'ok' },
-                { text: '  ls [-la] [path]           list files', cls: 'dim' },
-                { text: '  cd <path>                 change directory', cls: 'dim' },
-                { text: '  pwd                       print working directory', cls: 'dim' },
-                { text: '  cat <file>                display file contents', cls: 'dim' },
-                { text: '  find <path> [opts]        find files (supports -perm -4000, -exec)', cls: 'dim' },
-                { text: '  whoami / id               user identity', cls: 'dim' },
-                { text: '  echo <text> [> file]      print / write text', cls: 'dim' },
-                { text: '  chmod <mode> <file>       change permissions', cls: 'dim' },
-                { text: '  export VAR=value          set environment variable', cls: 'dim' },
-                { text: '  sudo [-l] <cmd>           run as another user', cls: 'dim' },
-                { text: '  su <user>                 switch user', cls: 'dim' },
-                { text: '  docker run ...            run a container (if in docker group)', cls: 'dim' },
-                { text: '  crontab -l                list user cron jobs', cls: 'dim' },
-                { text: '  getcap -r /               list file capabilities', cls: 'dim' },
-                { text: '  strings <file>            printable strings in a binary', cls: 'dim' },
-                { text: '  python3 -c "<code>"       execute Python one-liner', cls: 'dim' },
-                { text: '  vim <file>                edit file (limited support)', cls: 'dim' },
-                { text: '  wait                      wait for cron to trigger', cls: 'dim' },
-                { text: '  ps [aux] / env / mount    inspect processes / environment / mounts', cls: 'dim' },
-                { text: '  uname [-a] / hostname     system & kernel information', cls: 'dim' },
-                { text: '  which <cmd> / file <path> locate a command / identify a file', cls: 'dim' },
-                { text: '  grep <pat> <f> / wc / head / tail / sort / uniq / history', cls: 'dim' },
-                { text: '  <cmd> | <filter>          pipe output into grep/wc/head/tail/sort', cls: 'dim' },
-                { text: '  touch <file>              create an empty file', cls: 'dim' },
-                { text: '  gcc -o <out> <src.c>      compile a source file', cls: 'dim' },
-                { text: '  ssh [-i key] user@host    connect over SSH', cls: 'dim' },
-                { text: '  hint / clear / reset / next / lang <en|fr>', cls: 'dim' },
-                { text: '', cls: '' }
+                ...(t('helpCommands') || []).map(line => ({ text: line, cls: 'dim' }))
             ];
         },
 
@@ -711,8 +684,8 @@ window.CMD = {
             // Allowed, but no shell-escape attempted yet — nudge for interactive editors.
             if (binBase === 'vim' || binBase === 'vi') {
                 return [
-                    { text: '(vim opened as root — type ":!/bin/sh" to escape, or ":q" to quit)', cls: 'dim' },
-                    { text: '(simulator: use  sudo vim -c \':!/bin/sh\'  to escape in one command)', cls: 'dim' }
+                    { text: t('vimRootNudge1'), cls: 'dim' },
+                    { text: t('vimRootNudge2'), cls: 'dim' }
                 ];
             }
             return [{ text: `sudo: executed ${cmdArgs.join(' ')} as root`, cls: 'ok' }];
@@ -742,8 +715,8 @@ window.CMD = {
             if (FS.get(home)) SESSION.cwd = home;
             window.updatePrompt();
             return [
-                { text: `[+] switched user → ${target}`, cls: 'ok' },
-                { text: '    enumerate this account (try: sudo -l)', cls: 'dim' }
+                { text: t('suSwitched', target), cls: 'ok' },
+                { text: t('suEnumerate'), cls: 'dim' }
             ];
         },
 
@@ -767,7 +740,7 @@ window.CMD = {
             // Only support: python3 -c '<code>'
             const cIdx = args.indexOf('-c');
             if (cIdx === -1 || !args[cIdx + 1]) {
-                return [{ text: 'Python 3.11.4 (main) [GCC] on linux', cls: '' }, { text: 'Type "help" — this simulator only supports "python3 -c" one-liners.', cls: 'dim' }];
+                return [{ text: 'Python 3.11.4 (main) [GCC] on linux', cls: '' }, { text: t('simOnlyPython'), cls: 'dim' }];
             }
             const code = args.slice(cIdx + 1).join(' ');
             // Detect os.setuid(0) + shell
@@ -781,13 +754,13 @@ window.CMD = {
             if (has_setuid && !hasCapSetuid) {
                 return [{ text: 'PermissionError: [Errno 1] Operation not permitted', cls: 'err' }];
             }
-            return [{ text: '(python code executed — no effect)', cls: 'dim' }];
+            return [{ text: t('pyNoEffect'), cls: 'dim' }];
         },
 
         vim(args) {
             return [
-                { text: '(vim: type ":q" to quit — this simulator only handles the one-shot escape.)', cls: 'dim' },
-                { text: '(try:  sudo vim -c \':!/bin/sh\'  if you have sudo rights)', cls: 'dim' }
+                { text: t('vimQuitNudge1'), cls: 'dim' },
+                { text: t('vimQuitNudge2'), cls: 'dim' }
             ];
         },
 
@@ -822,17 +795,17 @@ window.CMD = {
                     if (scriptNode) {
                         return [
                             { text: '', cls: '' },
-                            { text: '[+] cron ran: tar -czf ... *  (as root)', cls: 'ok' },
-                            { text: `# tar parsed '${action.name}' as an option → executed ${scriptName} as root`, cls: 'dim' },
+                            { text: t('wildcardFired'), cls: 'ok' },
+                            { text: t('wildcardExplain', action.name, scriptName), cls: 'dim' },
                             { text: '', cls: '' },
                             ...this.spawnShell(true, { via: 'wildcard injection (tar --checkpoint-action)', type: 'wildcard_tar' })
                         ];
                     }
-                    return [{ text: '(cron ran tar, but the --checkpoint-action script was not found)', cls: 'dim' }];
+                    return [{ text: t('wildcardNoScript'), cls: 'dim' }];
                 }
-                return [{ text: '[*] cron ran tar over the directory — craft --checkpoint / --checkpoint-action files first.', cls: 'dim' }];
+                return [{ text: t('wildcardCraft'), cls: 'dim' }];
             }
-            return [{ text: '(no pending cron job)', cls: 'dim' }];
+            return [{ text: t('noPendingCron'), cls: 'dim' }];
         },
 
         hint() { return window.GAME.giveHint(); },
@@ -899,7 +872,7 @@ window.CMD = {
             if (!this.winConditionMet(meta.type)) {
                 // The exploit fired but doesn't match this machine's declared win
                 // condition — treat as a no-op rather than silently granting root.
-                return [{ text: '(nothing happens — this exploit path isn\'t valid here)', cls: 'dim' }];
+                return [{ text: t('exploitInvalid'), cls: 'dim' }];
             }
             SESSION.isRoot = true;
             SESSION.user = 'root';
