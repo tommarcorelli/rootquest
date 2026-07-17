@@ -4,7 +4,7 @@ A 100% browser-based, vanilla JS terminal game. 13 independent Linux machines, 1
 
 ## Play
 
-Just open `index.html` in any modern browser. No build, no server, no dependencies.
+Just open `index.html` in any modern browser. No build, no server, no external dependencies — it's an installable PWA with self-hosted fonts that works fully offline after the first load.
 
 ```
 open index.html          # macOS

@@ -17,7 +17,7 @@ Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
 ## 2. PWA & offline (alignement avec tes autres projets)
 
 - ✅ 🔴 🔨 **Passer en vraie PWA** — *fait.* `manifest.webmanifest` + `service-worker.js` (cache-first de l'app shell, fallback offline sur `index.html`) + icônes 192/512 (+ maskable) + logo cyberpunk dédié.
-- ⚠️ 🔴 ⚡ **Supprimer la dépendance Google Fonts** — *pas fait.* Le CDN reste en place (pas d'accès réseau à `fonts.gstatic.com` depuis l'environnement où j'ai travaillé). Le service worker ne cache que les assets same-origin ; les polices retombent sur `monospace`/`sans-serif` hors-ligne. Pour un vrai offline-first : héberger les `.woff2` dans `assets/fonts/` et basculer sur `@font-face` locales.
+- ✅ 🔴 ⚡ **Supprimer la dépendance Google Fonts** — *fait (v1.2).* Polices **auto-hébergées** : `.woff2` (latin + latin-ext) de JetBrains Mono / Orbitron / Space Grotesk dans `assets/fonts/` + `assets/fonts/fonts.css` local, le `<link>` CDN est retiré. Cachées par le service worker (v3) → vrai offline-first, **zéro requête externe** (vérifié : `document.fonts.check` OK, aucune requête gstatic/googleapis).
 - ✅ 🟢 ⚡ **Favicon** + `theme-color` + meta description/OpenGraph — *fait.*
 
 ## 3. Contenu — nouvelles machines / vulnérabilités

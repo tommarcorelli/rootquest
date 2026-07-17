@@ -1,7 +1,7 @@
 // rootQuest — service worker
 // Cache-first app shell so the game works fully offline after first load.
 
-const CACHE_VERSION = 'rootquest-v2';
+const CACHE_VERSION = 'rootquest-v3';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -15,6 +15,20 @@ const CORE_ASSETS = [
     './js/sfx.js',
     './js/main.js',
     './js/fx.js',
+    './assets/fonts/fonts.css',
+    './assets/fonts/jetbrainsmono-400-latin.woff2',
+    './assets/fonts/jetbrainsmono-400-latin-ext.woff2',
+    './assets/fonts/jetbrainsmono-500-latin.woff2',
+    './assets/fonts/jetbrainsmono-500-latin-ext.woff2',
+    './assets/fonts/jetbrainsmono-700-latin.woff2',
+    './assets/fonts/jetbrainsmono-700-latin-ext.woff2',
+    './assets/fonts/orbitron-500-latin.woff2',
+    './assets/fonts/orbitron-700-latin.woff2',
+    './assets/fonts/orbitron-900-latin.woff2',
+    './assets/fonts/spacegrotesk-500-latin.woff2',
+    './assets/fonts/spacegrotesk-500-latin-ext.woff2',
+    './assets/fonts/spacegrotesk-700-latin.woff2',
+    './assets/fonts/spacegrotesk-700-latin-ext.woff2',
     './assets/icons/icon-192.png',
     './assets/icons/icon-512.png',
     './assets/icons/icon-maskable-192.png',
@@ -40,8 +54,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const { request } = event;
 
-    // Only handle GET requests from our own origin; let everything else
-    // (e.g. Google Fonts CDN) pass straight through to the network.
+    // Only handle GET requests from our own origin (fonts are now self-hosted,
+    // so the app has no external dependencies); let anything else pass through.
     if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
         return;
     }
