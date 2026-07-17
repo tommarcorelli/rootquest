@@ -56,7 +56,7 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 
 - ✅ 🔴 🔨 **Écran « débrief » après chaque root** — *fait.* Chaque niveau a maintenant un `debrief` (EN/FR) affiché dans la modale de victoire : nom de la faille, pourquoi elle marche, correction blue team, lien GTFOBins/HackTricks. Se met à jour si on change de langue pendant que la modale est ouverte.
 - 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution.
-- 🟢 ⚡ **Cheatsheet contextuelle** : la sidebar affiche toujours les mêmes commandes ; les adapter à la machine courante.
+- ✅ 🟢 ⚡ **Cheatsheet contextuelle** — *fait (v1.2).* La sidebar liste désormais les commandes pertinentes à la **catégorie** de la machine courante (`CHEATS_BY_CAT`), et cliquer une commande l'insère dans le prompt (+ copie presse-papiers). Plus un **panneau « profil opérateur »** sur le hub : machines owned/hardened, % de complétion, barre de progression et rang (RECRUIT → ROOT WIZARD → BLUE-TEAM LEGEND).
 - ✅ 💡 🏗️ **Mode « blue team »** — *fait (v1.2).* Après le root, un bouton propose de *durcir* la box : le joueur applique le correctif (`chmod u-s`, `chmod 700`, `setcap -r`…) et le moteur vérifie que la faille est fermée (`checkHardened`, data-driven via `level.harden`). Dispo sur 6 box (SUID/cron/cap/PATH/passwd/kernel), badge 🛡 sur la carte, persisté. Handlers `chmod u-s` et `setcap` ajoutés.
 
 ## 7. UX / UI

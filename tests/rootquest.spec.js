@@ -89,6 +89,16 @@ test('blue team: harden box-01 after rooting', async ({ page }) => {
     await expect(page.locator('[data-testid="machine-card-1"]')).toContainText('🛡');
 });
 
+test('operator status + contextual cheatsheet (click to insert)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#operatorStatus')).toContainText('RANK');
+    await expect(page.locator('#operatorStatus')).toContainText('owned');
+    await page.click('[data-testid="machine-card-3"]'); // box-03 = CAP category
+    await expect(page.locator('#cheatList')).toContainText('getcap');
+    await page.locator('#cheatList code').filter({ hasText: 'getcap' }).first().click();
+    await expect(page.locator('#termInput')).toHaveValue(/getcap/);
+});
+
 test('sound toggle flips state and persists', async ({ page }) => {
     await page.goto('/');
     const btn = page.locator('[data-testid="home-sound-btn"]');

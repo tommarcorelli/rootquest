@@ -119,6 +119,11 @@ window.I18N = {
         blueTeamIntro: 'You rooted it. Now switch sides: fix the flaw so it can never be exploited again.',
         blueTeamHintLabel: 'fix',
         blueTeamDone: '[+] Box hardened — the vulnerability is closed. Type "next" to continue.',
+        opRank: 'RANK',
+        opOwned: 'owned',
+        opHardened: 'hardened',
+        opComplete: 'complete',
+        cheatInsert: 'Click to drop into the prompt',
     },
     fr: {
         brandTag: "Terrain de jeu d'escalade de privilèges Linux",
@@ -236,6 +241,11 @@ window.I18N = {
         blueTeamIntro: "Tu l'as rootée. Change de camp : corrige la faille pour qu'elle ne soit plus jamais exploitable.",
         blueTeamHintLabel: 'correctif',
         blueTeamDone: '[+] Box durcie — la vulnérabilité est fermée. Tape "next" pour continuer.',
+        opRank: 'RANG',
+        opOwned: 'possédées',
+        opHardened: 'durcies',
+        opComplete: 'complété',
+        cheatInsert: 'Clique pour insérer dans le prompt',
     }
 };
 

@@ -20,6 +20,24 @@ window.MACHINE_META = [
 // Difficulty tiers rendered on the hub, in order.
 window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD'];
 
+// Contextual cheatsheet: the commands worth trying on each machine category.
+window.CHEATS_BY_CAT = {
+    SUID:       ['find / -perm -4000 2>/dev/null', 'ls -la <bin>', 'strings <bin>'],
+    CRON:       ['cat /etc/crontab', 'ls -la /opt', 'wait'],
+    CAP:        ['getcap -r / 2>/dev/null'],
+    PATH:       ['find / -perm -4000 2>/dev/null', 'strings <suid>', 'export PATH=/tmp:$PATH'],
+    SUDO:       ['sudo -l'],
+    PASSWD:     ['ls -la /etc/passwd', 'su <user>'],
+    KERNEL:     ['uname -a', 'cat /etc/os-release', 'ls -la'],
+    CHAIN:      ['cat /opt/app/config.php', 'su <user>', 'sudo -l'],
+    DOCKER:     ['id', 'cat /etc/group', 'docker run -v /:/mnt ...'],
+    PRELOAD:    ['sudo -l', 'gcc -shared -fPIC -o /tmp/x.so /tmp/x.c'],
+    WILDCARD:   ['cat /etc/crontab', 'touch ./--checkpoint=1'],
+    SSH:        ['ls -la /opt/backup', 'ssh -i <key> root@localhost'],
+    SUDOERS:    ['ls -la /etc/sudoers.d', 'sudo -l'],
+    'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload']
+};
+
 // Main game orchestration
 window.GAME = {
     currentLevel: 0,   // index into LEVELS
@@ -101,8 +119,9 @@ window.GAME = {
         TERM.outputEl.innerHTML = '';
         TERM.updatePrompt();
 
-        // Render mission card
+        // Render mission card + contextual cheatsheet
         this.renderMission();
+        this.renderCheatsheet();
 
         // Welcome banner + level intro
         const welcome = t('welcome');
@@ -147,6 +166,7 @@ window.GAME = {
             for (const i of idxs) grid.appendChild(this.buildMachineCard(i));
         }
         this.updateHomeProgress();
+        this.renderOperatorStatus();
     },
 
     buildMachineCard(i) {
@@ -224,6 +244,57 @@ window.GAME = {
             list.appendChild(li);
         }
         document.getElementById('targetInfo').textContent = `${lvl.user}@${lvl.host}`;
+    },
+
+    // Sidebar cheatsheet, tailored to the current machine's category. Click a
+    // command to drop it into the prompt.
+    renderCheatsheet() {
+        const ul = document.getElementById('cheatList');
+        if (!ul) return;
+        const meta = MACHINE_META[this.currentLevel] || {};
+        const specific = (window.CHEATS_BY_CAT && window.CHEATS_BY_CAT[meta.cat]) || [];
+        const cmds = [...specific, 'id', 'help', 'hint'];
+        const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        ul.innerHTML = cmds.map(c => `<li><code>${esc(c)}</code></li>`).join('');
+        ul.querySelectorAll('code').forEach(el => {
+            el.title = t('cheatInsert');
+            el.addEventListener('click', () => this.useCheat(el.textContent, el));
+        });
+    },
+
+    useCheat(cmd, el) {
+        if (TERM.inputEl) { TERM.inputEl.value = cmd; TERM.inputEl.focus(); }
+        try { if (navigator.clipboard) navigator.clipboard.writeText(cmd); } catch (e) { /* ignore */ }
+        if (el) { el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 450); }
+    },
+
+    // Hub "operator profile": overall progress + a callsign rank.
+    renderOperatorStatus() {
+        const el = document.getElementById('operatorStatus');
+        if (!el) return;
+        const total = LEVELS.length;
+        const owned = this.completed.length;
+        const hardened = this.hardened.length;
+        const pct = total ? Math.round((owned / total) * 100) : 0;
+        const rank = this.operatorRank(pct, owned, hardened, total);
+        el.innerHTML =
+            `<div class="op-head"><span class="op-label">${t('opRank')}</span><span class="op-rank">${rank}</span></div>` +
+            `<div class="op-bar"><span style="width:${pct}%"></span></div>` +
+            `<div class="op-metrics">` +
+                `<span><strong>${owned}</strong>/${total} ${t('opOwned')}</span>` +
+                `<span><strong>${hardened}</strong> ${t('opHardened')} 🛡</span>` +
+                `<span><strong>${pct}%</strong> ${t('opComplete')}</span>` +
+            `</div>`;
+    },
+
+    operatorRank(pct, owned, hardened, total) {
+        if (owned === total && hardened >= 6) return 'BLUE-TEAM LEGEND';
+        if (pct >= 100) return 'ROOT WIZARD';
+        if (pct >= 75) return 'ROOT HUNTER';
+        if (pct >= 50) return 'OPERATOR';
+        if (pct >= 25) return 'INITIATE';
+        if (owned > 0) return 'SCRIPT KIDDIE';
+        return 'RECRUIT';
     },
 
     buildLevelsMap() {

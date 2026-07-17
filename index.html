@@ -95,16 +95,7 @@
 
                 <div class="cheatsheet hud">
                     <div class="cheatsheet-title" data-i18n="cheatsheetTitle">Useful commands</div>
-                    <ul>
-                        <li><code>ls -la</code></li>
-                        <li><code>cat &lt;file&gt;</code></li>
-                        <li><code>find / -perm -4000 2&gt;/dev/null</code></li>
-                        <li><code>sudo -l</code></li>
-                        <li><code>getcap -r / 2&gt;/dev/null</code></li>
-                        <li><code>cat /etc/crontab</code></li>
-                        <li><code>whoami</code> / <code>id</code></li>
-                        <li><code>help</code></li>
-                    </ul>
+                    <ul id="cheatList"></ul>
                 </div>
             </aside>
 
@@ -230,12 +221,13 @@
                 <div class="home-select-head">
                     <span class="home-select-title" data-i18n="homeSelect">SELECT TARGET</span>
                     <div class="home-select-meta-wrap">
-                        <span class="home-select-meta"><strong id="homeProgressText">0 / 13</strong> <span data-i18n="homeOwned">owned</span></span>
+                        <span class="home-select-meta"><strong id="homeProgressText">0 / 15</strong> <span data-i18n="homeOwned">owned</span></span>
                         <button class="btn-ghost home-reset-btn" id="resetProgressBtn" data-testid="reset-progress-btn">
                             <span data-i18n="resetProgressBtn">Reset progress</span>
                         </button>
                     </div>
                 </div>
+                <div class="operator-status" id="operatorStatus" data-testid="operator-status"></div>
                 <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
             </div>
         </div>
