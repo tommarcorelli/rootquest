@@ -64,3 +64,12 @@ test('scorecard shows rank S with zero hints', async ({ page }) => {
     await expect(page.locator('#winModal')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#statRank')).toHaveText('S');
 });
+
+test('theme switch applies and persists across reload', async ({ page }) => {
+    await page.goto('/');
+    await page.selectOption('[data-testid="home-theme-select"]', 'dracula');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula');
+    await expect(page.locator('[data-testid="home-theme-select"]')).toHaveValue('dracula');
+});

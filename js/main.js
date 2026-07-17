@@ -36,6 +36,7 @@ window.GAME = {
             const data = JSON.parse(raw);
             if (Array.isArray(data.completed)) this.completed = data.completed;
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
+            if (typeof data.theme === 'string') window.currentTheme = data.theme;
         } catch (e) {
             // Corrupted or unavailable storage (private browsing, quota) — start fresh.
         }
@@ -45,7 +46,8 @@ window.GAME = {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify({
                 completed: this.completed,
-                lang: window.currentLang
+                lang: window.currentLang,
+                theme: window.currentTheme || 'kali'
             }));
         } catch (e) {
             // Storage unavailable — progress just won't persist across reloads.
@@ -368,7 +370,23 @@ window.GAME = {
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.addEventListener('click', () => window.setLanguage(btn.getAttribute('data-lang')));
         });
+
+        document.querySelectorAll('.theme-select').forEach(sel => {
+            sel.addEventListener('change', () => window.setTheme(sel.value));
+        });
     }
+};
+
+// Theme: swap the palette by setting data-theme on <html>, persist it, and keep
+// every .theme-select control in sync.
+window.setTheme = function(name) {
+    const THEMES = ['kali', 'matrix', 'dracula', 'amber', 'light'];
+    if (!THEMES.includes(name)) name = 'kali';
+    window.currentTheme = name;
+    if (name === 'kali') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', name);
+    document.querySelectorAll('.theme-select').forEach(s => { s.value = name; });
+    if (window.GAME && window.GAME.saveProgress) window.GAME.saveProgress();
 };
 
 window.setLanguage = function(lang) {
@@ -391,6 +409,7 @@ window.setLanguage = function(lang) {
 
 document.addEventListener('DOMContentLoaded', () => {
     window.GAME.loadSave();
+    window.setTheme(window.currentTheme || 'kali');
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });

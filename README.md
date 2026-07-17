@@ -51,6 +51,10 @@ start index.html         # Windows
 
 Toggle EN/FR from the top-right, or type `lang fr`.
 
+## Themes
+
+Pick a palette from the theme selector (top bar or hub): **Kali** (default), **Matrix**, **Dracula**, **Amber** (retro CRT), or **Light**. Your choice is saved in `localStorage`.
+
 ## Structure
 
 ```

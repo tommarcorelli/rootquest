@@ -64,14 +64,14 @@ Le moteur gère désormais **13 vecteurs** (5 d'origine + 5 en v1.1 + 3 en v1.2)
 - 🟢 ⚡ **Effet machine à écrire / délai** sur les bannières et sorties root (immersion).
 - 🟢 ⚡ **Son optionnel** (frappe clavier, « root obtained »).
 - 🟢 ⚡ **Copie en un clic** des payloads d'indices.
-- 🟢 ⚡ **Thèmes** : le style est « Kali/Parrot » ; proposer un switch (Matrix green, Dracula, light).
+- ✅ 🟢 ⚡ **Thèmes** — *fait (v1.2).* Sélecteur (topbar + hub) de 5 palettes — **Kali** (défaut), **Matrix**, **Dracula**, **Amber** (CRT), **Light** — via `data-theme` sur `<html>`, persisté en `localStorage`. Chaque surface lit des variables CSS, donc un thème = un override de variables.
 
 ## 8. Qualité, tests & CI
 
 - ✅ 🔴 🔨 **Tests end-to-end** — *fait (v1.2).* Suite **Playwright** (`tests/rootquest.spec.js`) : un test par machine qui joue la solution dans un vrai navigateur et vérifie root + flag + scorecard, plus rendu du hub et pipes. Doublée d'un **harnais Node** browserless (`tests/harness.js`, 14/14, EN+FR) et d'un serveur statique sans dépendance (`tests/serve.js`). **16/16 verts** en local.
 - ✅ 🟠 ⚡ **GitHub Actions** — *fait (v1.2).* `.github/workflows/ci.yml` : `node --check` + harnais (EN/FR) + Playwright sur chaque push/PR.
 - ✅ 🟠 ⚡ **Déploiement GitHub Pages** — *fait (v1.2).* `.github/workflows/deploy-pages.yml` publie les fichiers de l'app à chaque push sur `main` (à activer une fois dans Settings → Pages → Source: GitHub Actions).
-- 🟢 ⚡ **Fichier `LICENSE`** — le README annonce MIT mais le fichier n'existe pas.
+- ✅ 🟢 ⚡ **Fichier `LICENSE`** — *fait.* Fichier MIT ajouté à la racine.
 - 🟢 ⚡ **Lint ESLint** — non fait (le CI se contente de `node --check`).
 - 🟢 ⚡ **Validation d'accessibilité** : rôles ARIA sur le terminal (`role="log"`, `aria-live`), focus visible, navigation clavier complète.
 
