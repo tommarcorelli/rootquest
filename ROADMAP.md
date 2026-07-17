@@ -1,7 +1,7 @@
 # 🗺️ Fiche de route — rootQuest
 
 Feuille de route des améliorations possibles pour **rootQuest** (jeu de terminal d'escalade de privilèges Linux, 100 % vanilla JS).
-Statut actuel : **v1.2 fonctionnelle** — 13 machines réparties en 3 tiers (Débutant / Intermédiaire / Avancé), 13 vulnérabilités, hub par tiers + scorecard de victoire, terminal réaliste (pipes + `grep`/`ps`/`env`/…), bilingue EN/FR, aucune dépendance de build.
+Statut actuel : **v1.2 fonctionnelle** — 15 machines en 3 tiers, hub par tiers + scorecard, **profil opérateur + 8 succès**, terminal réaliste (pipes + `grep`/`ps`/`env`/`man`/autocomplétion), **mode Blue Team**, **5 thèmes**, **son**, **responsive mobile**, **offline-first** (polices auto-hébergées, zéro dépendance externe), bilingue EN/FR. Tests : harnais Node 24/24 + Playwright 24/24, CI GitHub. Déploiement GitHub Pages prêt (à activer une fois).
 
 Légende : 🔴 prioritaire · 🟠 important · 🟢 confort · 💡 idée long terme
 Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
@@ -34,7 +34,8 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟢 🔨 **Clé SSH root lisible** — *fait (box-13).* Clé privée world-readable dans une sauvegarde → `ssh -i /opt/backup/id_rsa root@localhost`.
 - ✅ 🟠 🔨 **`/etc/sudoers.d` modifiable** — *fait (box-14).* Drop-in NOPASSWD écrit par le joueur, parsé par `sudo`.
 - ✅ 🟠 🔨 **`/etc/ld.so.preload` modifiable** — *fait (box-15).* Préchargement global d'un `.so` sur tout binaire SUID.
-- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** — *encore ouvert.*
+- 🟢 ⚡ **Box « data-only » GTFOBins** — *idée.* `sudo less` / `sudo nano` / `sudo tee -a /etc/passwd` / `sudo LD_LIBRARY_PATH` : réutilisent le cadre `sudo_shell`/env_keep existant → +3-4 box quasi sans code moteur.
+- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** (lecture `/etc/shadow` → crack simulé) — *encore ouvert.*
 
 ## 4. Moteur terminal & réalisme du shell
 
@@ -63,11 +64,15 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 ## 7. UX / UI
 
 - ✅ 🟠 ⚡ **Badge root (`#rootBadge`)** : présent dans le HTML, câblé sur `body.is-root` — *fait.*
-- 🟠 🔨 **Responsive mobile** : le terminal + sidebar en 2 colonnes n'est pas pensé pour petit écran ; layout empilé + gestion du clavier virtuel.
+- ✅ 🟠 🔨 **Responsive mobile** — *fait (v1.2).* `@media 900/620px` : topbar en flex-wrap, colonnes empilées, body scrollable sur téléphone, tailles réduites, hub 1 colonne.
 - 🟢 ⚡ **Effet machine à écrire / délai** sur les bannières et sorties root (immersion).
-- 🟢 ⚡ **Son optionnel** (frappe clavier, « root obtained »).
+- ✅ 🟢 ⚡ **Son optionnel** — *fait (v1.2).* `js/sfx.js` (Web Audio, zéro asset) : frappe / Enter / erreur / arpège de victoire, opt-in via toggle 🔊, persisté.
 - ✅ 🟢 ⚡ **Copie en un clic** — *fait (v1.2).* Clic sur une commande de la cheatsheet → insertion dans le prompt + copie presse-papiers.
 - ✅ 🟢 🔨 **Succès / achievements** — *fait (v1.2).* 8 badges (First Blood, Apprentice, Halfway, Root Wizard, Defender, Blue-Team Legend, Ghost/rang S, Speedrunner) affichés sur le hub, toast au déblocage, persistés en localStorage.
+- 🟢 🔨 **Défi du jour / box aléatoire** — *idée.* Bouton « surprends-moi » + seed quotidien pour la rejouabilité.
+- 🟢 🔨 **Carte « preuve de root » partageable** — *idée.* Générer une image/URL récapitulative (box, rang, temps, badges) après complétion, pour un portfolio.
+- 🟢 ⚡ **Timer speedrun + meilleurs temps par box** — *idée.* Chrono par machine, meilleur temps stocké et affiché sur les cartes du hub (nourrit le succès Speedrunner).
+- 🟢 ⚡ **Effet machine à écrire** sur les bannières + **`Ctrl+R`** (recherche d'historique) et historique persistant entre machines (cf. §4).
 - ✅ 🟢 ⚡ **Thèmes** — *fait (v1.2).* Sélecteur (topbar + hub) de 5 palettes — **Kali** (défaut), **Matrix**, **Dracula**, **Amber** (CRT), **Light** — via `data-theme` sur `<html>`, persisté en `localStorage`. Chaque surface lit des variables CSS, donc un thème = un override de variables.
 
 ## 8. Qualité, tests & CI
@@ -128,18 +133,27 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 
 ---
 
-## Prochaines étapes suggérées (ordre conseillé)
+## 🎯 Prochaines idées prioritaires (proposées par l'assistant)
 
-1. ✅ **localStorage** (progression + langue) — fait.
-2. ✅ **PWA** (manifest + service worker + icônes) — fait. Google Fonts CDN pas retiré (voir note plus haut).
-3. ✅ **Piloter les victoires par `levels[].wins`** — fait.
-4. ✅ **Écran de débrief pédagogique** — fait.
-5. ✅ **Enrichissement contenu v1.1** — fait. 5 nouvelles box (6→10), hub par tiers, scorecard, refactor moteur data-driven. Vérifié (harnais Node 11/11 + Chrome headless e2e).
-6. ✅ **Réalisme shell (v1.2)** — fait. Pipes + filtres (`grep`/`wc`/`head`/`tail`/`sort`) + commandes d'énumération (`ps`/`env`/`uname`/…).
-7. ✅ **Contenu v1.2** — fait. 3 nouvelles box (11 LD_PRELOAD, 12 wildcard tar, 13 clé SSH). Harnais Node 14/14.
-8. **Suite de tests Playwright + GitHub Pages + CI**. 🔴🟠 ← en cours.
-9. Puis **i18n du terminal** (beaucoup de sortie encore en anglais dur dans `commands.js`). 🟠 ← en cours.
+Shortlist actionnable pour l'après-v1.2 (le gros du backlog historique est ✅). Ordre = ROI décroissant.
+
+**Court terme — rapides, fort impact**
+1. 🔴 ⚡ **Activer GitHub Pages** (Settings → Pages → Source: GitHub Actions) — le workflow `deploy-pages.yml` existe déjà, il ne manque que l'activation manuelle → démo jouable en ligne.
+2. 🟠 🔨 **Historique de commandes persistant** entre machines (localStorage) + **recherche `Ctrl+R`** (cf. §4).
+3. 🟠 ⚡ **Accessibilité** : `role="log"` + `aria-live="polite"` sur le terminal, `aria-label` sur les contrôles, `:focus-visible` net, navigation clavier complète (cf. §8).
+4. 🟢 ⚡ **Box « data-only » GTFOBins** (quasi zéro moteur, réutilisent `sudo_shell`) : `sudo less` / `sudo nano` / `sudo tee -a /etc/passwd` / `sudo LD_LIBRARY_PATH` → +3-4 box rapides.
+5. 🟢 ⚡ **Fichier `LICENSE`** ✅ fait · **`sudo -l` sans NOPASSWD** demande un mot de passe simulé (immersion).
+
+**Moyen terme — contenu & rejouabilité**
+6. 🟠 🔨 **Box NFS `no_root_squash`** et **`cap_dac_read_search`** (lecture de `/etc/shadow` → crack simulé) (cf. §3).
+7. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
+8. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
+9. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
+10. 🟢 ⚡ **Timer speedrun + meilleurs temps par box** affichés sur les cartes du hub (nourrit le succès Speedrunner).
+11. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
+
+**Long terme — moonshots** (voir §10) : mode histoire/campagne roguelike, adversaire IA blue-team en temps réel, vrai noyau Linux en WASM, multijoueur PvP, génération procédurale de box, ingestion GTFOBins.
 
 ---
 
-*Généré le 2026-07-11, révisé le 2026-07-17 (v1.2 : 13 box + réalisme shell + pipes). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
+*Généré le 2026-07-11, révisé le 2026-07-17 (v1.2 : 15 box, thèmes, son, blue team, offline-first, profil opérateur, succès, man pages). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
