@@ -21,7 +21,8 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'HARD' },
     { cat: 'CAP',      diff: 'HARD' },
-    { cat: 'LD.LIBPATH', diff: 'HARD' }
+    { cat: 'LD.LIBPATH', diff: 'HARD' },
+    { cat: 'NFS',      diff: 'HARD' }
 ];
 
 // Difficulty tiers rendered on the hub, in order.
@@ -43,7 +44,8 @@ window.CHEATS_BY_CAT = {
     SSH:        ['ls -la /opt/backup', 'ssh -i <key> root@localhost'],
     SUDOERS:    ['ls -la /etc/sudoers.d', 'sudo -l'],
     'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload'],
-    'LD.LIBPATH': ['sudo -l', 'cat /usr/local/bin/README.txt', 'gcc -shared -fPIC -nostartfiles -o /tmp/<lib> /tmp/<lib>.c']
+    'LD.LIBPATH': ['sudo -l', 'cat /usr/local/bin/README.txt', 'gcc -shared -fPIC -nostartfiles -o /tmp/<lib> /tmp/<lib>.c'],
+    NFS:        ['showmount -e', 'cat /etc/exports', 'mount -t nfs host:/export /mnt']
 };
 
 // Achievements — checked against a small progress snapshot.
