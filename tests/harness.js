@@ -51,6 +51,7 @@ function loadLevel(level) {
         env: { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' },
         isRoot: false, hintIndex: 0, tmpBins: {}, pendingCron: false,
         cronPayload: null, cmdCount: 0, startTime: Date.now(),
+        blueTeam: false, sudoAuthed: false,
     });
     sandbox.TERM = sandbox.TERM || { history: [] };
     sandbox.TERM.history = [];
@@ -102,6 +103,16 @@ play(['echo hello', 'ls -la', 'cat /etc/passwd']);
 const neg = sandbox.SESSION.isRoot === false;
 console.log(`${neg ? 'PASS' : 'FAIL'}  negative (no accidental root on box-01)`);
 neg ? pass++ : fail++;
+
+// sudo -l: first call this machine shows a simulated password prompt line,
+// a second call does not (mirrors sudo's cached credential ticket).
+loadLevel(LEVELS[4]); // box-05, has a sudoers entry
+const first = sandbox.CMD.execute('sudo -l');
+const second = sandbox.CMD.execute('sudo -l');
+const authOk = first.some(l => l.text.startsWith('[sudo] password for'))
+    && !second.some(l => l.text.startsWith('[sudo] password for'));
+console.log(`${authOk ? 'PASS' : 'FAIL'}  sudo -l password prompt (once per machine)`);
+authOk ? pass++ : fail++;
 
 // Blue-team: for boxes that declare a fix, root then harden and confirm it closes.
 console.log('');

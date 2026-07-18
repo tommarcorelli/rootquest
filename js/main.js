@@ -146,6 +146,7 @@ window.GAME = {
         SESSION.cmdCount = 0;
         SESSION.startTime = Date.now();
         SESSION.blueTeam = false;
+        SESSION.sudoAuthed = false;
         document.body.classList.remove('is-root');
 
         // Load filesystem for level

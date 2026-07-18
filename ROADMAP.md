@@ -44,7 +44,7 @@ Le moteur gère désormais **22 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2 
 - ✅ 🔴 🔨 **Découpler la logique de « win » des données `levels[].wins`** — *fait.* `spawnShell(true, { type })` vérifie désormais le `type` contre `level.wins[]` via `CMD.winConditionMet()` avant d'accorder root ; les 5 exploits référencent leur type déclaré (`suid_shell_via`, `cron_hijack`, `python_setuid`, `path_hijack`, `sudo_vim_escape`). `wins[]` est la source de vérité : oublier l'entrée ou se tromper de type bloque l'exploit au lieu de planter silencieusement. **v1.1** a poussé le data-driven plus loin : un nœud fs peut déclarer `exploit: '<type>'` (exploit auto-contenu), un **détecteur générique d'évasions sudo GTFOBins** (vim, awk, env, find, bash/sh, less…) pilote le bon type de victoire depuis `level.wins`, et les mécaniques cron/PATH sont dé-hardcodées (chemin lu depuis `wins`, plus de `level.id === 2`). Reste ouvert : un moteur totalement générique qui déduirait *comment* déclencher l'exploit depuis la donnée seule.
 - ✅ 🟠 🔨 **Support des pipes (`|`)** — *fait (v1.2).* Pipelines quote-aware `cmd1 | cmd2 | cmd3` avec filtres `grep [-ivc]`, `wc [-l]`, `head`/`tail [-n]`, `sort [-ru]`, `uniq` (cœur partagé `_filter()`, utilisables aussi en autonome).
 - ✅ 🟠 ⚡ **Commandes manquantes courantes** — *fait (v1.2).* `ps [aux]`, `env`, `uname -a`, `hostname`, `mount`, `which`, `file`, `history` (+ `touch`, `gcc`, `ssh` pour les nouvelles box). Sortie technique authentique.
-- 🟢 ⚡ **`sudo -l` sans NOPASSWD** devrait demander un mot de passe simulé (immersion).
+- ✅ 🟢 ⚡ **`sudo -l` demande un mot de passe simulé** — *fait.* Première invocation de `sudo -l` par machine affiche `[sudo] password for <user>: ` (flavor line, pas un vrai prompt bloquant — mimique le ticket sudo mis en cache le temps de la session, cf. `SESSION.sudoAuthed`).
 - ✅ 🟢 🔨 **Auto-complétion des commandes** — *fait (v1.2).* `Tab` complète le nom de commande (1er token) en plus des chemins (préfixe commun + liste si ambigu).
 - ✅ 🟢 ⚡ **`cd -` / `cd` sans argument** — *fait (v1.2).* Sans argument → home, `cd -` → dossier précédent (`SESSION.prevCwd`). `pushd`/`popd` non gérés.
 - ✅ 🟢 🔨 **Pages de manuel en jeu** — *fait (v1.2).* `man <commande>` affiche NAME/SYNOPSIS/EXAMPLE bilingue pour ~22 commandes (`CMD.MANPAGES`).
@@ -142,15 +142,14 @@ Shortlist actionnable pour l'après-v1.4 (le gros du backlog historique est ✅)
 
 **Court terme — rapides, fort impact**
 1. 🔴 ⚡ **Activer GitHub Pages** (Settings → Pages → Source: GitHub Actions) — le workflow `deploy-pages.yml` existe déjà, il ne manque que l'activation manuelle → démo jouable en ligne.
-2. 🟢 ⚡ **`sudo -l` sans NOPASSWD** demande un mot de passe simulé (immersion) — seule idée « rapide » du backlog historique encore ouverte. Nécessiterait un vrai mécanisme d'attente d'entrée (façon `pendingCron`/`wait`) plutôt qu'une commande atomique.
 
 **Moyen terme — contenu & rejouabilité**
-3. 🟠 🏗️ **Box NFS `no_root_squash`** (cf. §3) — la dernière mécanique « classique » du top OSCP encore hors du moteur ; demande de simuler un montage et une réécriture d'`owner` sur le point de montage.
-4. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
-5. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
-6. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
-7. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
-8. 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution (cf. §6).
+2. 🟠 🏗️ **Box NFS `no_root_squash`** (cf. §3) — la dernière mécanique « classique » du top OSCP encore hors du moteur ; demande de simuler un montage et une réécriture d'`owner` sur le point de montage.
+3. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
+4. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
+5. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
+6. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
+7. 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution (cf. §6).
 
 **Long terme — moonshots** (voir §10) : mode histoire/campagne roguelike, adversaire IA blue-team en temps réel, vrai noyau Linux en WASM, multijoueur PvP, génération procédurale de box, ingestion GTFOBins.
 

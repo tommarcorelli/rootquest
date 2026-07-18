@@ -15,6 +15,7 @@ window.SESSION = {
     cmdCount: 0,   // commands typed this machine (for the victory scorecard)
     startTime: 0,  // Date.now() when the machine was loaded
     blueTeam: false, // in the post-root "harden the box" phase
+    sudoAuthed: false, // has `sudo -l` already prompted+cached a password this machine (real sudo tickets)
 };
 
 window.CMD = {
@@ -734,11 +735,21 @@ window.CMD = {
             if (args[0] === '-l') {
                 const level = window.GAME.level();
                 const entries = this.sudoEntries(level);
+                // Real sudo asks for the *invoking user's own* password before -l will
+                // even disclose rights, then caches a ticket for the rest of the
+                // session — regardless of which individual commands end up NOPASSWD.
+                // Simulated here as a one-off flavor line rather than a real prompt
+                // (nothing blocks on it — the point is the immersion, not a gate).
+                const authLine = !SESSION.sudoAuthed
+                    ? [{ text: `[sudo] password for ${SESSION.user}: `, cls: 'dim' }]
+                    : [];
+                SESSION.sudoAuthed = true;
                 if (entries.length === 0) {
-                    return [{ text: 'Sorry, user player may not run sudo on ' + SESSION.host + '.', cls: 'err' }];
+                    return [...authLine, { text: 'Sorry, user player may not run sudo on ' + SESSION.host + '.', cls: 'err' }];
                 }
                 const envKeep = (level.env_keep && level.env_keep.length) ? ', env_keep+="' + level.env_keep.join(' ') + '"' : '';
                 const lines = [
+                    ...authLine,
                     { text: `Matching Defaults entries for ${SESSION.user} on ${SESSION.host}:`, cls: '' },
                     { text: '    env_reset, mail_badpass' + envKeep, cls: envKeep ? 'warn' : '' },
                     { text: '', cls: '' },
