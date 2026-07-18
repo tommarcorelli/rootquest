@@ -1780,5 +1780,84 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://gtfobins.github.io/gtfobins/#+shell'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 23 — NFS export with no_root_squash
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 23,
+        codename: 'box-23',
+        title: { en: 'Box-23 · Trust the Client', fr: 'Box-23 · Faire confiance au client' },
+        brief: {
+            en: "/srv/backups is locked down (root-owned, mode 750) — but it's also exported over NFS with no_root_squash. Mount it and the export's own rules, not the directory's, decide what you can do.",
+            fr: "/srv/backups est verrouillé (root, mode 750) — mais il est aussi exporté en NFS avec no_root_squash. Monte-le : ce sont les règles de l'export, pas celles du dossier, qui décident de ce que tu peux faire."
+        },
+        user: 'player',
+        host: 'box-23',
+        cwd: '/home/player',
+        objectives: {
+            en: ['List the NFS exports this host offers', 'Mount the writable one', 'Plant a root-owned setuid shell through the mount', 'Run it for a root shell'],
+            fr: ['Lister les partages NFS de cet hôte', 'Monter celui qui est modifiable', 'Planter un shell setuid appartenant à root via le montage', "L'exécuter pour obtenir un shell root"]
+        },
+        hints: {
+            en: [
+                'Try: showmount -e — then cat /etc/exports to read the options.',
+                'no_root_squash means the mounting client\'s root UID is trusted as real root on that export, regardless of the directory\'s own owner/mode on the server. Once mounted, /srv/backups itself becomes writable to you.',
+                'Mount it, plant a setuid shell, run it:\n  mount -t nfs box-23:/srv/backups /mnt\n  touch /srv/backups/rootbash\n  chmod u+s /srv/backups/rootbash\n  /srv/backups/rootbash'
+            ],
+            fr: [
+                'Essaie : showmount -e — puis cat /etc/exports pour lire les options.',
+                "no_root_squash signifie que l'UID root du client montant est fait confiance comme vrai root sur cet export, quels que soient le propriétaire/mode du dossier côté serveur. Une fois monté, /srv/backups lui-même devient modifiable pour toi.",
+                "Monte-le, plante un shell setuid, lance-le :\n  mount -t nfs box-23:/srv/backups /mnt\n  touch /srv/backups/rootbash\n  chmod u+s /srv/backups/rootbash\n  /srv/backups/rootbash"
+            ]
+        },
+        flag: 'flag{nfs_n0_root_squash}',
+        nfsExports: [
+            { path: '/srv/backups', clients: '*', opts: 'rw,no_root_squash,sync,no_subtree_check' }
+        ],
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin', 'srv', 'mnt'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'exports'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/exports': { type: 'file', owner: 'root', mode: '644', content: '/srv/backups    *(rw,no_root_squash,sync,no_subtree_check)\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{nfs_n0_root_squash}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'showmount'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/showmount': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/srv': { type: 'dir', owner: 'root', mode: '755', children: ['backups'] },
+            '/srv/backups': { type: 'dir', owner: 'root', mode: '750', children: ['README.txt'] },
+            '/srv/backups/README.txt': { type: 'file', owner: 'root', mode: '640', content: 'Nightly backup staging area. Exported to the backup relay over NFS.\n' },
+            '/mnt': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'nfs_no_root_squash' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'NFS export with no_root_squash',
+                why: "/srv/backups resists root-level Unix permissions from the local shell (mode 750, owned by root) — but /etc/exports shares it with rw and no_root_squash. That option is the whole vulnerability: normally NFS \"squashes\" a mounting client's root (UID 0) down to an unprivileged nobody, but no_root_squash disables that, so the client's root is trusted as the server's real root for every file operation inside the export. Mounting it locally and creating a setuid-root shell there is enough — the export's permissions, not the directory's, govern the write, and the resulting binary is genuinely owned by root.",
+                fix: 'Never export writable shares with no_root_squash to untrusted clients. Default to root_squash (or all_squash), and restrict exports to specific trusted hosts rather than *.',
+                link: 'https://gtfobins.github.io/gtfobins/#+shell'
+            },
+            fr: {
+                vuln: 'Partage NFS avec no_root_squash',
+                why: "/srv/backups résiste aux permissions Unix classiques depuis le shell local (mode 750, propriétaire root) — mais /etc/exports le partage avec rw et no_root_squash. Cette option est toute la vulnérabilité : normalement NFS « écrase » le root (UID 0) d'un client montant en un utilisateur nobody non privilégié, mais no_root_squash désactive ça — le root du client est alors traité comme le vrai root du serveur pour toute opération dans cet export. Le monter localement et y créer un shell setuid root suffit : ce sont les permissions de l'export, pas celles du dossier, qui régissent l'écriture, et le binaire obtenu appartient réellement à root.",
+                fix: "Ne jamais exporter de partage modifiable avec no_root_squash vers des clients non fiables. Garde root_squash (ou all_squash) par défaut, et restreins les exports à des hôtes de confiance précis plutôt qu'à *.",
+                link: 'https://gtfobins.github.io/gtfobins/#+shell'
+            }
+        }
     }
 ];

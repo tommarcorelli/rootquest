@@ -147,6 +147,7 @@ window.GAME = {
         SESSION.startTime = Date.now();
         SESSION.blueTeam = false;
         SESSION.sudoAuthed = false;
+        SESSION.nfsMount = null;
         document.body.classList.remove('is-root');
 
         // Load filesystem for level

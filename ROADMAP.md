@@ -1,7 +1,7 @@
 # 🗺️ Fiche de route — rootQuest
 
 Feuille de route des améliorations possibles pour **rootQuest** (jeu de terminal d'escalade de privilèges Linux, 100 % vanilla JS).
-Statut actuel : **v1.4 fonctionnelle** — 22 machines en 3 tiers, hub par tiers + scorecard, **profil opérateur + 8 succès**, terminal réaliste (pipes + `grep`/`ps`/`env`/`man`/autocomplétion/`tee`/`john`), **mode Blue Team**, **5 thèmes**, **son**, **historique persistant + `Ctrl+R`**, **timer speedrun + meilleurs temps**, **accessibilité clavier/ARIA**, **responsive mobile**, **offline-first** (polices auto-hébergées, zéro dépendance externe), bilingue EN/FR. Tests : harnais Node 32/32 + Playwright, CI GitHub. Déploiement GitHub Pages prêt (à activer une fois).
+Statut actuel : **v1.5 fonctionnelle** — 23 machines en 3 tiers (dont box-23, NFS `no_root_squash`), hub par tiers + scorecard, **profil opérateur + 8 succès**, terminal réaliste (pipes + `grep`/`ps`/`env`/`man`/autocomplétion/`tee`/`john`/`mount`/`showmount`), **mode Blue Team**, **5 thèmes**, **son**, **historique persistant + `Ctrl+R`**, **timer speedrun + meilleurs temps**, **accessibilité clavier/ARIA**, **responsive mobile**, **offline-first** (polices auto-hébergées, zéro dépendance externe), bilingue EN/FR. Tests : harnais Node 34/34 + Playwright, CI GitHub. Déploiement GitHub Pages prêt (à activer une fois).
 
 Légende : 🔴 prioritaire · 🟠 important · 🟢 confort · 💡 idée long terme
 Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
@@ -37,7 +37,7 @@ Le moteur gère désormais **22 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2 
 - ✅ 🟢 ⚡ **Box « data-only » GTFOBins** — *fait (v1.3, box-16 à box-20).* `sudo find` (box-16, même binaire que box-01 mais via sudo au lieu de SUID), `sudo env` (box-17), `sudo python3` (box-18), `sudo less` — échappement pager `!/bin/sh` (box-19), et `sudo tee -a /etc/passwd` piloté par pipe (box-20, nécessite le nouveau moteur `tee` + permissions de redirection réelles — cf. §4). `sudo LD_LIBRARY_PATH` reste ouvert (mécanique distincte de `LD_PRELOAD`, pas juste une nouvelle box de données).
 - ✅ 🟠 🔨 **`cap_dac_read_search`** (lecture `/etc/shadow` → crack simulé) — *fait (v1.4, box-21).* python3 avec `cap_dac_read_search+ep` contourne les vérifications de lecture DAC ; `open('/etc/shadow').read()` extrait le hash, `john` (nouvelle commande simulée) le « casse », `su root` avec le hash cassé (nouveau chemin `shadow_crack` dans `su()`).
 - ✅ 🟠 🔨 **`sudo LD_LIBRARY_PATH`** — *fait (v1.4, box-22).* Mécanique distincte de `LD_PRELOAD` : le binaire cible référence une bibliothèque manquante par son nom exact (`vulnLib` en donnée de niveau) ; planter un `.so` malveillant sous ce nom précis dans le dossier pointé par `LD_LIBRARY_PATH` (et pas n'importe quel `.so`, contrairement à `LD_PRELOAD`) déclenche l'exécution en root.
-- 🟢 🏗️ **NFS `no_root_squash`** — *encore ouvert.* Nécessiterait de simuler un montage inter-hôtes et une réécriture d'`owner` sur les fichiers créés dans le point de montage — mécanique plus lourde que les box data-only, mise de côté pour l'instant.
+- ✅ 🟢 🏗️ **NFS `no_root_squash`** — *fait (v1.5, box-23).* `showmount -e` lit les exports déclarés par le niveau (`nfsExports`) ; `mount -t nfs host:/export /mountpoint` valide contre cette liste et pose `SESSION.nfsMount`. Simplification assumée : pas de vraie double arborescence hôte/client — une fois monté, l'export lui-même (`/srv/backups`) devient l'endroit modifiable, `touch`/`chmod` y bypassent les permissions Unix locales et posent `owner: 'root'`, `chmod u+s` y déclare `exploit: 'nfs_no_root_squash'`. Garde-fou vérifié : `touch` sur l'export échoue tant que non monté (nouvelle vérif `canCreateIn`, réutilisée aussi pour resserrer `touch`/`>`/`>>` ailleurs, gap pré-existant comblé au passage).
 
 ## 4. Moteur terminal & réalisme du shell
 
@@ -144,15 +144,14 @@ Shortlist actionnable pour l'après-v1.4 (le gros du backlog historique est ✅)
 1. 🔴 ⚡ **Activer GitHub Pages** (Settings → Pages → Source: GitHub Actions) — le workflow `deploy-pages.yml` existe déjà, il ne manque que l'activation manuelle → démo jouable en ligne.
 
 **Moyen terme — contenu & rejouabilité**
-2. 🟠 🏗️ **Box NFS `no_root_squash`** (cf. §3) — la dernière mécanique « classique » du top OSCP encore hors du moteur ; demande de simuler un montage et une réécriture d'`owner` sur le point de montage.
-3. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
-4. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
-5. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
-6. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
-7. 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution (cf. §6).
+2. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
+3. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
+4. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
+5. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
+6. 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution (cf. §6).
 
 **Long terme — moonshots** (voir §10) : mode histoire/campagne roguelike, adversaire IA blue-team en temps réel, vrai noyau Linux en WASM, multijoueur PvP, génération procédurale de box, ingestion GTFOBins.
 
 ---
 
-*Généré le 2026-07-11, révisé le 2026-07-18 (v1.4 : 22 box — +box-21 `cap_dac_read_search`/crack shadow et box-22 `sudo LD_LIBRARY_PATH` — au-dessus de la base v1.3 : box-16 à box-20 GTFOBins sudo find/env/python3/less/tee, historique de commandes persistant + `Ctrl+R`, timer speedrun + meilleurs temps sur le hub, permissions réelles sur `>`/`>>`/`tee`, accessibilité clavier/ARIA). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
+*Généré le 2026-07-11, révisé le 2026-07-18 (v1.5 : 23 box — +box-23 NFS `no_root_squash` (`mount`/`showmount`, permissions Unix locales bypassées via l'export monté), `sudo -l` demande un mot de passe simulé une fois par machine — au-dessus de la base v1.4 : box-21 `cap_dac_read_search`/crack shadow, box-22 `sudo LD_LIBRARY_PATH`, box-16 à box-20 GTFOBins sudo find/env/python3/less/tee, historique de commandes persistant + `Ctrl+R`, timer speedrun + meilleurs temps sur le hub, permissions réelles sur `>`/`>>`/`tee`, accessibilité clavier/ARIA). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*

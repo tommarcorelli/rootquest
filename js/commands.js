@@ -16,6 +16,7 @@ window.SESSION = {
     startTime: 0,  // Date.now() when the machine was loaded
     blueTeam: false, // in the post-root "harden the box" phase
     sudoAuthed: false, // has `sudo -l` already prompted+cached a password this machine (real sudo tickets)
+    nfsMount: null, // exported path currently mounted via `mount -t nfs` (box-23), or null
 };
 
 window.CMD = {
@@ -170,17 +171,44 @@ window.CMD = {
     },
 
     // Can the current session write this path via a plain `>`/`>>` redirect or
-    // tee? New files inherit the existing (permissive) creation behaviour;
+    // tee? New files go through canCreateIn (parent dir's own permissions);
     // existing files are checked against FS.canWrite so a locked-down file
-    // (box-20's /etc/passwd) genuinely resists a non-privileged write.
+    // (box-20's /etc/passwd) genuinely resists a non-privileged write. A path
+    // under an active `mount -t nfs` (box-23, no_root_squash) always succeeds —
+    // the export's own Unix perms don't apply once mounted.
     canRedirectTarget(path) {
+        if (this.isNfsWritable(path)) return true;
         const node = FS.get(path);
-        if (!node) {
-            const parent = FS.get(FS.parent(path));
-            return !!(parent && parent.type === 'dir');
-        }
+        if (!node) return this.canCreateIn(path);
         if (SESSION.isRoot) return true;
         return FS.canWrite(path);
+    },
+
+    // Is this path inside the currently-mounted NFS export? no_root_squash
+    // means the client's own root UID maps straight onto the server for that
+    // export, so writes through the mount bypass the target's local Unix
+    // permissions entirely — box-23's vector (see levels.js `nfsExports`).
+    isNfsWritable(path) {
+        return !!SESSION.nfsMount && (path === SESSION.nfsMount || path.startsWith(SESSION.nfsMount + '/'));
+    },
+
+    // Can a *new* file be created at this path? Mirrors FS.canWrite's rules
+    // (owner, world-writable, /tmp's sticky bit) but keyed off the parent
+    // directory, since the target node doesn't exist yet to check directly.
+    canCreateIn(path) {
+        if (SESSION.isRoot || this.isNfsWritable(path)) return true;
+        const parent = FS.parent(path);
+        if (parent === '/tmp') return true;
+        const parentNode = FS.get(parent);
+        if (!parentNode || parentNode.type !== 'dir') return false;
+        if (parentNode.owner === SESSION.user) return true;
+        return parentNode.mode === '777' || !!parentNode.writable_by_all;
+    },
+
+    // Files written through an active nfsMount land owned by root
+    // (no_root_squash); anywhere else, ownership is the current user, as usual.
+    creationOwner(path) {
+        return this.isNfsWritable(path) ? 'root' : SESSION.user;
     },
 
     // Shared text-stream operators, used by both pipelines and the standalone
@@ -502,7 +530,8 @@ window.CMD = {
             const n = FS.normalize(file);
             const node = FS.get(n);
             if (!node) return [{ text: t('noSuchFile', file), cls: 'err' }];
-            if (!FS.canWrite(n) && node.owner !== SESSION.user && !SESSION.isRoot) {
+            const nfsBypass = this.isNfsWritable(n);
+            if (!nfsBypass && !FS.canWrite(n) && node.owner !== SESSION.user && !SESSION.isRoot) {
                 return [{ text: t('permDenied', file), cls: 'err' }];
             }
             // Handle +x, +s / -s (drop SUID), or numeric
@@ -511,7 +540,14 @@ window.CMD = {
                 node.suid = false;
                 node.mode = (node.mode && node.mode.length === 4) ? node.mode.slice(1) : (node.mode || '755');
             }
-            else if (mode.includes('+s')) { node.mode = '4' + (node.mode || '755'); node.suid = true; }
+            else if (mode.includes('+s')) {
+                node.mode = '4' + (node.mode || '755');
+                node.suid = true;
+                // no_root_squash: a setuid file the mount let us plant, already
+                // owned by root, is a live root shell the instant it runs —
+                // declare the exploit so runBinary() fires this box's win.
+                if (nfsBypass && node.owner === 'root') node.exploit = 'nfs_no_root_squash';
+            }
             else if (/^\d{3,4}$/.test(mode)) {
                 node.mode = mode;
                 node.suid = (mode.length === 4 && mode.startsWith('4'));
@@ -668,13 +704,44 @@ window.CMD = {
             const h = (window.TERM && window.TERM.history) || [];
             return h.map((c, i) => ({ text: `${String(i + 1).padStart(5)}  ${c}` }));
         },
-        mount() {
+        mount(args) {
+            if (args[0] === '-t' && args[1] === 'nfs') {
+                const spec = args[2];
+                const dest = args[3];
+                if (!spec || !dest) return [{ text: 'usage: mount -t nfs host:/export /mountpoint', cls: 'dim' }];
+                const colon = spec.indexOf(':');
+                const exportPath = FS.normalize(colon >= 0 ? spec.slice(colon + 1) : spec);
+                const level = window.GAME.level();
+                const exp = (level.nfsExports || []).find(e => e.path === exportPath);
+                if (!exp) {
+                    return [{ text: `mount.nfs: mounting ${spec} failed, reason given by server: No such file or directory`, cls: 'err' }];
+                }
+                const mp = FS.normalize(dest);
+                const mpNode = FS.get(mp);
+                if (!mpNode || mpNode.type !== 'dir') {
+                    return [{ text: `mount point ${dest} does not exist`, cls: 'err' }];
+                }
+                SESSION.nfsMount = exportPath;
+                return []; // mount is silent on success
+            }
+            if (args.length) return [{ text: `mount: unknown filesystem type '${args.join(' ')}'`, cls: 'err' }];
             return [
                 { text: 'sysfs on /sys type sysfs (rw,nosuid,nodev,noexec,relatime)', cls: 'dim' },
                 { text: 'proc on /proc type proc (rw,nosuid,nodev,noexec,relatime)', cls: 'dim' },
                 { text: '/dev/sda1 on / type ext4 (rw,relatime,errors=remount-ro)', cls: '' },
                 { text: 'tmpfs on /tmp type tmpfs (rw,nosuid,nodev)', cls: '' },
             ];
+        },
+
+        showmount(args) {
+            const level = window.GAME.level();
+            const exports = level.nfsExports || [];
+            const eIdx = args.indexOf('-e');
+            const host = (eIdx >= 0 && args[eIdx + 1]) ? args[eIdx + 1] : SESSION.host;
+            if (!exports.length) return [{ text: 'clnt_create: RPC: Program not registered', cls: 'err' }];
+            const lines = [{ text: `Export list for ${host}:`, cls: '' }];
+            for (const e of exports) lines.push({ text: `${e.path.padEnd(24)} ${e.clients || '*'}`, cls: 'warn' });
+            return lines;
         },
 
         // ── Build / file-creation tools used by the newer boxes ──
@@ -696,12 +763,16 @@ window.CMD = {
         cc(args) { return CMD.handlers.gcc.call(this, args); },
 
         touch(args) {
+            const errors = [];
             for (const a of args) {
                 if (a.startsWith('-')) continue;
                 const n = FS.normalize(a);
-                if (!FS.get(n)) FS.createFile(n, '');
+                if (!FS.get(n)) {
+                    if (!this.canCreateIn(n)) { errors.push({ text: t('permDenied', a), cls: 'err' }); continue; }
+                    FS.createFile(n, '', this.creationOwner(n));
+                }
             }
-            return [];
+            return errors;
         },
 
         ssh(args) {
@@ -1046,6 +1117,8 @@ window.CMD = {
         grep:   { d: { en: 'filter lines matching a pattern', fr: 'filtrer les lignes correspondant à un motif' }, s: 'grep [-ivc] <pattern> <file>', e: 'cat /etc/passwd | grep -v nologin' },
         ps:     { d: { en: 'report running processes', fr: 'lister les processus en cours' }, s: 'ps [aux]', e: 'ps aux | grep root' },
         docker: { d: { en: 'control containers; docker group ~= root', fr: 'gérer des conteneurs ; groupe docker ~= root' }, s: 'docker run -v /:/mnt ...', e: 'docker run -v /:/mnt -it alpine chroot /mnt sh' },
+        showmount: { d: { en: 'list NFS exports offered by a host', fr: 'lister les partages NFS exposés par un hôte' }, s: 'showmount -e [host]', e: 'showmount -e' },
+        mount:  { d: { en: 'mount a filesystem, e.g. an NFS export', fr: 'monter un système de fichiers, ex. un partage NFS' }, s: 'mount -t nfs host:/export /mountpoint', e: 'mount -t nfs localhost:/srv/backups /mnt' },
         crontab:{ d: { en: 'list cron jobs (see also /etc/crontab)', fr: 'lister les tâches cron (voir aussi /etc/crontab)' }, s: 'crontab -l', e: 'cat /etc/crontab' },
         wait:   { d: { en: 'wait for a scheduled cron job to fire', fr: 'attendre le déclenchement d\'un job cron' }, s: 'wait', e: 'wait' },
         man:    { d: { en: 'show this manual for a command', fr: 'afficher ce manuel pour une commande' }, s: 'man <command>', e: 'man sudo' }

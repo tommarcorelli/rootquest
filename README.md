@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 22 independent Linux machines, 22 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 23 independent Linux machines, 23 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -38,6 +38,7 @@ start index.html         # Windows
 | 20 | box-20 | Hard | Sudoers NOPASSWD on `tee`, piped into `/etc/passwd` (GTFOBins) | `echo 'r00t::0:0::/root:/bin/bash' \| sudo tee -a /etc/passwd`, `su r00t` |
 | 21 | box-21 | Hard | Linux capability `cap_dac_read_search+ep` on python3 → read + crack `/etc/shadow` | `python3 -c "print(open('/etc/shadow').read())"`, `john /tmp/shadow.copy`, `su root` |
 | 22 | box-22 | Hard | `sudo` env_keep leaks `LD_LIBRARY_PATH` (missing-library hijack) | `gcc -shared … libagent.so.1`, `sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent` |
+| 23 | box-23 | Hard | NFS export with `no_root_squash` | `showmount -e`, `mount -t nfs box-23:/srv/backups /mnt`, plant + `chmod u+s` a shell in the export |
 
 ## Controls
 
@@ -78,7 +79,7 @@ privesc-game/
 ├── styles.css         # Kali/Parrot-inspired terminal styling
 └── js/
     ├── i18n.js        # Bilingual dictionary
-    ├── levels.js      # 22 machines with their filesystems
+    ├── levels.js      # 23 machines with their filesystems
     ├── fs.js          # Simulated filesystem
     ├── commands.js    # Command interpreter
     ├── terminal.js    # Terminal UI (history, prompt, rendering)
@@ -92,7 +93,7 @@ No build step for the game itself. For the test suite:
 ```
 npm install                 # installs @playwright/test (dev only)
 npm run serve               # preview at http://localhost:4173
-npm run test:logic          # fast browserless harness (plays all 22 boxes)
+npm run test:logic          # fast browserless harness (plays all 23 boxes)
 npm test                    # Playwright e2e (drives a real browser)
 ```
 
