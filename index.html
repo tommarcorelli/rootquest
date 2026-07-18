@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#04060a">
-    <meta name="description" content="rootQuest — a 100% browser-based terminal game to train Linux privilege escalation. 5 machines, 5 vulnerabilities, bilingual EN/FR.">
+    <meta name="description" content="rootQuest — a 100% browser-based terminal game to train Linux privilege escalation. 22 machines, 22 vulnerabilities, bilingual EN/FR.">
     <meta property="og:title" content="rootQuest — Linux Privilege Escalation Playground">
-    <meta property="og:description" content="5 machines, 5 privesc vulnerabilities, one terminal. Enumerate, identify, exploit, root.">
+    <meta property="og:description" content="22 machines, 22 privesc vulnerabilities, one terminal. Enumerate, identify, exploit, root.">
     <meta property="og:image" content="assets/icons/icon-512.png">
     <meta property="og:type" content="website">
     <title>rootQuest — Linux PrivEsc Challenges</title>
@@ -112,10 +112,10 @@
                     </div>
                 </div>
                 <div class="terminal" id="terminal" data-testid="terminal">
-                    <div id="termOutput" class="term-output" data-testid="term-output"></div>
+                    <div id="termOutput" class="term-output" data-testid="term-output" role="log" aria-live="polite" aria-label="Terminal output"></div>
                     <div class="term-inputline">
-                        <span class="prompt" id="prompt">┌──(player㉿box-01)-[~]<br>└─$&nbsp;</span>
-                        <input type="text" id="termInput" class="term-input" autocomplete="off" spellcheck="false" autofocus data-testid="term-input">
+                        <span class="prompt" id="prompt" aria-hidden="true">┌──(player㉿box-01)-[~]<br>└─$&nbsp;</span>
+                        <input type="text" id="termInput" class="term-input" autocomplete="off" spellcheck="false" autofocus data-testid="term-input" aria-label="Terminal command input" role="textbox">
                     </div>
                 </div>
                 <div class="term-footer">
@@ -133,6 +133,7 @@
 
                 <div class="win-stats" id="winStats" data-testid="win-stats">
                     <div class="stat"><span class="stat-val" id="statTime">00:00</span><span class="stat-label" data-i18n="statTime">Time</span></div>
+                    <div class="stat"><span class="stat-val" id="statBest">—</span><span class="stat-label" data-i18n="statBest">Best</span></div>
                     <div class="stat"><span class="stat-val" id="statHints">0/3</span><span class="stat-label" data-i18n="statHints">Hints</span></div>
                     <div class="stat"><span class="stat-val" id="statCmds">0</span><span class="stat-label" data-i18n="statCmds">Commands</span></div>
                     <div class="stat"><span class="stat-val" id="statScore">0</span><span class="stat-label" data-i18n="statScore">Score</span></div>
@@ -198,7 +199,7 @@
                 <img src="assets/icons/icon-source.svg" alt="rootQuest" class="home-logo" width="88" height="88">
                 <div class="home-badge" data-i18n="homeBadge">// NEURAL BREACH TRAINING SIMULATOR</div>
                 <h1 class="home-title" data-text="rootQuest">rootQuest</h1>
-                <p class="home-sub" data-i18n="homeSub">Terrain d'entraînement à l'escalade de privilèges Linux. 5 machines, 5 vulnérabilités, un seul objectif : root.</p>
+                <p class="home-sub" data-i18n="homeSub">Terrain d'entraînement à l'escalade de privilèges Linux. Un lab grandissant de machines, un seul objectif : root.</p>
                 <div class="home-cta">
                     <button class="btn-primary home-start" id="homeStartBtn" data-testid="home-start-btn">
                         <span data-i18n="homeStart">▶ INITIALIZE BREACH</span>
@@ -221,7 +222,7 @@
                 <div class="home-select-head">
                     <span class="home-select-title" data-i18n="homeSelect">SELECT TARGET</span>
                     <div class="home-select-meta-wrap">
-                        <span class="home-select-meta"><strong id="homeProgressText">0 / 15</strong> <span data-i18n="homeOwned">owned</span></span>
+                        <span class="home-select-meta"><strong id="homeProgressText">0 / 22</strong> <span data-i18n="homeOwned">owned</span></span>
                         <button class="btn-ghost home-reset-btn" id="resetProgressBtn" data-testid="reset-progress-btn">
                             <span data-i18n="resetProgressBtn">Reset progress</span>
                         </button>

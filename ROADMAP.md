@@ -1,7 +1,7 @@
 # 🗺️ Fiche de route — rootQuest
 
 Feuille de route des améliorations possibles pour **rootQuest** (jeu de terminal d'escalade de privilèges Linux, 100 % vanilla JS).
-Statut actuel : **v1.2 fonctionnelle** — 15 machines en 3 tiers, hub par tiers + scorecard, **profil opérateur + 8 succès**, terminal réaliste (pipes + `grep`/`ps`/`env`/`man`/autocomplétion), **mode Blue Team**, **5 thèmes**, **son**, **responsive mobile**, **offline-first** (polices auto-hébergées, zéro dépendance externe), bilingue EN/FR. Tests : harnais Node 24/24 + Playwright 24/24, CI GitHub. Déploiement GitHub Pages prêt (à activer une fois).
+Statut actuel : **v1.4 fonctionnelle** — 22 machines en 3 tiers, hub par tiers + scorecard, **profil opérateur + 8 succès**, terminal réaliste (pipes + `grep`/`ps`/`env`/`man`/autocomplétion/`tee`/`john`), **mode Blue Team**, **5 thèmes**, **son**, **historique persistant + `Ctrl+R`**, **timer speedrun + meilleurs temps**, **accessibilité clavier/ARIA**, **responsive mobile**, **offline-first** (polices auto-hébergées, zéro dépendance externe), bilingue EN/FR. Tests : harnais Node 32/32 + Playwright, CI GitHub. Déploiement GitHub Pages prêt (à activer une fois).
 
 Légende : 🔴 prioritaire · 🟠 important · 🟢 confort · 💡 idée long terme
 Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
@@ -22,7 +22,7 @@ Effort : ⚡ rapide (<1 h) · 🔨 moyen · 🏗️ lourd
 
 ## 3. Contenu — nouvelles machines / vulnérabilités
 
-Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2). Statut des idées :
+Le moteur gère désormais **22 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2 + 5 en v1.3 + 2 en v1.4). Statut des idées :
 
 - ✅ 🟠 🔨 **Writable `/etc/passwd`** — *fait (box-06).* Ajout d'un root sans mot de passe (`r00t::0:0::/root:/bin/bash`) puis `su r00t`.
 - ✅ 🟠 🔨 **`sudo awk` (GTFOBins)** — *fait (box-07).* NOPASSWD sur `awk` → `sudo awk 'BEGIN{system("/bin/sh")}'`.
@@ -34,8 +34,10 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟢 🔨 **Clé SSH root lisible** — *fait (box-13).* Clé privée world-readable dans une sauvegarde → `ssh -i /opt/backup/id_rsa root@localhost`.
 - ✅ 🟠 🔨 **`/etc/sudoers.d` modifiable** — *fait (box-14).* Drop-in NOPASSWD écrit par le joueur, parsé par `sudo`.
 - ✅ 🟠 🔨 **`/etc/ld.so.preload` modifiable** — *fait (box-15).* Préchargement global d'un `.so` sur tout binaire SUID.
-- 🟢 ⚡ **Box « data-only » GTFOBins** — *idée.* `sudo less` / `sudo nano` / `sudo tee -a /etc/passwd` / `sudo LD_LIBRARY_PATH` : réutilisent le cadre `sudo_shell`/env_keep existant → +3-4 box quasi sans code moteur.
-- 🟢 🏗️ **NFS `no_root_squash`**, **`cap_dac_read_search`** (lecture `/etc/shadow` → crack simulé) — *encore ouvert.*
+- ✅ 🟢 ⚡ **Box « data-only » GTFOBins** — *fait (v1.3, box-16 à box-20).* `sudo find` (box-16, même binaire que box-01 mais via sudo au lieu de SUID), `sudo env` (box-17), `sudo python3` (box-18), `sudo less` — échappement pager `!/bin/sh` (box-19), et `sudo tee -a /etc/passwd` piloté par pipe (box-20, nécessite le nouveau moteur `tee` + permissions de redirection réelles — cf. §4). `sudo LD_LIBRARY_PATH` reste ouvert (mécanique distincte de `LD_PRELOAD`, pas juste une nouvelle box de données).
+- ✅ 🟠 🔨 **`cap_dac_read_search`** (lecture `/etc/shadow` → crack simulé) — *fait (v1.4, box-21).* python3 avec `cap_dac_read_search+ep` contourne les vérifications de lecture DAC ; `open('/etc/shadow').read()` extrait le hash, `john` (nouvelle commande simulée) le « casse », `su root` avec le hash cassé (nouveau chemin `shadow_crack` dans `su()`).
+- ✅ 🟠 🔨 **`sudo LD_LIBRARY_PATH`** — *fait (v1.4, box-22).* Mécanique distincte de `LD_PRELOAD` : le binaire cible référence une bibliothèque manquante par son nom exact (`vulnLib` en donnée de niveau) ; planter un `.so` malveillant sous ce nom précis dans le dossier pointé par `LD_LIBRARY_PATH` (et pas n'importe quel `.so`, contrairement à `LD_PRELOAD`) déclenche l'exécution en root.
+- 🟢 🏗️ **NFS `no_root_squash`** — *encore ouvert.* Nécessiterait de simuler un montage inter-hôtes et une réécriture d'`owner` sur les fichiers créés dans le point de montage — mécanique plus lourde que les box data-only, mise de côté pour l'instant.
 
 ## 4. Moteur terminal & réalisme du shell
 
@@ -46,7 +48,8 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟢 🔨 **Auto-complétion des commandes** — *fait (v1.2).* `Tab` complète le nom de commande (1er token) en plus des chemins (préfixe commun + liste si ambigu).
 - ✅ 🟢 ⚡ **`cd -` / `cd` sans argument** — *fait (v1.2).* Sans argument → home, `cd -` → dossier précédent (`SESSION.prevCwd`). `pushd`/`popd` non gérés.
 - ✅ 🟢 🔨 **Pages de manuel en jeu** — *fait (v1.2).* `man <commande>` affiche NAME/SYNOPSIS/EXAMPLE bilingue pour ~22 commandes (`CMD.MANPAGES`).
-- 🟢 🔨 **Persistance de l'historique** entre machines (localStorage) + navigation `Ctrl+R` (recherche).
+- ✅ 🟢 🔨 **Persistance de l'historique** entre machines (localStorage) + navigation **`Ctrl+R`** (recherche) — *fait (v1.3).* `TERM.history` est sauvegardé dans `rootquest_save_v1` (`cmdHistory`, 300 dernières entrées) et restauré au boot ; `Ctrl+R` ouvre une recherche arrière incrémentale façon bash (`(reverse-i-search)`...`: `), chaque pression suivante remonte au match précédent.
+- ✅ 🟢 🔨 **Permissions réelles sur les redirections `>`/`>>`/`tee`** — *fait (v1.3, pour box-20).* Écrire dans un fichier existant que le joueur ne possède pas et ne peut pas modifier échoue désormais avec `Permission denied`, sauf en root ou via un binaire autorisé par `sudo` (`tee` notamment) — corrige un point où n'importe quel `echo >> /etc/passwd` marchait sans égard aux permissions déclarées.
 
 ## 5. Internationalisation (i18n)
 
@@ -71,8 +74,8 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟢 🔨 **Succès / achievements** — *fait (v1.2).* 8 badges (First Blood, Apprentice, Halfway, Root Wizard, Defender, Blue-Team Legend, Ghost/rang S, Speedrunner) affichés sur le hub, toast au déblocage, persistés en localStorage.
 - 🟢 🔨 **Défi du jour / box aléatoire** — *idée.* Bouton « surprends-moi » + seed quotidien pour la rejouabilité.
 - 🟢 🔨 **Carte « preuve de root » partageable** — *idée.* Générer une image/URL récapitulative (box, rang, temps, badges) après complétion, pour un portfolio.
-- 🟢 ⚡ **Timer speedrun + meilleurs temps par box** — *idée.* Chrono par machine, meilleur temps stocké et affiché sur les cartes du hub (nourrit le succès Speedrunner).
-- 🟢 ⚡ **Effet machine à écrire** sur les bannières + **`Ctrl+R`** (recherche d'historique) et historique persistant entre machines (cf. §4).
+- ✅ 🟢 ⚡ **Timer speedrun + meilleurs temps par box** — *fait (v1.3).* `GAME.bestTimes` (persisté) garde le meilleur temps par box, affiché dans le scorecard (« ★ nouveau record ! » sur un PB) et sous forme de badge ⏱ sur les cartes owned du hub.
+- ✅ 🟢 ⚡ **`Ctrl+R`** (recherche d'historique) et historique persistant entre machines — *fait (v1.3, cf. §4).*
 - ✅ 🟢 ⚡ **Thèmes** — *fait (v1.2).* Sélecteur (topbar + hub) de 5 palettes — **Kali** (défaut), **Matrix**, **Dracula**, **Amber** (CRT), **Light** — via `data-theme` sur `<html>`, persisté en `localStorage`. Chaque surface lit des variables CSS, donc un thème = un override de variables.
 
 ## 8. Qualité, tests & CI
@@ -82,7 +85,7 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 - ✅ 🟠 ⚡ **Déploiement GitHub Pages** — *fait (v1.2).* `.github/workflows/deploy-pages.yml` publie les fichiers de l'app à chaque push sur `main` (à activer une fois dans Settings → Pages → Source: GitHub Actions).
 - ✅ 🟢 ⚡ **Fichier `LICENSE`** — *fait.* Fichier MIT ajouté à la racine.
 - 🟢 ⚡ **Lint ESLint** — non fait (le CI se contente de `node --check`).
-- 🟢 ⚡ **Validation d'accessibilité** : rôles ARIA sur le terminal (`role="log"`, `aria-live`), focus visible, navigation clavier complète.
+- ✅ 🟢 ⚡ **Validation d'accessibilité** — *fait (v1.3).* `role="log"` + `aria-live="polite"` + `aria-label` sur la sortie et l'entrée du terminal, focus visible cohérent (`:focus-visible`) sur tous les éléments interactifs, carte de niveaux et cheatsheet navigables au clavier (`role="button"`, `tabindex`, `Enter`/`Espace`).
 
 ## 9. Architecture / dette technique
 
@@ -135,25 +138,22 @@ Le moteur gère désormais **15 vecteurs** (5 d'origine + 5 en v1.1 + 5 en v1.2)
 
 ## 🎯 Prochaines idées prioritaires (proposées par l'assistant)
 
-Shortlist actionnable pour l'après-v1.2 (le gros du backlog historique est ✅). Ordre = ROI décroissant.
+Shortlist actionnable pour l'après-v1.4 (le gros du backlog historique est ✅). Ordre = ROI décroissant.
 
 **Court terme — rapides, fort impact**
 1. 🔴 ⚡ **Activer GitHub Pages** (Settings → Pages → Source: GitHub Actions) — le workflow `deploy-pages.yml` existe déjà, il ne manque que l'activation manuelle → démo jouable en ligne.
-2. 🟠 🔨 **Historique de commandes persistant** entre machines (localStorage) + **recherche `Ctrl+R`** (cf. §4).
-3. 🟠 ⚡ **Accessibilité** : `role="log"` + `aria-live="polite"` sur le terminal, `aria-label` sur les contrôles, `:focus-visible` net, navigation clavier complète (cf. §8).
-4. 🟢 ⚡ **Box « data-only » GTFOBins** (quasi zéro moteur, réutilisent `sudo_shell`) : `sudo less` / `sudo nano` / `sudo tee -a /etc/passwd` / `sudo LD_LIBRARY_PATH` → +3-4 box rapides.
-5. 🟢 ⚡ **Fichier `LICENSE`** ✅ fait · **`sudo -l` sans NOPASSWD** demande un mot de passe simulé (immersion).
+2. 🟢 ⚡ **`sudo -l` sans NOPASSWD** demande un mot de passe simulé (immersion) — seule idée « rapide » du backlog historique encore ouverte. Nécessiterait un vrai mécanisme d'attente d'entrée (façon `pendingCron`/`wait`) plutôt qu'une commande atomique.
 
 **Moyen terme — contenu & rejouabilité**
-6. 🟠 🔨 **Box NFS `no_root_squash`** et **`cap_dac_read_search`** (lecture de `/etc/shadow` → crack simulé) (cf. §3).
-7. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
-8. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
-9. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
-10. 🟢 ⚡ **Timer speedrun + meilleurs temps par box** affichés sur les cartes du hub (nourrit le succès Speedrunner).
-11. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
+3. 🟠 🏗️ **Box NFS `no_root_squash`** (cf. §3) — la dernière mécanique « classique » du top OSCP encore hors du moteur ; demande de simuler un montage et une réécriture d'`owner` sur le point de montage.
+4. 🟢 🔨 **Éditeur de box + import/export JSON** : créer sa machine, la partager par URL encodée, importer celle des autres (cf. §10 moonshots).
+5. 🟢 🔨 **Défi du jour / box aléatoire** : un bouton « surprends-moi » + un seed quotidien pour la rejouabilité.
+6. 🟢 🔨 **Carte « preuve de root » partageable** (image/URL) générée après complétion — parfait pour un portfolio.
+7. 🟢 🔨 **Éditeur `nano` en jeu** (édition simple de scripts/cron pour un réalisme accru des box cron/wildcard).
+8. 🟠 🔨 **Mode « explication »** togglable qui commente chaque commande de la solution (cf. §6).
 
 **Long terme — moonshots** (voir §10) : mode histoire/campagne roguelike, adversaire IA blue-team en temps réel, vrai noyau Linux en WASM, multijoueur PvP, génération procédurale de box, ingestion GTFOBins.
 
 ---
 
-*Généré le 2026-07-11, révisé le 2026-07-17 (v1.2 : 15 box, thèmes, son, blue team, offline-first, profil opérateur, succès, man pages). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*
+*Généré le 2026-07-11, révisé le 2026-07-18 (v1.4 : 22 box — +box-21 `cap_dac_read_search`/crack shadow et box-22 `sudo LD_LIBRARY_PATH` — au-dessus de la base v1.3 : box-16 à box-20 GTFOBins sudo find/env/python3/less/tee, historique de commandes persistant + `Ctrl+R`, timer speedrun + meilleurs temps sur le hub, permissions réelles sur `>`/`>>`/`tee`, accessibilité clavier/ARIA). Ce document est un backlog vivant — coche, réordonne, supprime au fil de l'eau.*

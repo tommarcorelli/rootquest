@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 15 independent Linux machines, 15 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 22 independent Linux machines, 22 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -31,6 +31,13 @@ start index.html         # Windows
 | 13 | box-13 | Easy | World-readable root SSH private key | `ssh -i /opt/backup/id_rsa root@localhost` |
 | 14 | box-14 | Medium | World-writable `/etc/sudoers.d` drop-in | `echo 'player ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/pwn`, `sudo bash` |
 | 15 | box-15 | Hard | World-writable `/etc/ld.so.preload` | `echo /tmp/x.so > /etc/ld.so.preload`, run any SUID |
+| 16 | box-16 | Easy | Sudoers NOPASSWD on `find` (GTFOBins) | `sudo find . -exec /bin/sh \;` |
+| 17 | box-17 | Easy | Sudoers NOPASSWD on `env` (GTFOBins) | `sudo env /bin/sh` |
+| 18 | box-18 | Medium | Sudoers NOPASSWD on `python3` (GTFOBins) | `sudo python3 -c 'import os; os.system("/bin/sh")'` |
+| 19 | box-19 | Medium | Sudoers NOPASSWD on `less` — pager shell-escape (GTFOBins) | `sudo less !/bin/sh` |
+| 20 | box-20 | Hard | Sudoers NOPASSWD on `tee`, piped into `/etc/passwd` (GTFOBins) | `echo 'r00t::0:0::/root:/bin/bash' \| sudo tee -a /etc/passwd`, `su r00t` |
+| 21 | box-21 | Hard | Linux capability `cap_dac_read_search+ep` on python3 → read + crack `/etc/shadow` | `python3 -c "print(open('/etc/shadow').read())"`, `john /tmp/shadow.copy`, `su root` |
+| 22 | box-22 | Hard | `sudo` env_keep leaks `LD_LIBRARY_PATH` (missing-library hijack) | `gcc -shared … libagent.so.1`, `sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent` |
 
 ## Controls
 
@@ -39,16 +46,21 @@ start index.html         # Windows
 - `next` — advance to next machine after rooting
 - `reset` — restart the current machine
 - `lang en` / `lang fr` — switch language
-- `↑ / ↓` — command history
+- `↑ / ↓` — command history (now persisted across machines and reloads)
+- `Ctrl+R` — reverse-incremental history search, bash-style
 - `Tab` — command & path completion
 - `Ctrl+L` — clear screen
 - `man <command>` — read a command's manual page; `cd -` — previous directory
 
 ## Commands supported
 
-`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `setcap`, `python3 -c '...'`, `awk`, `vim`, `whoami`, `id`, `wait`, `man <cmd>`.
+`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `setcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `less`, `tee -a`, `john`, `whoami`, `id`, `wait`, `man <cmd>`.
 
-**Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`).
+**Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq`, `tee` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`, `echo payload | sudo tee -a /etc/passwd`).
+
+Redirects (`>`/`>>`) and `tee` now respect file permissions: writing to a file you don't own and can't write fails with `Permission denied` unless you're root or the write is happening through a sudo-granted binary — box-20 relies on exactly that distinction.
+
+`python3 -c "open(path).read()"` also respects file read permissions unless the interpreter has been granted `cap_dac_read_search`/`cap_dac_override` (box-21), in which case it bypasses them like the real capability does — and `sudo <cmd>` bypasses `env_reset` only for variables explicitly listed in a level's `env_keep` (`LD_PRELOAD` for box-11/15, `LD_LIBRARY_PATH` for box-22 — each with its own, deliberately different, hijack requirements).
 
 ## Language
 
@@ -66,7 +78,7 @@ privesc-game/
 ├── styles.css         # Kali/Parrot-inspired terminal styling
 └── js/
     ├── i18n.js        # Bilingual dictionary
-    ├── levels.js      # 15 machines with their filesystems
+    ├── levels.js      # 22 machines with their filesystems
     ├── fs.js          # Simulated filesystem
     ├── commands.js    # Command interpreter
     ├── terminal.js    # Terminal UI (history, prompt, rendering)
@@ -80,7 +92,7 @@ No build step for the game itself. For the test suite:
 ```
 npm install                 # installs @playwright/test (dev only)
 npm run serve               # preview at http://localhost:4173
-npm run test:logic          # fast browserless harness (plays all 15 boxes)
+npm run test:logic          # fast browserless harness (plays all 22 boxes)
 npm test                    # Playwright e2e (drives a real browser)
 ```
 

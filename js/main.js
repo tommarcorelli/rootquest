@@ -14,7 +14,14 @@ window.MACHINE_META = [
     { cat: 'WILDCARD', diff: 'HARD' },
     { cat: 'SSH',      diff: 'EASY' },
     { cat: 'SUDOERS',  diff: 'MEDIUM' },
-    { cat: 'LD.PRELOAD', diff: 'HARD' }
+    { cat: 'LD.PRELOAD', diff: 'HARD' },
+    { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'SUDO',     diff: 'HARD' },
+    { cat: 'CAP',      diff: 'HARD' },
+    { cat: 'LD.LIBPATH', diff: 'HARD' }
 ];
 
 // Difficulty tiers rendered on the hub, in order.
@@ -35,7 +42,8 @@ window.CHEATS_BY_CAT = {
     WILDCARD:   ['cat /etc/crontab', 'touch ./--checkpoint=1'],
     SSH:        ['ls -la /opt/backup', 'ssh -i <key> root@localhost'],
     SUDOERS:    ['ls -la /etc/sudoers.d', 'sudo -l'],
-    'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload']
+    'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload'],
+    'LD.LIBPATH': ['sudo -l', 'cat /usr/local/bin/README.txt', 'gcc -shared -fPIC -nostartfiles -o /tmp/<lib> /tmp/<lib>.c']
 };
 
 // Achievements — checked against a small progress snapshot.
@@ -45,7 +53,7 @@ window.ACHIEVEMENTS = [
     { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin' }, desc: { en: 'Own 8 machines', fr: 'Posséder 8 machines' }, check: s => s.owned >= 8 },
     { id: 'root_wizard', icon: '👑', name: { en: 'Root Wizard', fr: 'Magicien du root' }, desc: { en: 'Own all machines', fr: 'Posséder toutes les machines' }, check: s => s.owned >= s.total },
     { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)' }, check: s => s.hardened >= 1 },
-    { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team' }, desc: { en: 'Harden all 6 fixable boxes', fr: 'Durcir les 6 box corrigeables' }, check: s => s.hardened >= 6 },
+    { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team' }, desc: { en: 'Harden every fixable box', fr: 'Durcir toutes les box corrigeables' }, check: s => s.hardened >= s.hardenable },
     { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)' }, check: s => s.sRank },
     { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s' }, check: s => s.speed }
 ];
@@ -58,6 +66,7 @@ window.GAME = {
     achievements: [],  // earned achievement ids
     flags: { sRank: false, speed: false }, // one-shot achievement triggers
     started: false,    // a machine has been entered at least once
+    bestTimes: {},     // level id -> best clear time in seconds (speedrun records)
 
     STORAGE_KEY: 'rootquest_save_v1',
 
@@ -73,6 +82,8 @@ window.GAME = {
             if (Array.isArray(data.hardened)) this.hardened = data.hardened;
             if (Array.isArray(data.achievements)) this.achievements = data.achievements;
             if (data.flags && typeof data.flags === 'object') this.flags = { sRank: !!data.flags.sRank, speed: !!data.flags.speed };
+            if (data.bestTimes && typeof data.bestTimes === 'object') this.bestTimes = data.bestTimes;
+            if (Array.isArray(data.cmdHistory) && window.TERM) window.TERM.history = data.cmdHistory.slice(-300);
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
         } catch (e) {
@@ -87,6 +98,8 @@ window.GAME = {
                 hardened: this.hardened,
                 achievements: this.achievements,
                 flags: this.flags,
+                bestTimes: this.bestTimes,
+                cmdHistory: (window.TERM && window.TERM.history || []).slice(-300),
                 lang: window.currentLang,
                 theme: window.currentTheme || 'kali'
             }));
@@ -101,6 +114,7 @@ window.GAME = {
         this.hardened = [];
         this.achievements = [];
         this.flags = { sRank: false, speed: false };
+        this.bestTimes = {};
         this.saveProgress();
         this.buildHomeGrid();
         this.updateLevelsMap();
@@ -203,6 +217,7 @@ window.GAME = {
         card.className = 'machine-card hud' + (owned ? ' is-owned' : '');
         card.setAttribute('data-idx', i);
         card.setAttribute('data-testid', `machine-card-${lvl.id}`);
+        const best = this.bestTimes[lvl.id];
         card.innerHTML =
             '<div class="mc-top">' +
                 `<span class="mc-id">${lvl.codename.toUpperCase()}</span>` +
@@ -211,7 +226,7 @@ window.GAME = {
             `<div class="mc-name">${vuln}</div>` +
             `<div class="mc-brief">${lvl.brief[currentLang]}</div>` +
             '<div class="mc-foot">' +
-                `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}${this.hardened.includes(lvl.id) ? ' 🛡' : ''}</span>` +
+                `<span class="mc-status">${owned ? '◆ ' + t('homeCardOwned') : '◇ ' + t('homeCardReady')}${this.hardened.includes(lvl.id) ? ' 🛡' : ''}${owned && best !== undefined ? ` ⏱ ${this.formatTime(best)}` : ''}</span>` +
                 `<span class="mc-diff">${meta.diff}</span>` +
                 `<span class="mc-enter">${t('homeEnter')} →</span>` +
             '</div>';
@@ -278,10 +293,13 @@ window.GAME = {
         const specific = (window.CHEATS_BY_CAT && window.CHEATS_BY_CAT[meta.cat]) || [];
         const cmds = [...specific, 'id', 'help', 'hint'];
         const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        ul.innerHTML = cmds.map(c => `<li><code>${esc(c)}</code></li>`).join('');
+        ul.innerHTML = cmds.map(c => `<li><code tabindex="0" role="button">${esc(c)}</code></li>`).join('');
         ul.querySelectorAll('code').forEach(el => {
             el.title = t('cheatInsert');
             el.addEventListener('click', () => this.useCheat(el.textContent, el));
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.useCheat(el.textContent, el); }
+            });
         });
     },
 
@@ -299,7 +317,7 @@ window.GAME = {
         const owned = this.completed.length;
         const hardened = this.hardened.length;
         const pct = total ? Math.round((owned / total) * 100) : 0;
-        const rank = this.operatorRank(pct, owned, hardened, total);
+        const rank = this.operatorRank(pct, owned, hardened, total, LEVELS.filter(l => l.harden).length);
         el.innerHTML =
             `<div class="op-head"><span class="op-label">${t('opRank')}</span><span class="op-rank">${rank}</span></div>` +
             `<div class="op-bar"><span style="width:${pct}%"></span></div>` +
@@ -310,8 +328,8 @@ window.GAME = {
             `</div>`;
     },
 
-    operatorRank(pct, owned, hardened, total) {
-        if (owned === total && hardened >= 6) return 'BLUE-TEAM LEGEND';
+    operatorRank(pct, owned, hardened, total, hardenable) {
+        if (owned === total && hardened >= (hardenable || 6)) return 'BLUE-TEAM LEGEND';
         if (pct >= 100) return 'ROOT WIZARD';
         if (pct >= 75) return 'ROOT HUNTER';
         if (pct >= 50) return 'OPERATOR';
@@ -328,10 +346,17 @@ window.GAME = {
             node.className = 'level-node';
             node.textContent = LEVELS[i].id;
             node.setAttribute('data-testid', `level-node-${LEVELS[i].id}`);
-            node.addEventListener('click', () => {
+            node.setAttribute('role', 'button');
+            node.setAttribute('tabindex', '0');
+            node.setAttribute('aria-label', `${LEVELS[i].codename}`);
+            const activate = () => {
                 if (this.completed.includes(LEVELS[i].id) || i === this.currentLevel) {
                     this.loadLevel(i);
                 }
+            };
+            node.addEventListener('click', activate);
+            node.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate(); }
             });
             map.appendChild(node);
         }
@@ -432,11 +457,33 @@ window.GAME = {
         if (rankEl) { rankEl.textContent = rank; rankEl.className = 'stat-rank rank-' + rank; }
         if (rank === 'S') this.flags.sRank = true;
         if (sec > 0 && sec < 45) this.flags.speed = true;
+
+        // Speedrun record for this box — kept across resets of a single level
+        // (retrying doesn't erase a personal best, only beating it updates it).
+        const lvlId = this.level().id;
+        const prevBest = this.bestTimes[lvlId];
+        let isNewBest = false;
+        if (sec > 0 && (prevBest === undefined || sec < prevBest)) {
+            this.bestTimes[lvlId] = sec;
+            isNewBest = true;
+        }
+        const bestEl = document.getElementById('statBest');
+        if (bestEl) {
+            const best = this.bestTimes[lvlId];
+            bestEl.textContent = best !== undefined ? this.formatTime(best) + (isNewBest ? ` ${t('newBest')}` : '') : '—';
+        }
+        this.saveProgress();
+    },
+
+    formatTime(sec) {
+        const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+        const ss = String(sec % 60).padStart(2, '0');
+        return `${mm}:${ss}`;
     },
 
     // ── Achievements ────────────────────────────────────────────
     achState() {
-        return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
+        return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
     },
     updateAchievements(toast) {
         const s = this.achState();

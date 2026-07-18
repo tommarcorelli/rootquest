@@ -78,6 +78,25 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Keyboard-navigation focus ring — consistent across every interactive
+   element (buttons, cards, links, inputs, selects). Mouse users never see
+   it (:focus-visible), keyboard users always do. */
+a:focus-visible,
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+.term-input:focus-visible {
+    outline: none; /* the blinking caret + prompt already show focus */
+}
+.terminal:focus-within {
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 html, body {
     height: 100%;
     background: var(--bg-void);

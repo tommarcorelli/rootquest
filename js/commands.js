@@ -66,6 +66,7 @@ window.CMD = {
         if (redirect && result && result._captured !== undefined) {
             const content = result._captured;
             const target = FS.normalize(redirect.target);
+            if (!this.canRedirectTarget(target)) return [{ text: t('permDenied', redirect.target), cls: 'err' }];
             if (redirect.op === '>') {
                 FS.writeFile(target, content);
             } else {
@@ -76,6 +77,7 @@ window.CMD = {
             // Capture text output from lines
             const captured = result.map(l => l.text).join('\n') + '\n';
             const target = FS.normalize(redirect.target);
+            if (!this.canRedirectTarget(target)) return [{ text: t('permDenied', redirect.target), cls: 'err' }];
             if (redirect.op === '>') {
                 FS.writeFile(target, captured);
             } else {
@@ -126,15 +128,58 @@ window.CMD = {
     },
 
     // Apply a filter stage (grep/wc/head/tail/sort/cat) to piped-in lines.
-    // Unknown stages pass the lines through unchanged.
+    // Unknown stages pass the lines through unchanged. `sudo <stage>` is also
+    // recognised here (needed for `... | sudo tee -a <file>`, box-20's vector).
     applyFilter(stageStr, lines) {
         const tokens = this.tokenize(stageStr);
         if (tokens.length === 0) return lines;
-        const name = tokens[0];
-        const args = tokens.slice(1).filter(a => a !== '-');
+        let name = tokens[0];
+        let rest = tokens.slice(1);
+        let viaSudo = false;
+        if (name === 'sudo' && rest.length) { viaSudo = true; name = rest[0]; rest = rest.slice(1); }
+        const args = rest.filter(a => a !== '-');
+        if (name === 'tee') return this.teeFilter(args, lines, viaSudo);
         const FILTERS = ['grep', 'egrep', 'wc', 'head', 'tail', 'sort', 'uniq', 'cat'];
         if (FILTERS.includes(name)) return this._filter(name, args, lines);
         return lines; // not a filter — leave the stream untouched
+    },
+
+    // `tee [-a] FILE...` — writes the piped-in stream to one or more files (and
+    // echoes it back). Outside sudo, normal write permissions apply. Under sudo
+    // (box-20), the write happens as root regardless of the target's own mode —
+    // exactly like a real `sudo tee -a /etc/passwd` GTFOBins escape.
+    teeFilter(args, lines, viaSudo) {
+        const append = args.includes('-a');
+        const targets = args.filter(a => !a.startsWith('-'));
+        if (!targets.length) return lines; // no target — tee just mirrors stdin
+        const content = lines.map(l => l.text).join('\n') + (lines.length ? '\n' : '');
+        const level = window.GAME.level();
+        for (const raw of targets) {
+            const target = FS.normalize(raw);
+            if (viaSudo) {
+                const entries = this.sudoEntries(level);
+                const allowed = entries.some(e => e.cmd === '/usr/bin/tee' || e.cmd === 'tee' || e.cmd === 'ALL');
+                if (!allowed) return [{ text: `sudo: user ${SESSION.user} is not allowed to execute 'tee ${raw}' as root.`, cls: 'err' }];
+            } else if (!this.canRedirectTarget(target)) {
+                return [{ text: t('permDenied', raw), cls: 'err' }];
+            }
+            if (append) FS.appendFile(target, content); else FS.writeFile(target, content);
+        }
+        return lines;
+    },
+
+    // Can the current session write this path via a plain `>`/`>>` redirect or
+    // tee? New files inherit the existing (permissive) creation behaviour;
+    // existing files are checked against FS.canWrite so a locked-down file
+    // (box-20's /etc/passwd) genuinely resists a non-privileged write.
+    canRedirectTarget(path) {
+        const node = FS.get(path);
+        if (!node) {
+            const parent = FS.get(FS.parent(path));
+            return !!(parent && parent.type === 'dir');
+        }
+        if (SESSION.isRoot) return true;
+        return FS.canWrite(path);
     },
 
     // Shared text-stream operators, used by both pipelines and the standalone
@@ -732,6 +777,23 @@ window.CMD = {
                 if (!soNode) return [{ text: `sudo: cannot preload '${envAssigns.LD_PRELOAD}': No such file or directory`, cls: 'err' }];
             }
 
+            // LD_LIBRARY_PATH abuse (box-22): unlike LD_PRELOAD, this only works if
+            // the vulnerable binary is actually missing a library that the dynamic
+            // linker then finds by searching the hijacked directory — so the planted
+            // .so has to be named *exactly* what the binary looks for, not just any
+            // shared object. That name is declared per-level as `vulnLib`.
+            if (envAssigns.LD_LIBRARY_PATH !== undefined) {
+                const libPathOk = (level.env_keep || []).includes('LD_LIBRARY_PATH');
+                if (!libPathOk) return [{ text: 'sudo: LD_LIBRARY_PATH not preserved (not in env_keep) — ignored', cls: 'dim' }];
+                if (!level.vulnLib) return [{ text: 'sudo: LD_LIBRARY_PATH preserved, but nothing here loads a hijackable library', cls: 'dim' }];
+                const dir = FS.normalize(envAssigns.LD_LIBRARY_PATH);
+                const planted = FS.get(dir + '/' + level.vulnLib);
+                if (planted && entries.length) {
+                    return this.spawnShell(true, { via: 'sudo LD_LIBRARY_PATH=' + envAssigns.LD_LIBRARY_PATH, type: 'ld_library_path' });
+                }
+                if (!planted) return [{ text: `sudo: executed ${cmdArgs.join(' ')} as root (dynamic linker found no ${level.vulnLib} in ${envAssigns.LD_LIBRARY_PATH} — nothing hijacked)`, cls: 'dim' }];
+            }
+
             if (cmdArgs.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
             const cmdPath = cmdArgs[0].startsWith('/') ? cmdArgs[0] : '/usr/bin/' + cmdArgs[0];
             const allowed = entries.find(e => e.cmd === cmdPath || e.cmd === cmdArgs[0] || e.cmd === 'ALL');
@@ -769,9 +831,13 @@ window.CMD = {
             const pwField = fields[1];
             if (uid === '0') {
                 // Becoming root only works if the account has NO password (the
-                // classic writable-/etc/passwd attack: an injected UID-0 line).
+                // classic writable-/etc/passwd attack: an injected UID-0 line),
+                // or if the real hash has already been cracked (box-21).
                 if (pwField === '') {
                     return this.spawnShell(true, { via: 'su ' + target, type: 'passwd_write' });
+                }
+                if (SESSION.shadowCracked && this.winConditionMet('shadow_crack')) {
+                    return this.spawnShell(true, { via: 'su root (cracked hash)', type: 'shadow_crack' });
                 }
                 return [{ text: 'su: Authentication failure', cls: 'err' }];
             }
@@ -809,10 +875,10 @@ window.CMD = {
                 return [{ text: 'Python 3.11.4 (main) [GCC] on linux', cls: '' }, { text: t('simOnlyPython'), cls: 'dim' }];
             }
             const code = args.slice(cIdx + 1).join(' ');
+            const pyNode = FS.get('/usr/bin/python3');
             // Detect os.setuid(0) + shell
             const has_setuid = code.includes('setuid(0)') || code.includes('setuid(  0  )'.replace(/ /g,''));
             const has_shell = code.includes('/bin/sh') || code.includes('/bin/bash') || code.includes('os.system') || code.includes('pty.spawn');
-            const pyNode = FS.get('/usr/bin/python3');
             const hasCapSetuid = pyNode && pyNode.capabilities && pyNode.capabilities.includes('cap_setuid');
             if (has_setuid && has_shell && hasCapSetuid) {
                 return this.spawnShell(true, { via: 'python3 cap_setuid', type: 'python_setuid' });
@@ -820,7 +886,55 @@ window.CMD = {
             if (has_setuid && !hasCapSetuid) {
                 return [{ text: 'PermissionError: [Errno 1] Operation not permitted', cls: 'err' }];
             }
+            // cap_dac_read_search+ep bypasses discretionary read/traversal checks
+            // entirely — a Python one-liner can open() any file on the box, root-owned
+            // or not (box-21). Real GTFOBins lists this for cat/tar/python/etc.
+            const hasCapDac = pyNode && pyNode.capabilities && (pyNode.capabilities.includes('cap_dac_read_search') || pyNode.capabilities.includes('cap_dac_override'));
+            const openMatch = code.match(/open\((['"])(.*?)\1/);
+            if (openMatch && code.includes('.read()')) {
+                const target = FS.normalize(openMatch[2]);
+                const node = FS.get(target);
+                if (!node) return [{ text: `FileNotFoundError: [Errno 2] No such file or directory: '${openMatch[2]}'`, cls: 'err' }];
+                if (node.type === 'dir') return [{ text: `IsADirectoryError: [Errno 21] Is a directory: '${openMatch[2]}'`, cls: 'err' }];
+                if (!hasCapDac && !FS.canRead(target)) {
+                    return [{ text: `PermissionError: [Errno 13] Permission denied: '${openMatch[2]}'`, cls: 'err' }];
+                }
+                const content = node.content || '';
+                if (hasCapDac && !FS.canRead(target)) {
+                    // Stash a readable copy so downstream tools (john) can pick it up
+                    // without re-deriving the bypass — mirrors piping python's stdout
+                    // into a file in a real terminal.
+                    FS.writeFile('/tmp/shadow.copy', content);
+                    SESSION.shadowRead = true;
+                }
+                return content.split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l === '')).map(l => ({ text: l, cls: '' }));
+            }
             return [{ text: t('pyNoEffect'), cls: 'dim' }];
+        },
+
+        // GTFOBins-adjacent "cracking" step for box-21 — deliberately simulated,
+        // not a real hash-cracking implementation. Requires having exfiltrated
+        // /etc/shadow's content first (via the cap_dac_read_search bypass above).
+        john(args) {
+            const target = args.find(a => !a.startsWith('-'));
+            if (!target) return [{ text: 'Usage: john [OPTIONS] [PASSWORD-FILES]', cls: 'dim' }];
+            const node = FS.get(FS.normalize(target));
+            if (!node) return [{ text: `john: can't open file ${target}: No such file or directory`, cls: 'err' }];
+            if (!SESSION.shadowRead) {
+                return [{ text: 'john: no password hashes loaded — read /etc/shadow first', cls: 'err' }];
+            }
+            const level = window.GAME.level();
+            if (!level.crackedPassword) {
+                return [{ text: 'john: no cracking rule configured for this file', cls: 'err' }];
+            }
+            SESSION.shadowCracked = true;
+            return [
+                { text: 'Loaded 1 password hash (sha512crypt, crypt(3) $6$ [SHA512 128/128 AVX 2x])', cls: 'dim' },
+                { text: 'Press \'q\' or Ctrl-C to abort, almost any other key for status', cls: 'dim' },
+                { text: `${level.crackedPassword}   (root)`, cls: 'ok' },
+                { text: '1g 0:00:00:02 100% 2/3 (ETA: now)  0.4132g/s 1024p/s 1024c/s 1024C/s', cls: 'dim' },
+                { text: 'Use the "--show" option to display all of the cracked passwords reliably', cls: 'dim' }
+            ];
         },
 
         vim(args) {
@@ -916,6 +1030,8 @@ window.CMD = {
         echo:   { d: { en: 'print text; redirect with > or >>', fr: 'afficher du texte ; rediriger avec > ou >>' }, s: 'echo <text> [> file]', e: "echo 'hi' > /tmp/f" },
         export: { d: { en: 'set an environment variable', fr: 'définir une variable d\'environnement' }, s: 'export VAR=value', e: 'export PATH=/tmp:$PATH' },
         python3:{ d: { en: 'run a Python one-liner', fr: 'exécuter un one-liner Python' }, s: "python3 -c '<code>'", e: "python3 -c 'import os; os.setuid(0); os.system(\"/bin/sh\")'" },
+        tee:    { d: { en: 'copy stdin to a file (and stdout); -a appends', fr: 'copier stdin vers un fichier (et stdout) ; -a pour ajouter' }, s: 'tee [-a] <file>', e: "echo hi | sudo tee -a /etc/passwd" },
+        john:   { d: { en: 'crack password hashes offline (simulated)', fr: 'casser des hachages de mot de passe hors-ligne (simulé)' }, s: 'john <hashfile>', e: 'john /tmp/shadow.copy' },
         grep:   { d: { en: 'filter lines matching a pattern', fr: 'filtrer les lignes correspondant à un motif' }, s: 'grep [-ivc] <pattern> <file>', e: 'cat /etc/passwd | grep -v nologin' },
         ps:     { d: { en: 'report running processes', fr: 'lister les processus en cours' }, s: 'ps [aux]', e: 'ps aux | grep root' },
         docker: { d: { en: 'control containers; docker group ~= root', fr: 'gérer des conteneurs ; groupe docker ~= root' }, s: 'docker run -v /:/mnt ...', e: 'docker run -v /:/mnt -it alpine chroot /mnt sh' },
