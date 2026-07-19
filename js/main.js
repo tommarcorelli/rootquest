@@ -302,6 +302,52 @@ window.GAME = {
         this.updateHomeProgress();
         this.renderOperatorStatus();
         this.renderAchievements();
+        this.renderDailyChallenge();
+    },
+
+    // Deterministic pick from today's date, so everyone sees the same
+    // challenge on a given day (built-in boxes only — custom ones are
+    // per-browser, so a shared daily pick can't include them).
+    dailySeed() {
+        const d = new Date();
+        const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        let h = 0;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        return h;
+    },
+
+    builtInIndexes() {
+        const idxs = [];
+        for (let i = 0; i < LEVELS.length; i++) if (!LEVELS[i].custom) idxs.push(i);
+        return idxs;
+    },
+
+    dailyChallengeIndex() {
+        const pool = this.builtInIndexes();
+        return pool.length ? pool[this.dailySeed() % pool.length] : 0;
+    },
+
+    renderDailyChallenge() {
+        const nameEl = document.getElementById('dailyName');
+        if (!nameEl) return;
+        const idx = this.dailyChallengeIndex();
+        const lvl = LEVELS[idx];
+        const vuln = (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim();
+        nameEl.textContent = `${lvl.codename.toUpperCase()} — ${vuln}`;
+    },
+
+    playDailyChallenge() {
+        this.selectMachine(this.dailyChallengeIndex());
+    },
+
+    // Random pick, weighted toward machines not yet owned so it stays useful
+    // once most of the lab is done; falls back to any built-in box.
+    surpriseMe() {
+        const pool = this.builtInIndexes();
+        if (!pool.length) return;
+        const notDone = pool.filter(i => !this.completed.includes(LEVELS[i].id));
+        const from = notDone.length ? notDone : pool;
+        this.selectMachine(from[Math.floor(Math.random() * from.length)]);
     },
 
     buildMachineCard(i) {
@@ -763,6 +809,11 @@ window.GAME = {
         if (customImportBtn && customJsonInput) {
             customImportBtn.addEventListener('click', () => this.importCustomLevel(customJsonInput.value));
         }
+
+        const dailyPlayBtn = document.getElementById('dailyPlayBtn');
+        if (dailyPlayBtn) dailyPlayBtn.addEventListener('click', () => this.playDailyChallenge());
+        const surpriseBtn = document.getElementById('surpriseBtn');
+        if (surpriseBtn) surpriseBtn.addEventListener('click', () => this.surpriseMe());
     }
 };
 

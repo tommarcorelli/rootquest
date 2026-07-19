@@ -223,10 +223,20 @@
                     <span class="home-select-title" data-i18n="homeSelect">SELECT TARGET</span>
                     <div class="home-select-meta-wrap">
                         <span class="home-select-meta"><strong id="homeProgressText">0 / 23</strong> <span data-i18n="homeOwned">owned</span></span>
+                        <button class="btn-ghost home-surprise-btn" id="surpriseBtn" type="button" data-testid="surprise-btn">
+                            <span data-i18n="surpriseBtn">🎲 Surprise me</span>
+                        </button>
                         <button class="btn-ghost home-reset-btn" id="resetProgressBtn" data-testid="reset-progress-btn">
                             <span data-i18n="resetProgressBtn">Reset progress</span>
                         </button>
                     </div>
+                </div>
+                <div class="daily-challenge" id="dailyChallenge" data-testid="daily-challenge">
+                    <span class="daily-label" data-i18n="dailyLabel">// DAILY CHALLENGE</span>
+                    <span class="daily-name" id="dailyName"></span>
+                    <button class="btn-ghost daily-play-btn" id="dailyPlayBtn" type="button" data-testid="daily-play-btn">
+                        <span data-i18n="dailyPlay">Play →</span>
+                    </button>
                 </div>
                 <div class="operator-status" id="operatorStatus" data-testid="operator-status"></div>
                 <div class="achievements" id="achievements" data-testid="achievements"></div>
