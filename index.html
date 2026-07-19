@@ -231,6 +231,21 @@
                 <div class="operator-status" id="operatorStatus" data-testid="operator-status"></div>
                 <div class="achievements" id="achievements" data-testid="achievements"></div>
                 <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
+                <div class="home-custom" id="homeCustom" data-testid="home-custom">
+                    <button class="btn-ghost home-custom-toggle" id="customToggleBtn" type="button" data-testid="custom-toggle-btn">
+                        <span data-i18n="customToggle">+ Custom box (import / export JSON)</span>
+                    </button>
+                    <div class="home-custom-panel" id="customPanel" data-testid="custom-panel" hidden>
+                        <textarea id="customJsonInput" class="custom-json-input" data-testid="custom-json-input" rows="6" data-i18n-placeholder="customPlaceholder" placeholder="Paste a box's JSON here…"></textarea>
+                        <div class="home-custom-actions">
+                            <button class="btn-primary" id="customImportBtn" type="button" data-testid="custom-import-btn">
+                                <span data-i18n="customImport">Import</span>
+                            </button>
+                            <span class="custom-json-msg" id="customJsonMsg" data-testid="custom-json-msg"></span>
+                        </div>
+                        <p class="custom-json-hint" data-i18n="customHint">Export any box's JSON from its card, or write your own following the same schema (see README.md).</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>

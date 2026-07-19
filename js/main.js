@@ -25,8 +25,9 @@ window.MACHINE_META = [
     { cat: 'NFS',      diff: 'HARD' }
 ];
 
-// Difficulty tiers rendered on the hub, in order.
-window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD'];
+// Difficulty tiers rendered on the hub, in order. CUSTOM only ever gets
+// entries the player imports — buildHomeGrid skips a tier with none.
+window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD', 'CUSTOM'];
 
 // Contextual cheatsheet: the commands worth trying on each machine category.
 window.CHEATS_BY_CAT = {
@@ -59,6 +60,98 @@ window.ACHIEVEMENTS = [
     { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)' }, check: s => s.sRank },
     { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s' }, check: s => s.speed }
 ];
+
+// Custom box import/export — validated JSON, no build step, no server.
+// Levels are appended straight onto LEVELS/MACHINE_META so every existing
+// consumer (hub grid, cheatsheet, mission panel, debrief) works unmodified.
+window.GAME_CUSTOM = {
+    STORE_KEY: 'rootquest_custom_levels',
+    NEXT_ID_BASE: 9000,
+
+    validate(obj) {
+        const errors = [];
+        if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return { valid: false, errors: ['JSON must be an object'] };
+        if (!obj.codename || typeof obj.codename !== 'string') errors.push('codename (string) is required');
+        if (!obj.title || (typeof obj.title !== 'string' && !obj.title.en)) errors.push('title (string, or {en, fr}) is required');
+        if (!obj.user || typeof obj.user !== 'string') errors.push('user (string) is required');
+        if (!obj.host || typeof obj.host !== 'string') errors.push('host (string) is required');
+        if (!obj.cwd || typeof obj.cwd !== 'string') errors.push('cwd (string) is required');
+        if (!obj.fs || typeof obj.fs !== 'object' || !obj.fs['/'] || obj.fs['/'].type !== 'dir') errors.push('fs["/"] (root directory node) is required');
+        if (!Array.isArray(obj.wins) || !obj.wins.length || !obj.wins.every(w => w && typeof w.type === 'string')) errors.push('wins: [{ type: "<string>" }, ...] is required');
+        if (!obj.flag || typeof obj.flag !== 'string') errors.push('flag (string) is required');
+        return { valid: errors.length === 0, errors };
+    },
+
+    // Accepts either a plain string or an {en, fr} object for any bilingual
+    // field, and fills in the missing half so nothing downstream ever sees
+    // an undefined translation.
+    bi(v, fallback) {
+        if (v && typeof v === 'object') return { en: v.en || v.fr || fallback, fr: v.fr || v.en || fallback };
+        return { en: (v != null ? String(v) : fallback), fr: (v != null ? String(v) : fallback) };
+    },
+
+    normalize(obj, id) {
+        return {
+            id,
+            codename: obj.codename,
+            title: this.bi(obj.title, obj.codename),
+            brief: this.bi(obj.brief, ''),
+            user: obj.user,
+            host: obj.host,
+            cwd: obj.cwd,
+            objectives: { en: (obj.objectives && obj.objectives.en) || [], fr: (obj.objectives && (obj.objectives.fr || obj.objectives.en)) || [] },
+            hints: { en: (obj.hints && obj.hints.en) || [], fr: (obj.hints && (obj.hints.fr || obj.hints.en)) || [] },
+            flag: obj.flag,
+            fs: obj.fs,
+            sudoers: obj.sudoers,
+            env_keep: obj.env_keep,
+            nfsExports: obj.nfsExports,
+            vulnLib: obj.vulnLib,
+            wins: obj.wins,
+            debrief: obj.debrief,
+            custom: true
+        };
+    },
+
+    loadFromStorage() {
+        let saved = [];
+        try { saved = JSON.parse(localStorage.getItem(this.STORE_KEY) || '[]'); } catch { saved = []; }
+        if (!Array.isArray(saved)) saved = [];
+        for (const lvl of saved) {
+            window.LEVELS.push(lvl);
+            window.MACHINE_META.push({ cat: 'CUSTOM', diff: 'CUSTOM' });
+        }
+    },
+
+    saveToStorage() {
+        try {
+            localStorage.setItem(this.STORE_KEY, JSON.stringify(window.LEVELS.filter(l => l.custom)));
+        } catch { /* storage unavailable/full — import still works this session */ }
+    },
+
+    // Returns { ok: true, level } or { ok: false, errors }.
+    import(jsonText) {
+        let obj;
+        try { obj = JSON.parse(jsonText); }
+        catch (e) { return { ok: false, errors: ['Invalid JSON — ' + e.message] }; }
+        const check = this.validate(obj);
+        if (!check.valid) return { ok: false, errors: check.errors };
+        const customCount = window.LEVELS.filter(l => l.custom).length;
+        const lvl = this.normalize(obj, this.NEXT_ID_BASE + customCount);
+        window.LEVELS.push(lvl);
+        window.MACHINE_META.push({ cat: 'CUSTOM', diff: 'CUSTOM' });
+        this.saveToStorage();
+        return { ok: true, level: lvl };
+    },
+
+    // Re-serializes the authored shape of a level (drops the runtime `id`).
+    exportJSON(idx) {
+        const lvl = window.LEVELS[idx];
+        if (!lvl) return null;
+        const { id, custom, ...rest } = lvl;
+        return JSON.stringify(rest, null, 2);
+    }
+};
 
 // Main game orchestration
 window.GAME = {
@@ -124,6 +217,7 @@ window.GAME = {
     },
 
     boot() {
+        window.GAME_CUSTOM.loadFromStorage();
         TERM.init();
         this.updateAchievements(false); // retroactively sync from saved progress
         this.buildLevelsMap();
@@ -216,9 +310,11 @@ window.GAME = {
         const owned = this.completed.includes(lvl.id);
         const vuln = (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim();
 
-        const card = document.createElement('button');
-        card.type = 'button';
+        const card = document.createElement('div');
         card.className = 'machine-card hud' + (owned ? ' is-owned' : '');
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `${lvl.codename} — ${vuln}`);
         card.setAttribute('data-idx', i);
         card.setAttribute('data-testid', `machine-card-${lvl.id}`);
         const best = this.bestTimes[lvl.id];
@@ -235,6 +331,22 @@ window.GAME = {
                 `<span class="mc-enter">${t('homeEnter')} →</span>` +
             '</div>';
         card.addEventListener('click', () => this.selectMachine(i));
+        card.addEventListener('keydown', (e) => {
+            if (e.target !== card) return; // don't fire on the nested export button
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.selectMachine(i); }
+        });
+        const exportBtn = document.createElement('button');
+        exportBtn.type = 'button';
+        exportBtn.className = 'mc-export';
+        exportBtn.title = t('customExportTitle');
+        exportBtn.setAttribute('aria-label', t('customExportTitle'));
+        exportBtn.setAttribute('data-testid', `machine-card-export-${lvl.id}`);
+        exportBtn.textContent = '{ }';
+        exportBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.exportLevelJSON(i);
+        });
+        card.appendChild(exportBtn);
         return card;
     },
 
@@ -525,6 +637,41 @@ window.GAME = {
         setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 2800);
     },
 
+    // Plain transient message — same visual language as achievementToast,
+    // no icon/sound, used for import/export feedback.
+    simpleToast(msg) {
+        const div = document.createElement('div');
+        div.className = 'ach-toast ach-toast-plain';
+        div.innerHTML = `<span class="ach-toast-txt">${msg}</span>`;
+        document.body.appendChild(div);
+        requestAnimationFrame(() => div.classList.add('show'));
+        setTimeout(() => { div.classList.remove('show'); setTimeout(() => div.remove(), 400); }, 2400);
+    },
+
+    // Copies a box's authored JSON to the clipboard (card's "{ }" button).
+    exportLevelJSON(idx) {
+        const json = window.GAME_CUSTOM.exportJSON(idx);
+        if (!json) return;
+        const done = () => this.simpleToast(t('customExportOk'));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(json).then(done, done);
+        } else {
+            done();
+        }
+    },
+
+    // Validates + imports the textarea's JSON as a new playable box.
+    importCustomLevel(jsonText) {
+        const result = window.GAME_CUSTOM.import(jsonText);
+        const msgEl = document.getElementById('customJsonMsg');
+        if (!result.ok) {
+            if (msgEl) { msgEl.textContent = t('customImportErr') + result.errors.join('; '); msgEl.className = 'custom-json-msg is-err'; }
+            return;
+        }
+        if (msgEl) { msgEl.textContent = t('customImportOk'); msgEl.className = 'custom-json-msg is-ok'; }
+        this.buildHomeGrid();
+    },
+
     renderDebrief(lvl) {
         const debrief = lvl.debrief && lvl.debrief[currentLang];
         const el = document.getElementById('winDebrief');
@@ -602,6 +749,20 @@ window.GAME = {
         document.querySelectorAll('.sound-btn').forEach(b => {
             b.addEventListener('click', () => window.SFX && window.SFX.toggle());
         });
+
+        const customToggleBtn = document.getElementById('customToggleBtn');
+        const customPanel = document.getElementById('customPanel');
+        if (customToggleBtn && customPanel) {
+            customToggleBtn.addEventListener('click', () => {
+                const open = customPanel.hasAttribute('hidden');
+                if (open) customPanel.removeAttribute('hidden'); else customPanel.setAttribute('hidden', '');
+            });
+        }
+        const customImportBtn = document.getElementById('customImportBtn');
+        const customJsonInput = document.getElementById('customJsonInput');
+        if (customImportBtn && customJsonInput) {
+            customImportBtn.addEventListener('click', () => this.importCustomLevel(customJsonInput.value));
+        }
     }
 };
 

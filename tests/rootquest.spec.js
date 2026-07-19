@@ -56,7 +56,7 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
 
 test('hub renders 22 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(22);
+    await expect(page.locator('.machine-card')).toHaveCount(23);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
     await expect(page.locator('#homeProgressText')).toHaveText('0 / 22');
 });

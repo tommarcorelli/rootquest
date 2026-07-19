@@ -14,6 +14,15 @@ window.I18N = {
         tierEasy: 'ENTRY LEVEL',
         tierMedium: 'INTERMEDIATE',
         tierHard: 'ADVANCED',
+        tierCustom: 'CUSTOM',
+        customToggle: '+ Custom box (import / export JSON)',
+        customImport: 'Import',
+        customPlaceholder: 'Paste a box\'s JSON here…',
+        customHint: 'Export any box\'s JSON from its card, or write your own following the same schema (see README.md).',
+        customImportOk: 'Imported — scroll down to find it under Custom.',
+        customImportErr: 'Could not import: ',
+        customExportTitle: 'Copy this box\'s JSON to the clipboard',
+        customExportOk: 'Copied to clipboard.',
         statTime: 'Time',
         statBest: 'Best',
         newBest: '★ new best!',
@@ -144,6 +153,15 @@ window.I18N = {
         tierEasy: 'NIVEAU DÉBUTANT',
         tierMedium: 'INTERMÉDIAIRE',
         tierHard: 'AVANCÉ',
+        tierCustom: 'PERSONNALISÉES',
+        customToggle: '+ Box perso (import / export JSON)',
+        customImport: 'Importer',
+        customPlaceholder: 'Colle ici le JSON d\'une box…',
+        customHint: 'Exporte le JSON de n\'importe quelle box depuis sa carte, ou écris la tienne en suivant le même schéma (voir README.md).',
+        customImportOk: 'Importée — fais défiler jusqu\'à la section Personnalisées.',
+        customImportErr: 'Import impossible : ',
+        customExportTitle: 'Copier le JSON de cette box dans le presse-papiers',
+        customExportOk: 'Copié dans le presse-papiers.',
         statTime: 'Temps',
         statBest: 'Record',
         newBest: '★ nouveau record !',
@@ -273,5 +291,10 @@ window.applyI18n = function() {
         const key = el.getAttribute('data-i18n');
         const val = t(key);
         if (typeof val === 'string') el.innerHTML = val;
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        const val = t(key);
+        if (typeof val === 'string') el.placeholder = val;
     });
 };

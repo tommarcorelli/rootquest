@@ -55,13 +55,43 @@ start index.html         # Windows
 
 ## Commands supported
 
-`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `setcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `less`, `tee -a`, `john`, `whoami`, `id`, `wait`, `man <cmd>`.
+`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `setcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `less`, `tee -a`, `john`, `showmount -e`, `mount -t nfs`, `whoami`, `id`, `wait`, `man <cmd>`.
 
 **Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq`, `tee` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`, `echo payload | sudo tee -a /etc/passwd`).
 
 Redirects (`>`/`>>`) and `tee` now respect file permissions: writing to a file you don't own and can't write fails with `Permission denied` unless you're root or the write is happening through a sudo-granted binary — box-20 relies on exactly that distinction.
 
-`python3 -c "open(path).read()"` also respects file read permissions unless the interpreter has been granted `cap_dac_read_search`/`cap_dac_override` (box-21), in which case it bypasses them like the real capability does — and `sudo <cmd>` bypasses `env_reset` only for variables explicitly listed in a level's `env_keep` (`LD_PRELOAD` for box-11/15, `LD_LIBRARY_PATH` for box-22 — each with its own, deliberately different, hijack requirements).
+`python3 -c "open(path).read()"` also respects file read permissions unless the interpreter has been granted `cap_dac_read_search`/`cap_dac_override` (box-21), in which case it bypasses them like the real capability does — and `sudo <cmd>` bypasses `env_reset` only for variables explicitly listed in a level's `env_keep` (`LD_PRELOAD` for box-11/15, `LD_LIBRARY_PATH` for box-22 — each with its own, deliberately different, hijack requirements). `showmount -e` and `mount -t nfs host:/export /mountpoint` (box-23) work the same way: once mounted, the export's own permissions — not the local directory's — govern reads/writes/`chmod` under it.
+
+## Custom boxes
+
+The hub has a "Custom box" panel (below the machine grid) to import a box from JSON — no build step, no server. Paste JSON matching this shape and hit Import:
+
+```json
+{
+  "codename": "custom-01",
+  "title": "Custom · My Vulnerability",
+  "brief": "One or two sentences describing the scenario.",
+  "user": "player",
+  "host": "custom-01",
+  "cwd": "/home/player",
+  "objectives": ["Step one", "Step two"],
+  "hints": ["Nudge 1", "Nudge 2", "Full solution"],
+  "flag": "flag{whatever_you_want}",
+  "fs": {
+    "/": { "type": "dir", "owner": "root", "mode": "755", "children": ["home"] },
+    "/home": { "type": "dir", "owner": "root", "mode": "755", "children": [] }
+  },
+  "wins": [{ "type": "custom_win" }],
+  "debrief": { "vuln": "...", "why": "...", "fix": "...", "link": "https://..." }
+}
+```
+
+`title`, `brief`, `objectives`, `hints`, and `debrief` accept either a plain string/array or `{ "en": ..., "fr": ... }` for bilingual content — a missing translation falls back to the other language. `fs["/"]` (a root directory node) is the only required filesystem entry; everything else in `fs` is up to you, following the same `{ type, owner, mode, children|content }` shape used by the built-in boxes in `js/levels.js`.
+
+`wins` is checked against the `type` your box's win-condition logic reports — for a self-contained payload (a planted SUID binary, say), set `"exploit": "<your type>"` on that file node in `fs` so running it directly grants root; more elaborate mechanics (matching a specific command sequence) currently require editing `js/commands.js`, same as any built-in box.
+
+Custom boxes are saved to `localStorage` (this browser only) under their own hub tier. Each machine card also has a small `{ }` button that copies that box's JSON to your clipboard — including built-in ones, handy as a starting template.
 
 ## Language
 

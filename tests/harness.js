@@ -128,5 +128,62 @@ for (const level of LEVELS) {
     ok ? pass++ : fail++;
 }
 
+// ── GAME_CUSTOM (box import/export) ─────────────────────────────────────────
+// Isolated sandbox: main.js defines its own window.GAME, which would clash
+// with the hand-rolled shim used above.
+{
+    const sandbox2 = {};
+    sandbox2.window = sandbox2;
+    sandbox2.globalThis = sandbox2;
+    sandbox2.console = { log() {}, warn() {}, error() {} };
+    sandbox2.setTimeout = () => {};
+    const store = {};
+    sandbox2.localStorage = {
+        getItem: (k) => (k in store ? store[k] : null),
+        setItem: (k, v) => { store[k] = String(v); },
+    };
+    sandbox2.document = {
+        addEventListener: () => {},
+        getElementById: () => null,
+        querySelectorAll: () => [],
+        body: { classList: { add() {}, remove() {} } },
+    };
+    vm.createContext(sandbox2);
+    vm.runInContext(JS('levels.js'), sandbox2, { filename: 'levels.js' });
+    vm.runInContext(JS('main.js'), sandbox2, { filename: 'main.js' });
+
+    const GC = sandbox2.GAME_CUSTOM;
+    const startLen = sandbox2.LEVELS.length;
+
+    const bad = GC.import(JSON.stringify({ codename: 'x' }));
+    const t1 = bad.ok === false && bad.errors.length > 0;
+
+    const validBox = {
+        codename: 'custom-01',
+        title: 'Custom · Test Box',
+        user: 'player', host: 'custom-01', cwd: '/home/player',
+        fs: { '/': { type: 'dir', owner: 'root', mode: '755', children: [] } },
+        wins: [{ type: 'custom_win' }],
+        flag: 'flag{custom_test}',
+    };
+    const good = GC.import(JSON.stringify(validBox));
+    const t2 = good.ok === true
+        && sandbox2.LEVELS.length === startLen + 1
+        && sandbox2.MACHINE_META.length === sandbox2.LEVELS.length
+        && sandbox2.LEVELS[sandbox2.LEVELS.length - 1].custom === true;
+    const t3 = good.ok && good.level.title.en === 'Custom · Test Box' && good.level.title.fr === 'Custom · Test Box';
+
+    const exported = GC.exportJSON(sandbox2.LEVELS.length - 1);
+    const reparsed = exported && JSON.parse(exported);
+    const t4 = !!reparsed && reparsed.codename === 'custom-01' && reparsed.id === undefined && reparsed.custom === undefined;
+
+    const persisted = JSON.parse(store[GC.STORE_KEY] || '[]');
+    const t5 = persisted.length === 1 && persisted[0].codename === 'custom-01';
+
+    const ok = t1 && t2 && t3 && t4 && t5;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  custom box import (validation + append + export + persistence)`);
+    ok ? pass++ : fail++;
+}
+
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail === 0 ? 0 : 1);
