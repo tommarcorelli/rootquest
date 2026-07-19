@@ -51,6 +51,9 @@
                 <button class="btn-ghost" id="resetBtn" data-testid="reset-button">
                     <span data-i18n="resetBtn">Reset</span>
                 </button>
+                <button class="btn-ghost explain-btn" id="explainBtn" data-testid="explain-btn" aria-label="Toggle explanation mode" aria-pressed="false" title="Explanation mode">
+                    🎓 <span data-i18n="explainBtn">Explain</span>
+                </button>
                 <button class="btn-ghost sound-btn" data-testid="sound-btn" aria-label="Toggle sound" aria-pressed="false" title="Sound">🔇</button>
                 <select class="theme-select" data-testid="theme-select" aria-label="Theme" title="Theme">
                     <option value="kali">◈ Kali</option>
@@ -96,6 +99,11 @@
                 <div class="cheatsheet hud">
                     <div class="cheatsheet-title" data-i18n="cheatsheetTitle">Useful commands</div>
                     <ul id="cheatList"></ul>
+                </div>
+
+                <div class="walkthrough hud" id="walkthroughPanel" style="display:none" data-testid="walkthrough-panel">
+                    <div class="walkthrough-title" data-i18n="explainTitle">Explanation mode</div>
+                    <ol id="walkthroughList"></ol>
                 </div>
             </aside>
 
@@ -262,10 +270,12 @@
 
     <script src="js/i18n.js"></script>
     <script src="js/levels.js"></script>
+    <script src="js/walkthrough.js"></script>
     <script src="js/fs.js"></script>
     <script src="js/commands.js"></script>
     <script src="js/terminal.js"></script>
     <script src="js/sfx.js"></script>
+    <script src="js/walkmode.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
     <script>

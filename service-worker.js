@@ -1,7 +1,7 @@
 // rootQuest — service worker
 // Cache-first app shell so the game works fully offline after first load.
 
-const CACHE_VERSION = 'rootquest-v3';
+const CACHE_VERSION = 'rootquest-v4';
 const CORE_ASSETS = [
     './',
     './index.html',
@@ -9,10 +9,12 @@ const CORE_ASSETS = [
     './manifest.webmanifest',
     './js/i18n.js',
     './js/levels.js',
+    './js/walkthrough.js',
     './js/fs.js',
     './js/commands.js',
     './js/terminal.js',
     './js/sfx.js',
+    './js/walkmode.js',
     './js/main.js',
     './js/fx.js',
     './assets/fonts/fonts.css',

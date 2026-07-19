@@ -1,8 +1,8 @@
 {
   "name": "rootquest",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "private": true,
-  "description": "rootQuest — browser-based Linux privilege-escalation training game (22 machines, bilingual EN/FR, vanilla JS).",
+  "description": "rootQuest — browser-based Linux privilege-escalation training game (23 machines, bilingual EN/FR, vanilla JS).",
   "scripts": {
     "serve": "node tests/serve.js",
     "test:logic": "node tests/harness.js",

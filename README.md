@@ -52,6 +52,7 @@ start index.html         # Windows
 - `Tab` — command & path completion
 - `Ctrl+L` — clear screen
 - `man <command>` — read a command's manual page; `cd -` — previous directory
+- 🎓 **Explain button** (topbar) — toggles "explanation mode": a fully worked, step-by-step commented solution for the current box in the sidebar. Separate from `hint` — free to leave on, doesn't cost a hint slot or affect your S-rank.
 
 ## Commands supported
 
@@ -107,13 +108,18 @@ Pick a palette from the theme selector (top bar or hub): **Kali** (default), **M
 privesc-game/
 ├── index.html         # Entry point
 ├── styles.css         # Kali/Parrot-inspired terminal styling
+├── service-worker.js  # Offline-first cache (PWA)
 └── js/
-    ├── i18n.js        # Bilingual dictionary
-    ├── levels.js      # 23 machines with their filesystems
-    ├── fs.js          # Simulated filesystem
-    ├── commands.js    # Command interpreter
-    ├── terminal.js    # Terminal UI (history, prompt, rendering)
-    └── main.js        # Game orchestration
+    ├── i18n.js         # Bilingual dictionary
+    ├── levels.js       # 23 machines with their filesystems
+    ├── walkthrough.js  # Explanation mode: commented solution per box (EN/FR)
+    ├── fs.js           # Simulated filesystem
+    ├── commands.js     # Command interpreter
+    ├── terminal.js     # Terminal UI (history, prompt, rendering)
+    ├── sfx.js          # Synthesized sound effects (Web Audio)
+    ├── walkmode.js     # Explanation mode toggle state
+    ├── main.js         # Game orchestration
+    └── fx.js           # Background visual effects
 ```
 
 ## Development & tests

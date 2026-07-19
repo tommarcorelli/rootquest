@@ -444,6 +444,32 @@ window.GAME = {
             list.appendChild(li);
         }
         document.getElementById('targetInfo').textContent = `${lvl.user}@${lvl.host}`;
+        this.renderWalkthrough();
+    },
+
+    // "Explanation mode" panel: a fully worked, annotated solution for the
+    // current box, from window.WALKTHROUGHS. Purely informational — never
+    // touches SESSION, scoring, or the hint counter. Hidden unless toggled
+    // on via the 🎓 topbar button.
+    renderWalkthrough() {
+        const panel = document.getElementById('walkthroughPanel');
+        const list = document.getElementById('walkthroughList');
+        if (!panel || !list) return;
+        const on = window.WALKMODE && window.WALKMODE.enabled;
+        panel.style.display = on ? '' : 'none';
+        if (!on) return;
+        const lvl = this.level();
+        const steps = (window.WALKTHROUGHS && window.WALKTHROUGHS[lvl.id]) || null;
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (!steps || !steps.length) {
+            list.innerHTML = `<li class="walkthrough-empty">${esc(t('explainEmpty'))}</li>`;
+            return;
+        }
+        list.innerHTML = steps.map((s, i) =>
+            `<li><div class="walkthrough-step">${esc(t('explainStep'))} ${i + 1}</div>` +
+            `<code>${esc(s.cmd)}</code>` +
+            `<p>${esc(s.explain[currentLang] || s.explain.en)}</p></li>`
+        ).join('');
     },
 
     // Sidebar cheatsheet, tailored to the current machine's category. Click a
@@ -796,6 +822,13 @@ window.GAME = {
             b.addEventListener('click', () => window.SFX && window.SFX.toggle());
         });
 
+        document.querySelectorAll('.explain-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                if (window.WALKMODE) window.WALKMODE.toggle();
+                if (window.GAME && window.GAME.level) window.GAME.renderWalkthrough();
+            });
+        });
+
         const customToggleBtn = document.getElementById('customToggleBtn');
         const customPanel = document.getElementById('customPanel');
         if (customToggleBtn && customPanel) {
@@ -851,6 +884,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.GAME.loadSave();
     window.setTheme(window.currentTheme || 'kali');
     if (window.SFX) window.SFX.init();
+    if (window.WALKMODE) window.WALKMODE.init();
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });
