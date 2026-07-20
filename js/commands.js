@@ -1026,6 +1026,25 @@ window.CMD = {
             ];
         },
 
+        // Real interactive editor (unlike vim/awk which stay pure text tricks
+        // for their GTFOBins escapes): opens a full-screen overlay backed by
+        // the actual FS node, respecting the same read/write permission rules
+        // as `cat`/`>`. Adds realism for the cron/wildcard boxes, where
+        // editing a script by hand feels closer to the real attack than
+        // `echo ... > file`.
+        nano(args) {
+            if (args.length === 0) return [{ text: 'Usage: nano <file>', cls: 'dim' }];
+            const path = FS.normalize(args[0]);
+            const node = FS.get(path);
+            if (node && node.type === 'dir') return [{ text: t('isDirectory', args[0]), cls: 'err' }];
+            if (node && !FS.canRead(path)) return [{ text: t('permDenied', args[0]), cls: 'err' }];
+            if (!node && !this.canCreateIn(path) && !SESSION.isRoot) {
+                return [{ text: `nano: cannot create ${args[0]}: Permission denied`, cls: 'err' }];
+            }
+            if (window.NANO) window.NANO.open(path, node ? (node.content || '') : '');
+            return [];
+        },
+
         wait() {
             if (SESSION.pendingCron && SESSION.cronPayload) {
                 SESSION.pendingCron = false;
@@ -1121,6 +1140,7 @@ window.CMD = {
         mount:  { d: { en: 'mount a filesystem, e.g. an NFS export', fr: 'monter un système de fichiers, ex. un partage NFS' }, s: 'mount -t nfs host:/export /mountpoint', e: 'mount -t nfs localhost:/srv/backups /mnt' },
         crontab:{ d: { en: 'list cron jobs (see also /etc/crontab)', fr: 'lister les tâches cron (voir aussi /etc/crontab)' }, s: 'crontab -l', e: 'cat /etc/crontab' },
         wait:   { d: { en: 'wait for a scheduled cron job to fire', fr: 'attendre le déclenchement d\'un job cron' }, s: 'wait', e: 'wait' },
+        nano:   { d: { en: 'edit a file in a full-screen text editor', fr: 'éditer un fichier dans un éditeur plein écran' }, s: 'nano <file>', e: 'nano /opt/backup.sh' },
         man:    { d: { en: 'show this manual for a command', fr: 'afficher ce manuel pour une commande' }, s: 'man <command>', e: 'man sudo' }
     },
 

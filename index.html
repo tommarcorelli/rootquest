@@ -173,6 +173,9 @@
                     <button class="btn-ghost blue-team-btn" id="blueTeamBtn" data-testid="blue-team-btn" style="display:none">
                         <span data-i18n="blueTeamBtn">🛡 Blue Team</span>
                     </button>
+                    <button class="btn-ghost" id="proofBtn" data-testid="proof-btn">
+                        <span data-i18n="proofBtn">🖼 Proof of root</span>
+                    </button>
                     <button class="btn-ghost" id="replayBtn" data-testid="replay-btn">
                         <span data-i18n="replayBtn">Replay</span>
                     </button>
@@ -194,6 +197,24 @@
                     </button>
                     <button class="btn-ghost" id="finalMenuBtn" data-testid="final-menu-btn">
                         <span data-i18n="menuBtn">Menu</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="proofModal" style="display:none">
+            <div class="modal modal--proof">
+                <div class="modal-glow"></div>
+                <h3 data-i18n="proofTitle">🖼 Proof of root</h3>
+                <div class="proof-canvas-wrap">
+                    <canvas id="proofCanvas" width="1200" height="630" data-testid="proof-canvas"></canvas>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="proofDownloadBtn" data-testid="proof-download-btn">
+                        <span data-i18n="proofDownload">⬇ Download PNG</span>
+                    </button>
+                    <button class="btn-ghost" id="proofCloseBtn" data-testid="proof-close-btn">
+                        <span data-i18n="proofClose">Close</span>
                     </button>
                 </div>
             </div>
@@ -268,6 +289,23 @@
         </div>
     </section>
 
+    <!-- Faux `nano` editor: full-screen overlay, opened by the `nano <path>` command -->
+    <div class="nano-overlay" id="nanoOverlay" style="display:none" data-testid="nano-editor">
+        <div class="nano-titlebar">
+            <span class="nano-title-left">GNU nano 7.2</span>
+            <span class="nano-title-file" id="nanoFileName"></span>
+            <span class="nano-title-right" id="nanoModified"></span>
+        </div>
+        <textarea class="nano-textarea" id="nanoTextarea" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        <div class="nano-status" id="nanoStatus" data-testid="nano-status"></div>
+        <div class="nano-shortcuts" id="nanoShortcuts">
+            <span class="nano-sc"><kbd>^O</kbd> <span data-i18n="nanoWriteOut">Write Out</span></span>
+            <span class="nano-sc"><kbd>^X</kbd> <span data-i18n="nanoExit">Exit</span></span>
+            <span class="nano-sc"><kbd>^K</kbd> <span data-i18n="nanoCutLine">Cut Line</span></span>
+            <span class="nano-sc"><kbd>^U</kbd> <span data-i18n="nanoPaste">Paste</span></span>
+        </div>
+    </div>
+
     <script src="js/i18n.js"></script>
     <script src="js/levels.js"></script>
     <script src="js/walkthrough.js"></script>
@@ -276,6 +314,8 @@
     <script src="js/terminal.js"></script>
     <script src="js/sfx.js"></script>
     <script src="js/walkmode.js"></script>
+    <script src="js/proof.js"></script>
+    <script src="js/nano.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
     <script>

@@ -669,6 +669,41 @@ window.GAME = {
         return `${mm}:${ss}`;
     },
 
+    // Gathers the data for the "proof of root" card straight from the
+    // already-rendered scorecard (renderStats runs right before the win
+    // modal opens) plus the operator profile — no extra state to track.
+    async openProofModal() {
+        const lvl = this.level();
+        const get = (id) => { const n = document.getElementById(id); return n ? n.textContent : ''; };
+        const total = LEVELS.length;
+        const owned = this.completed.length;
+        const hardened = this.hardened.length;
+        const pct = total ? Math.round((owned / total) * 100) : 0;
+        const opRank = this.operatorRank(pct, owned, hardened, total, LEVELS.filter(l => l.harden).length);
+        const rankText = get('statRank') || 'C';
+        const data = {
+            codename: lvl.codename.toUpperCase(),
+            title: (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim(),
+            rank: rankText,
+            time: get('statTime') || '00:00',
+            best: (get('statBest') || '').replace(/★.*/, '').trim(),
+            hints: get('statHints') || '0/3',
+            cmds: get('statCmds') || '0',
+            score: get('statScore') || '0',
+            hardened,
+            opRank,
+            owned,
+            total,
+            lang: currentLang,
+            date: new Date().toISOString().slice(0, 10)
+        };
+        const canvas = document.getElementById('proofCanvas');
+        const modal = document.getElementById('proofModal');
+        if (!canvas || !modal || !window.PROOF) return;
+        modal.style.display = 'flex';
+        await window.PROOF.render(canvas, data);
+    },
+
     // ── Achievements ────────────────────────────────────────────
     achState() {
         return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
@@ -827,6 +862,19 @@ window.GAME = {
                 if (window.WALKMODE) window.WALKMODE.toggle();
                 if (window.GAME && window.GAME.level) window.GAME.renderWalkthrough();
             });
+        });
+
+        const proofBtn = document.getElementById('proofBtn');
+        if (proofBtn) proofBtn.addEventListener('click', () => this.openProofModal());
+        const proofCloseBtn = document.getElementById('proofCloseBtn');
+        if (proofCloseBtn) proofCloseBtn.addEventListener('click', () => {
+            document.getElementById('proofModal').style.display = 'none';
+        });
+        const proofDownloadBtn = document.getElementById('proofDownloadBtn');
+        if (proofDownloadBtn) proofDownloadBtn.addEventListener('click', () => {
+            const canvas = document.getElementById('proofCanvas');
+            const lvl = this.level();
+            if (canvas && window.PROOF) window.PROOF.download(canvas, `rootquest-${lvl.codename}-proof.png`);
         });
 
         const customToggleBtn = document.getElementById('customToggleBtn');

@@ -52,6 +52,7 @@ start index.html         # Windows
 - `Tab` — command & path completion
 - `Ctrl+L` — clear screen
 - `man <command>` — read a command's manual page; `cd -` — previous directory
+- `nano <file>` — full-screen editor (`^O` write out, `^X` exit), backed by the real FS permission rules
 - 🎓 **Explain button** (topbar) — toggles "explanation mode": a fully worked, step-by-step commented solution for the current box in the sidebar. Separate from `hint` — free to leave on, doesn't cost a hint slot or affect your S-rank.
 
 ## Commands supported
@@ -118,6 +119,8 @@ privesc-game/
     ├── terminal.js     # Terminal UI (history, prompt, rendering)
     ├── sfx.js          # Synthesized sound effects (Web Audio)
     ├── walkmode.js     # Explanation mode toggle state
+    ├── proof.js        # Shareable "proof of root" card renderer (canvas)
+    ├── nano.js         # Full-screen `nano` editor overlay
     ├── main.js         # Game orchestration
     └── fx.js           # Background visual effects
 ```
