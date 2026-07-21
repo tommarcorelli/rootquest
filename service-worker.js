@@ -1,7 +1,14 @@
 // rootQuest — service worker
 // Cache-first app shell so the game works fully offline after first load.
 
-const CACHE_VERSION = 'rootquest-v6';
+// Cache-first means a returning visitor NEVER sees new JS/CSS until this
+// string changes — the fetch handler below returns the cached response
+// without ever re-checking the network. Bump this on every release that
+// touches any file in CORE_ASSETS (kept in lockstep with package.json's
+// version — tests/harness.js asserts the two match, so drifting apart
+// fails `npm run test:logic` / CI instead of silently shipping stale
+// assets to already-installed users).
+const CACHE_VERSION = 'rootquest-v1.18.0';
 const CORE_ASSETS = [
     './',
     './index.html',

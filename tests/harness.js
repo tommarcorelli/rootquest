@@ -273,5 +273,23 @@ for (const level of LEVELS) {
     wtOk ? pass++ : fail++;
 }
 
+// ── Service-worker cache version vs package.json ────────────────────────────
+// Cache-first PWA: a returning visitor keeps whatever JS/CSS was cached under
+// CACHE_VERSION forever, until that string itself changes — the fetch handler
+// never revalidates against the network. Every past release was supposed to
+// bump it alongside package.json but didn't always (v6 vs 17 package bumps by
+// the time this test was written) — assert they match so "ship a code change,
+// forget the cache key" fails loudly instead of quietly stranding installed
+// users on old code.
+{
+    const pkgVersion = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8')).version;
+    const swSrc = fs.readFileSync(path.join(REPO, 'service-worker.js'), 'utf8');
+    const m = swSrc.match(/CACHE_VERSION\s*=\s*'rootquest-v([^']+)'/);
+    const swVersion = m && m[1];
+    const ok = swVersion === pkgVersion;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  service-worker CACHE_VERSION matches package.json (${swVersion} vs ${pkgVersion})`);
+    ok ? pass++ : fail++;
+}
+
 console.log(`\n${pass}/${pass + fail} PASS`);
 process.exit(fail === 0 ? 0 : 1);
