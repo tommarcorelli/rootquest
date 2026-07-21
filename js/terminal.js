@@ -87,6 +87,7 @@ window.TERM = {
         } else if (e.key === 'l' && e.ctrlKey) {
             e.preventDefault();
             this.outputEl.innerHTML = '';
+            this.typewriterGen = (this.typewriterGen || 0) + 1;
         } else if (e.key === 'Tab') {
             e.preventDefault();
             this.tabComplete();
@@ -184,8 +185,15 @@ window.TERM = {
         // Echo the prompt + input
         this.renderPromptEcho(raw);
         if (raw.trim()) this.history.push(raw);
+        const wasRoot = SESSION.isRoot;
         const lines = window.CMD.execute(raw);
-        this.print(lines);
+        // The root-obtained sequence (id/flag/welcome) gets the typewriter
+        // treatment for immersion; everything else prints instantly as before.
+        if (!wasRoot && SESSION.isRoot) {
+            this.printTypewriter(lines);
+        } else {
+            this.print(lines);
+        }
         if (window.SFX && lines.some(l => l.cls === 'err')) window.SFX.error();
         this.scrollToBottom();
         if (window.GAME && window.GAME.saveProgress) window.GAME.saveProgress();
@@ -207,6 +215,42 @@ window.TERM = {
             div.textContent = line.text;
             this.outputEl.appendChild(div);
         }
+    },
+
+    // Reveals `lines` progressively, character by character, for immersion on
+    // banners and root-obtained output. Falls back to instant `print()` when
+    // the user prefers reduced motion (accessibility) — never a hard dependency.
+    printTypewriter(lines, opts = {}) {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            this.print(lines);
+            this.scrollToBottom();
+            return;
+        }
+        const charDelay = opts.charDelay ?? 10;
+        const lineDelay = opts.lineDelay ?? 70;
+        const gen = this.typewriterGen = (this.typewriterGen || 0) + 1;
+        let i = 0;
+        const next = () => {
+            if (gen !== this.typewriterGen || i >= lines.length) return;
+            const line = lines[i++];
+            const div = document.createElement('div');
+            div.className = 'line ' + (line.cls || '');
+            this.outputEl.appendChild(div);
+            const text = line.text;
+            let c = 0;
+            const step = () => {
+                if (gen !== this.typewriterGen) return;
+                div.textContent = text.slice(0, ++c);
+                this.scrollToBottom();
+                if (c < text.length) {
+                    setTimeout(step, charDelay);
+                } else {
+                    setTimeout(next, lineDelay);
+                }
+            };
+            if (text) step(); else setTimeout(next, lineDelay);
+        };
+        next();
     },
 
     printHtml(html) {

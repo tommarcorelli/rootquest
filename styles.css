@@ -711,6 +711,52 @@ body.is-root .badge-root { display: inline-flex; align-items: center; }
 .modal.modal--debrief h3,
 .modal.modal--debrief > .win-sub,
 .modal.modal--debrief > #winFlag { text-align: center; }
+
+/* Proof-of-root shareable card */
+.modal.modal--proof { max-width: 900px; }
+.proof-canvas-wrap {
+    position: relative; z-index: 1; margin-bottom: 22px;
+    border: 1px solid var(--line); background: var(--bg-void);
+}
+.proof-canvas-wrap canvas { display: block; width: 100%; height: auto; }
+
+/* ---- Faux `nano` editor overlay ---- */
+.nano-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: #0a0a0a; color: #d6d6d6;
+    display: flex; flex-direction: column;
+    font-family: var(--font-mono); font-size: 14px;
+    animation: fadeIn 0.15s ease;
+}
+.nano-titlebar {
+    background: #d6d6d6; color: #0a0a0a;
+    padding: 3px 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex: 0 0 auto; gap: 12px;
+}
+.nano-title-left { font-weight: 700; }
+.nano-title-file { flex: 1; text-align: center; }
+.nano-title-right { font-weight: 700; min-width: 60px; text-align: right; }
+.nano-textarea {
+    flex: 1 1 auto; resize: none; border: none; outline: none;
+    background: #0a0a0a; color: #d6d6d6;
+    font-family: var(--font-mono); font-size: 14px; line-height: 1.5;
+    padding: 10px 14px; tab-size: 4;
+}
+.nano-status {
+    min-height: 20px; padding: 2px 14px;
+    background: #0a0a0a; color: #ffd23f;
+    font-size: 13px; flex: 0 0 auto;
+}
+.nano-shortcuts {
+    background: #d6d6d6; color: #0a0a0a;
+    display: flex; flex-wrap: wrap; gap: 4px 22px;
+    padding: 3px 12px; font-size: 13px; flex: 0 0 auto;
+}
+.nano-sc { display: inline-flex; gap: 6px; align-items: center; }
+.nano-sc kbd {
+    background: #0a0a0a; color: #d6d6d6;
+    padding: 0 5px; border-radius: 2px; font-size: 12px; font-family: var(--font-mono);
+}
 .debrief {
     position: relative; z-index: 1;
     background: var(--glass-1);
@@ -976,6 +1022,7 @@ body.is-root .brand-name { animation: rootShake 0.4s ease; }
 .machine-card:hover .mc-export,
 .machine-card:focus-within .mc-export { opacity: 0.7; }
 .mc-export:hover, .mc-export:focus-visible { opacity: 1 !important; color: var(--accent); border-color: var(--accent); }
+.mc-export.mc-share { right: 44px; }
 .machine-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 14px 34px -12px rgba(0,0,0,0.9), 0 0 22px rgba(var(--accent-rgb), 0.28);

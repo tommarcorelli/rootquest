@@ -1,4 +1,14 @@
 // 5 privesc machines — each independent, one distinct vulnerability
+
+// ── Shared fs-node stubs ─────────────────────────────────────────────────
+// The overwhelming majority of `/usr/bin/*` entries across levels are just
+// "plain 755 ELF binary owned by root" (or the SUID variant for sudo/su/etc.)
+// — factored out so a level's fs only has to name the binary and its
+// exception, not repeat owner/mode/content every time. Pass overrides for
+// anything level-specific (capabilities, a custom content string...).
+const ELF_BIN = (overrides = {}) => ({ type: 'file', owner: 'root', mode: '755', content: 'ELF binary', ...overrides });
+const SUID_BIN = (overrides = {}) => ({ type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary', ...overrides });
+
 window.LEVELS = [
     // ─────────────────────────────────────────────────────────────
     // LEVEL 1 — SUID misconfiguration on /usr/bin/find
@@ -45,10 +55,10 @@ window.LEVELS = [
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['find', 'ls', 'cat', 'sh', 'bash'] },
             '/usr/bin/find': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
             '/opt': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -138,10 +148,10 @@ echo "backup at $(date)" >> /var/log/backup.log
 ` },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: ['log'] },
             '/var/log': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -216,10 +226,10 @@ echo "backup at $(date)" >> /var/log/backup.log
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['python3', 'ls', 'cat', 'sh', 'bash', 'getcap', 'setcap'] },
             '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', capabilities: 'cap_setuid+ep', content: 'ELF binary' },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/getcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/setcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
@@ -293,10 +303,10 @@ echo "backup at $(date)" >> /var/log/backup.log
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{path_h1jack3d}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'local'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'find', 'strings', 'ps'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/find': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/strings': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/ps': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
@@ -382,11 +392,11 @@ Embedded strings:
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0_v1m_pwn}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'vim'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/vim': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -462,10 +472,10 @@ Embedded strings:
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{writ4ble_passwd_r00t}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'su', 'openssl'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/su': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
             '/usr/bin/openssl': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
@@ -540,11 +550,11 @@ Embedded strings:
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0_awk_sh3ll}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'awk'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/awk': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -620,10 +630,10 @@ Embedded strings:
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{pwnk1t_cve_2021_4034}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'pkexec'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/pkexec': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary (polkit 0.105)' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -709,11 +719,11 @@ $db_pass = "S3rv!ce_2024";   // NOTE: svc reuses this for the system login too
 ` },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'su'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/su': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -787,10 +797,10 @@ $db_pass = "S3rv!ce_2024";   // NOTE: svc reuses this for the system login too
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{d0cker_group_pwn}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'docker', 'id'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/docker': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary (docker client)' },
             '/usr/bin/id': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: ['run'] },
@@ -863,11 +873,11 @@ $db_pass = "S3rv!ce_2024";   // NOTE: svc reuses this for the system login too
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_pr3load_env_keep}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'sbin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'gcc'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/sbin': { type: 'dir', owner: 'root', mode: '755', children: ['apache2ctl'] },
             '/usr/sbin/apache2ctl': { type: 'file', owner: 'root', mode: '755', content: '#!/bin/sh\n# apache control wrapper\n' },
@@ -954,10 +964,10 @@ PATH=/usr/sbin:/usr/bin:/sbin:/bin
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{w1ldcard_tar_ch3ckpoint}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'tar', 'touch'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/tar': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/touch': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: ['backups'] },
@@ -1039,10 +1049,10 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/opt/backup/README': { type: 'file', owner: 'root', mode: '644', content: 'Nightly key backup. TODO: fix perms (currently world-readable!).\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'ssh'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/ssh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1113,11 +1123,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0ers_d_dr0pin}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
             '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
@@ -1190,10 +1200,10 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_s0_preload_glob4l}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'gcc', 'passwd'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/passwd': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
@@ -1268,11 +1278,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0_find_rebo0t}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'find'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/find': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1346,11 +1356,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{env_v4r_r00t}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'env'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/env': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1424,11 +1434,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{pyth0n_0s_syst3m}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'python3'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1502,11 +1512,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{l3ss_is_r00t}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'less'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/less': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1580,11 +1590,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{te3_p1ped_r00t}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'tee'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/tee': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
             '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
@@ -1660,10 +1670,10 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{cap_dac_sh4d0w_pwn}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'python3', 'getcap', 'setcap', 'john'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', capabilities: 'cap_dac_read_search+ep', content: 'ELF binary' },
             '/usr/bin/getcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/bin/setcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
@@ -1742,11 +1752,11 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{ld_l1brary_p4th_pwn}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'local'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'gcc'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sudo': { type: 'file', owner: 'root', mode: '4755', suid: true, content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
             '/usr/bin/gcc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/usr/local': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/local/bin': { type: 'dir', owner: 'root', mode: '755', children: ['backup-agent', 'README.txt'] },
@@ -1828,10 +1838,10 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
             '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{nfs_n0_root_squash}\n' },
             '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
             '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'showmount'] },
-            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
-            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
             '/usr/bin/showmount': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
             '/srv': { type: 'dir', owner: 'root', mode: '755', children: ['backups'] },
             '/srv/backups': { type: 'dir', owner: 'root', mode: '750', children: ['README.txt'] },
@@ -1857,6 +1867,320 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 why: "/srv/backups résiste aux permissions Unix classiques depuis le shell local (mode 750, propriétaire root) — mais /etc/exports le partage avec rw et no_root_squash. Cette option est toute la vulnérabilité : normalement NFS « écrase » le root (UID 0) d'un client montant en un utilisateur nobody non privilégié, mais no_root_squash désactive ça — le root du client est alors traité comme le vrai root du serveur pour toute opération dans cet export. Le monter localement et y créer un shell setuid root suffit : ce sont les permissions de l'export, pas celles du dossier, qui régissent l'écriture, et le binaire obtenu appartient réellement à root.",
                 fix: "Ne jamais exporter de partage modifiable avec no_root_squash vers des clients non fiables. Garde root_squash (ou all_squash) par défaut, et restreins les exports à des hôtes de confiance précis plutôt qu'à *.",
                 link: 'https://gtfobins.github.io/gtfobins/#+shell'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 24 — sudo NOPASSWD on perl (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 24,
+        codename: 'box-24',
+        title: { en: 'Box-24 · One-Liner', fr: 'Box-24 · Le one-liner' },
+        brief: {
+            en: 'sudo lets you run perl as root. perl -e can execute an arbitrary system command from a single expression.',
+            fr: "sudo t'autorise perl en root. perl -e peut exécuter n'importe quelle commande système depuis une seule expression."
+        },
+        user: 'player',
+        host: 'box-24',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise perl on GTFOBins', 'Use it to launch a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître perl sur GTFOBins', 'L\'utiliser pour lancer un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'perl -e runs an inline script. Look up "perl" on GTFOBins for the sudo one-liner.',
+                'Payload: sudo perl -e \'exec "/bin/sh";\''
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'perl -e exécute un script en ligne. Cherche "perl" sur GTFOBins pour le one-liner sudo.',
+                'Payload : sudo perl -e \'exec "/bin/sh";\''
+            ]
+        },
+        flag: 'flag{p3rl_ex3c_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{p3rl_ex3c_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'perl'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/perl': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/perl', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on perl',
+                why: "perl -e runs an inline Perl expression. exec replaces the current process with /bin/sh — and since sudo already elevated perl to root, the shell it hands off to inherits that root identity.",
+                fix: 'Never grant sudo on a general-purpose scripting interpreter (perl, python, ruby...). If a script needs perl, invoke a specific, non-editable script path instead of exposing the raw binary.',
+                link: 'https://gtfobins.github.io/gtfobins/perl/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur perl',
+                why: "perl -e exécute une expression Perl en ligne. exec remplace le processus courant par /bin/sh — et comme sudo avait déjà élevé perl en root, le shell obtenu hérite de cette identité root.",
+                fix: "Ne jamais donner sudo sur un interpréteur de script généraliste (perl, python, ruby...). Si un script a besoin de perl, appelle un script précis et non modifiable plutôt que d'exposer le binaire brut.",
+                link: 'https://gtfobins.github.io/gtfobins/perl/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 25 — sudo NOPASSWD on node (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 25,
+        codename: 'box-25',
+        title: { en: 'Box-25 · Node Break', fr: 'Box-25 · Node casse tout' },
+        brief: {
+            en: "sudo lets you run node as root. Node's child_process module can spawn an interactive shell from a one-off script.",
+            fr: "sudo t'autorise node en root. Le module child_process de Node peut lancer un shell interactif depuis un script jetable."
+        },
+        user: 'player',
+        host: 'box-25',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise node on GTFOBins', 'Spawn a root shell via child_process'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître node sur GTFOBins', 'Lancer un shell root via child_process']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                "node -e runs an inline script, same idea as python3 -c. Check GTFOBins for \"node\" — the require('child_process') trick.",
+                'Payload: sudo node -e \'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})\''
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                "node -e exécute un script en ligne, même idée que python3 -c. Regarde GTFOBins pour \"node\" — l'astuce require('child_process').",
+                'Payload : sudo node -e \'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})\''
+            ]
+        },
+        flag: 'flag{n0de_ch1ld_pr0cess}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{n0de_ch1ld_pr0cess}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'node'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/node': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/node', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on node',
+                why: "node -e runs an inline JS snippet as the process' own privileges. require('child_process').spawn() launches /bin/sh as a child of that process — inheriting root, since sudo elevated node to root before the script ever ran.",
+                fix: 'Never grant sudo on a general-purpose runtime (node, python, perl...). Wrap the legitimate task in a fixed, non-editable script and grant sudo on that script path instead.',
+                link: 'https://gtfobins.github.io/gtfobins/node/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur node',
+                why: "node -e exécute un extrait JS en ligne avec les privilèges du processus. require('child_process').spawn() lance /bin/sh comme enfant de ce processus — héritant de root, puisque sudo avait déjà élevé node en root avant l'exécution du script.",
+                fix: "Ne jamais donner sudo sur un runtime généraliste (node, python, perl...). Encapsule la tâche légitime dans un script fixe non modifiable et donne sudo sur ce script précis à la place.",
+                link: 'https://gtfobins.github.io/gtfobins/node/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 26 — sudoedit / sudo -e: $EDITOR hijack
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 26,
+        codename: 'box-26',
+        title: { en: 'Box-26 · The Editor\'s Trust', fr: "Box-26 · La confiance de l'éditeur" },
+        brief: {
+            en: "sudoedit lets you edit /etc/motd as root without ever running /etc/motd itself. But it does that by forking your own $EDITOR — and sudoers kept EDITOR set.",
+            fr: "sudoedit te permet d'éditer /etc/motd en root sans jamais exécuter /etc/motd lui-même. Mais pour ça, il lance ton propre $EDITOR — et sudoers a conservé la variable EDITOR."
+        },
+        user: 'player',
+        host: 'box-26',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Notice EDITOR is kept across sudo', 'Point EDITOR at your own script before running sudoedit'],
+            fr: ["Vérifier tes droits sudo", "Remarquer qu'EDITOR est conservée à travers sudo", "Pointer EDITOR vers ton propre script avant de lancer sudoedit"]
+        },
+        hints: {
+            en: [
+                'Try: sudo -l — look at the env_keep line, not just the command list.',
+                'sudoedit never runs the target file as root — it runs $EDITOR on a scratch copy of it, as root.',
+                'Write a one-line shell script, chmod +x it, then: sudo EDITOR=/path/to/script -e /etc/motd'
+            ],
+            fr: [
+                "Essaie : sudo -l — regarde la ligne env_keep, pas juste la liste des commandes.",
+                "sudoedit n'exécute jamais le fichier cible en root — il lance $EDITOR sur une copie temporaire, en root.",
+                'Écris un script shell d\'une ligne, chmod +x, puis : sudo EDITOR=/chemin/script -e /etc/motd'
+            ]
+        },
+        flag: 'flag{sud0edit_ed1tor_pwn}',
+        env_keep: ['EDITOR'],
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'sudoers', 'motd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/sudoers': { type: 'file', owner: 'root', mode: '440', content: 'ACCESS DENIED' },
+            '/etc/motd': { type: 'file', owner: 'root', mode: '644', content: 'Welcome to box-26.\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sud0edit_ed1tor_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'sudoedit'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/sudoedit': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        sudoers: {
+            player: [
+                { cmd: 'sudoedit /etc/motd', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudoedit_editor' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'sudoedit / sudo -e with EDITOR preserved in env_keep',
+                why: "sudoedit is designed to be safer than 'sudo vim file' — it never runs the target file with elevated rights. Instead it copies it somewhere writable and opens *your* $EDITOR on that copy, as root, then copies the result back. If sudoers kept EDITOR in env_keep, that editor can be any executable you choose — a one-line script that just execs a shell is enough.",
+                fix: "Never keep EDITOR/VISUAL in env_keep for a sudoedit rule — that reintroduces exactly the risk sudoedit exists to avoid. If a fixed editor is required, hardcode it in the sudoers rule (e.g. via an env_keep-free wrapper) instead of trusting the invoker's environment.",
+                link: 'https://gtfobins.github.io/gtfobins/sudo/#sudoedit'
+            },
+            fr: {
+                vuln: 'sudoedit / sudo -e avec EDITOR conservée en env_keep',
+                why: "sudoedit est censé être plus sûr que 'sudo vim fichier' — il n'exécute jamais le fichier cible avec des droits élevés. Il le copie dans un emplacement modifiable et ouvre *ton* $EDITOR sur cette copie, en root, puis recopie le résultat. Si sudoers a gardé EDITOR en env_keep, cet éditeur peut être n'importe quel exécutable de ton choix — un script d'une ligne qui lance juste un shell suffit.",
+                fix: "Ne jamais garder EDITOR/VISUAL en env_keep pour une règle sudoedit — ça réintroduit exactement le risque que sudoedit est censé éviter. Si un éditeur fixe est nécessaire, code-le en dur dans la règle sudoers (par ex. via un wrapper sans env_keep) plutôt que de faire confiance à l'environnement de l'appelant.",
+                link: 'https://gtfobins.github.io/gtfobins/sudo/#sudoedit'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 27 — cap_dac_override+ep on python3: bypass write DAC, backdoor /etc/passwd
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 27,
+        codename: 'box-27',
+        title: { en: 'Box-27 · Override', fr: 'Box-27 · Outrepasser' },
+        brief: {
+            en: '/etc/passwd is locked down and there\'s no sudo here. But python3 was granted cap_dac_override — the capability that bypasses discretionary write checks entirely, not just reads.',
+            fr: "/etc/passwd est verrouillé et il n'y a pas de sudo ici. Mais python3 a reçu cap_dac_override — la capability qui contourne totalement les vérifications d'écriture, pas seulement la lecture."
+        },
+        user: 'player',
+        host: 'box-27',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Find the capability with getcap', 'Understand why this one is worse than a read-only bypass', 'Append a UID-0 backdoor line to /etc/passwd', 'su into it'],
+            fr: ["Trouver la capability avec getcap", "Comprendre pourquoi celle-ci est pire qu'un simple contournement de lecture", "Ajouter une ligne backdoor UID 0 à /etc/passwd", "Basculer dessus avec su"]
+        },
+        hints: {
+            en: [
+                'Try: getcap -r / 2>/dev/null',
+                'cap_dac_override bypasses discretionary access control for both reads AND writes — cap_dac_read_search (seen elsewhere) only ever covers reads.',
+                'python3 -c "open(\'/etc/passwd\',\'a\').write(\'pwnd::0:0::/root:/bin/bash\\n\')" then: su pwnd'
+            ],
+            fr: [
+                'Essaie : getcap -r / 2>/dev/null',
+                "cap_dac_override contourne le contrôle d'accès discrétionnaire aussi bien en lecture qu'en écriture — cap_dac_read_search (vu ailleurs) ne couvre que la lecture.",
+                'python3 -c "open(\'/etc/passwd\',\'a\').write(\'pwnd::0:0::/root:/bin/bash\\n\')" puis : su pwnd'
+            ]
+        },
+        flag: 'flag{dac_0verride_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{dac_0verride_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['python3', 'ls', 'cat', 'sh', 'bash', 'getcap', 'setcap'] },
+            '/usr/bin/python3': { type: 'file', owner: 'root', mode: '755', capabilities: 'cap_dac_override+ep', content: 'ELF binary' },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/getcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/setcap': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [
+            { type: 'passwd_write' }
+        ],
+        harden: {
+            type: 'unset_cap', target: '/usr/bin/python3',
+            obj: { en: 'Strip the cap_dac_override capability from python3', fr: 'Retire la capability cap_dac_override de python3' },
+            hint: { en: 'setcap -r /usr/bin/python3', fr: 'setcap -r /usr/bin/python3' }
+        },
+        debrief: {
+            en: {
+                vuln: 'Linux capability cap_dac_override+ep on python3',
+                why: "cap_dac_read_search (seen on other boxes) only ever bypasses read and directory-traversal checks — real Linux never lets it write. cap_dac_override is the strictly larger capability: it bypasses discretionary access control for both reads and writes. A one-line open(path, 'a').write(...) in python3 appends straight to /etc/passwd — root-owned, mode 644 — despite the player having no write permission on it at all. Appending a UID-0 line with an empty password field creates an instant, password-less root account.",
+                fix: 'Remove unnecessary capabilities with setcap -r /usr/bin/python3, and treat cap_dac_override on any interpreter or file-handling tool as full root — it is, for filesystem purposes, indistinguishable from being root. Audit with getcap -r / regularly, and never grant DAC_OVERRIDE to a general-purpose interpreter.',
+                link: 'https://man7.org/linux/man-pages/man7/capabilities.7.html'
+            },
+            fr: {
+                vuln: 'Capability Linux cap_dac_override+ep sur python3',
+                why: "cap_dac_read_search (vu sur d'autres box) ne contourne que la lecture et la traversée de dossier — jamais l'écriture. cap_dac_override est la capability strictement plus large : elle contourne le contrôle d'accès discrétionnaire aussi bien en lecture qu'en écriture. Un simple open(chemin, 'a').write(...) en python3 ajoute directement à /etc/passwd — appartenant à root, mode 644 — alors que le joueur n'a aucune permission d'écriture dessus. Ajouter une ligne UID 0 avec un champ mot de passe vide crée un compte root instantané et sans mot de passe.",
+                fix: 'Retire les capabilities inutiles avec setcap -r /usr/bin/python3, et traite cap_dac_override sur un interpréteur ou un outil de manipulation de fichiers comme un accès root complet — c\'est, du point de vue du système de fichiers, indiscernable de root. Audite régulièrement avec getcap -r /, et ne donne jamais DAC_OVERRIDE à un interpréteur généraliste.',
+                link: 'https://man7.org/linux/man-pages/man7/capabilities.7.html'
             }
         }
     }

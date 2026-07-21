@@ -876,6 +876,32 @@ window.CMD = {
                 if (!planted) return [{ text: `sudo: executed ${cmdArgs.join(' ')} as root (dynamic linker found no ${level.vulnLib} in ${envAssigns.LD_LIBRARY_PATH} — nothing hijacked)`, cls: 'dim' }];
             }
 
+            // sudoedit / sudo -e: a genuinely different trust model from the
+            // GTFOBins escapes below — sudoedit never runs the target file as
+            // root itself, it forks the *user's own* $EDITOR (kept as root by
+            // sudoers) on a temp copy. If EDITOR points at attacker-controlled
+            // code, that code runs as root before the actual edit ever happens.
+            if (cmdArgs[0] === '-e' || cmdArgs[0] === 'sudoedit') {
+                const target = cmdArgs.slice(1).join(' ');
+                const editEntry = entries.find(e => e.cmd === 'sudoedit ' + target || e.cmd === 'sudoedit ALL' || e.cmd === 'ALL');
+                if (!editEntry) {
+                    return [{ text: `sudo: sorry, user ${SESSION.user} is not allowed to execute 'sudoedit ${target}' as root.`, cls: 'err' }];
+                }
+                if (envAssigns.EDITOR === undefined) {
+                    return [{ text: `sudoedit: opened ${target || '(no file)'} in the default editor — nothing to escalate without EDITOR set`, cls: 'dim' }];
+                }
+                const editorOk = (level.env_keep || []).includes('EDITOR');
+                if (!editorOk) {
+                    return [{ text: 'sudo: EDITOR not preserved (not in env_keep) — falling back to the default editor', cls: 'dim' }];
+                }
+                const editorPath = envAssigns.EDITOR.split(' ')[0];
+                const editorNode = FS.get(FS.normalize(editorPath));
+                if (!editorNode) {
+                    return [{ text: `sudoedit: EDITOR points to '${envAssigns.EDITOR}': No such file or directory`, cls: 'err' }];
+                }
+                return this.spawnShell(true, { via: 'sudoedit EDITOR=' + FS.basename(editorPath), type: 'sudoedit_editor' });
+            }
+
             if (cmdArgs.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
             const cmdPath = cmdArgs[0].startsWith('/') ? cmdArgs[0] : '/usr/bin/' + cmdArgs[0];
             const allowed = entries.find(e => e.cmd === cmdPath || e.cmd === cmdArgs[0] || e.cmd === 'ALL');
@@ -991,6 +1017,27 @@ window.CMD = {
                 }
                 return content.split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l === '')).map(l => ({ text: l, cls: '' }));
             }
+            // cap_dac_override+ep bypasses discretionary *write* checks too
+            // (box-27) — unlike cap_dac_read_search above, which in real Linux
+            // only ever bypasses reads/traversal, DAC_OVERRIDE is the strictly
+            // bigger capability: a plain open(path, 'a').write(...) one-liner
+            // can append to a root-owned, locked-down file like /etc/passwd.
+            const hasCapDacOverride = pyNode && pyNode.capabilities && pyNode.capabilities.includes('cap_dac_override');
+            const modeMatch = code.match(/open\((['"])(.*?)\1\s*,\s*['"]([aw])['"]\)/);
+            const writeMatch = code.match(/\.write\((['"])([\s\S]*?)\1\)/);
+            if (modeMatch && writeMatch) {
+                const target = FS.normalize(modeMatch[2]);
+                const mode = modeMatch[3];
+                const existing = FS.get(target);
+                const permitted = hasCapDacOverride || (existing ? FS.canWrite(target) : this.canCreateIn(target));
+                if (!permitted) {
+                    return [{ text: `PermissionError: [Errno 13] Permission denied: '${modeMatch[2]}'`, cls: 'err' }];
+                }
+                let payload = writeMatch[2].replace(/\\n/g, '\n');
+                if (!payload.endsWith('\n')) payload += '\n';
+                if (mode === 'a') FS.appendFile(target, payload); else FS.writeFile(target, payload);
+                return [{ text: '', cls: 'dim' }];
+            }
             return [{ text: t('pyNoEffect'), cls: 'dim' }];
         },
 
@@ -1024,6 +1071,25 @@ window.CMD = {
                 { text: t('vimQuitNudge1'), cls: 'dim' },
                 { text: t('vimQuitNudge2'), cls: 'dim' }
             ];
+        },
+
+        // Real interactive editor (unlike vim/awk which stay pure text tricks
+        // for their GTFOBins escapes): opens a full-screen overlay backed by
+        // the actual FS node, respecting the same read/write permission rules
+        // as `cat`/`>`. Adds realism for the cron/wildcard boxes, where
+        // editing a script by hand feels closer to the real attack than
+        // `echo ... > file`.
+        nano(args) {
+            if (args.length === 0) return [{ text: 'Usage: nano <file>', cls: 'dim' }];
+            const path = FS.normalize(args[0]);
+            const node = FS.get(path);
+            if (node && node.type === 'dir') return [{ text: t('isDirectory', args[0]), cls: 'err' }];
+            if (node && !FS.canRead(path)) return [{ text: t('permDenied', args[0]), cls: 'err' }];
+            if (!node && !this.canCreateIn(path) && !SESSION.isRoot) {
+                return [{ text: `nano: cannot create ${args[0]}: Permission denied`, cls: 'err' }];
+            }
+            if (window.NANO) window.NANO.open(path, node ? (node.content || '') : '');
+            return [];
         },
 
         wait() {
@@ -1121,6 +1187,7 @@ window.CMD = {
         mount:  { d: { en: 'mount a filesystem, e.g. an NFS export', fr: 'monter un système de fichiers, ex. un partage NFS' }, s: 'mount -t nfs host:/export /mountpoint', e: 'mount -t nfs localhost:/srv/backups /mnt' },
         crontab:{ d: { en: 'list cron jobs (see also /etc/crontab)', fr: 'lister les tâches cron (voir aussi /etc/crontab)' }, s: 'crontab -l', e: 'cat /etc/crontab' },
         wait:   { d: { en: 'wait for a scheduled cron job to fire', fr: 'attendre le déclenchement d\'un job cron' }, s: 'wait', e: 'wait' },
+        nano:   { d: { en: 'edit a file in a full-screen text editor', fr: 'éditer un fichier dans un éditeur plein écran' }, s: 'nano <file>', e: 'nano /opt/backup.sh' },
         man:    { d: { en: 'show this manual for a command', fr: 'afficher ce manuel pour une commande' }, s: 'man <command>', e: 'man sudo' }
     },
 
@@ -1186,6 +1253,8 @@ window.CMD = {
                 return /os\.system|pty\.spawn|exec|system\(/.test(joined);
             case 'less': case 'more': case 'man':
                 return joined.includes('!/bin/sh') || joined.includes('!sh');
+            case 'node':
+                return /child_process/.test(joined) && /spawn|exec/.test(joined);
             case 'bash': case 'sh': case 'dash':
                 return true; // running a shell itself as root == root
             default:
