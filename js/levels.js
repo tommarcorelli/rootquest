@@ -2479,5 +2479,81 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://gtfobins.github.io/gtfobins/mysql/'
             }
         }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 32 — sudo tar --checkpoint-action=exec (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 32,
+        codename: 'box-32',
+        title: { en: 'Box-32 · Checkpoint Reached', fr: 'Box-32 · Point de contrôle atteint' },
+        brief: {
+            en: "sudo -l grants tar, nothing else — an archiver. It just reads and writes files... except it has a progress-reporting feature that runs a command of your choice along the way.",
+            fr: "sudo -l n'accorde que tar, rien d'autre — un archiveur. Il ne fait que lire et écrire des fichiers... sauf qu'il a une fonctionnalité de suivi de progression qui exécute une commande de ton choix en chemin."
+        },
+        user: 'player',
+        host: 'box-32',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l', 'Look up tar on GTFOBins', 'Use a checkpoint action to run a shell as root'],
+            fr: ['Vérifier sudo -l', 'Chercher tar sur GTFOBins', 'Utiliser une action de checkpoint pour lancer un shell en root']
+        },
+        hints: {
+            en: [
+                'sudo -l — tar is allowed. Check GTFOBins for "tar".',
+                'tar --checkpoint=N reports progress every N records; --checkpoint-action lets you say what "report" means.',
+                'sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh — the action runs as whoever tar is running as.'
+            ],
+            fr: [
+                'sudo -l — tar est autorisé. Regarde GTFOBins pour "tar".',
+                "tar --checkpoint=N rapporte la progression tous les N enregistrements ; --checkpoint-action permet de définir ce que « rapporter » signifie.",
+                "sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh — l'action s'exécute avec les droits de celui qui fait tourner tar."
+            ]
+        },
+        flag: 'flag{tar_checkpoint_action_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin', 'dev'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{tar_checkpoint_action_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'tar'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/tar': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN(),
+            '/dev': { type: 'dir', owner: 'root', mode: '755', children: ['null'] },
+            '/dev/null': { type: 'file', owner: 'root', mode: '666', content: '' }
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/tar', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers NOPASSWD on tar (GTFOBins checkpoint-action hook)',
+                why: "tar reads and writes archives — it's not an interpreter, so a NOPASSWD grant on it looks conservative. But tar's --checkpoint-action flag was built so long-running archive jobs could report progress via an arbitrary external command, and 'exec' is one of the documented actions. It runs at every checkpoint tar reaches on its own — no special input required beyond the flag — and since tar itself is root under sudo, that action is too. The archiving was never the risk; the progress-reporting hook bolted onto it was.",
+                fix: "Never grant tar via sudo without restricting arguments — sudoers can pin the allowed flags (e.g. only a fixed backup command with no user-controlled options), since a bare NOPASSWD on the binary hands over every flag it supports, including --checkpoint-action. Check GTFOBins before writing sudoers rules for any tool with a plugin, hook, or callback mechanism, archivers included.",
+                link: 'https://gtfobins.github.io/gtfobins/tar/'
+            },
+            fr: {
+                vuln: "NOPASSWD sudoers sur tar (hook checkpoint-action, GTFOBins)",
+                why: "tar lit et écrit des archives — ce n'est pas un interpréteur, donc un accès NOPASSWD dessus paraît raisonnable. Mais le flag --checkpoint-action de tar a été conçu pour que les jobs d'archivage longs puissent rapporter leur progression via une commande externe arbitraire, et 'exec' est l'une des actions documentées. Elle s'exécute à chaque checkpoint que tar atteint de lui-même — aucune entrée spéciale requise au-delà du flag — et comme tar lui-même tourne en root sous sudo, cette action aussi. L'archivage n'a jamais été le risque ; le hook de rapport de progression greffé dessus l'était.",
+                fix: "N'accorde jamais tar via sudo sans restreindre les arguments — sudoers permet de figer les flags autorisés (par exemple une commande de sauvegarde fixe sans option contrôlée par l'utilisateur), car un NOPASSWD nu sur le binaire donne accès à tous les flags qu'il supporte, y compris --checkpoint-action. Vérifie GTFOBins avant d'écrire des règles sudoers pour tout outil avec un mécanisme de plugin, de hook ou de callback, archiveurs compris.",
+                link: 'https://gtfobins.github.io/gtfobins/tar/'
+            }
+        }
     }
 ];

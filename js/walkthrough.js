@@ -334,5 +334,13 @@ window.WALKTHROUGHS = {
         { cmd: "sudo mysql -e '\\! /bin/sh'", explain: {
             en: 'The mysql CLI has its own \\-prefixed command language layered on top of SQL, and \\! is defined as "run a shell command" — a convenience for admins, not a privilege boundary. Since mysql itself runs as root under sudo, so does the shell it hands you.',
             fr: 'Le CLI mysql a son propre langage de commandes préfixées par \\ au-dessus du SQL, et \\! est défini comme « exécuter une commande shell » — un confort pour les admins, pas une frontière de privilèges. Comme mysql lui-même tourne en root sous sudo, le shell qu\'il donne aussi.' } }
+    ],
+    32: [ // sudo tar checkpoint-action
+        { cmd: 'sudo -l', explain: {
+            en: 'Only tar is allowed — an archiver. It just reads and writes files... or so it seems.',
+            fr: "Seul tar est autorisé — un archiveur. Il ne fait que lire et écrire des fichiers... du moins en apparence." } },
+        { cmd: 'sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh', explain: {
+            en: '--checkpoint-action was built so long archive jobs could report progress via an external command, and "exec" is a documented action. It fires at the very first checkpoint, no special input needed — and since tar itself is root under sudo, so is the shell it execs.',
+            fr: '--checkpoint-action a été conçu pour que les jobs d\'archivage longs rapportent leur progression via une commande externe, et "exec" est une action documentée. Elle se déclenche dès le premier checkpoint, sans entrée spéciale — et comme tar lui-même tourne en root sous sudo, le shell qu\'il exec aussi.' } }
     ]
 };

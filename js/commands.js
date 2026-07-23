@@ -1305,6 +1305,12 @@ window.CMD = {
                 // backslash (same as it does for find's \; elsewhere), so
                 // by the time it reaches here the token is a bare '!'.
                 return /!\s*\/bin\/(sh|bash)/.test(joined);
+            case 'tar':
+                // GTFOBins: --checkpoint-action=exec runs an arbitrary
+                // command mid-archive, at a checkpoint tar reaches on its
+                // own — a maintenance/progress-reporting hook, not
+                // something anyone thinks of as "code execution".
+                return /checkpoint-action\s*=\s*exec\s*=.*\/bin\/(sh|bash)/.test(joined);
             default:
                 return false;
         }

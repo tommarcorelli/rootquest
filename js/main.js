@@ -30,6 +30,7 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'HARD' },
     { cat: 'SUDO',     diff: 'EASY' },
     { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'MEDIUM' }
 ];
 

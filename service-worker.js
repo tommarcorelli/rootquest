@@ -8,7 +8,7 @@
 // version — tests/harness.js asserts the two match, so drifting apart
 // fails `npm run test:logic` / CI instead of silently shipping stale
 // assets to already-installed users).
-const CACHE_VERSION = 'rootquest-v1.22.0';
+const CACHE_VERSION = 'rootquest-v1.23.0';
 const CORE_ASSETS = [
     './',
     './index.html',
