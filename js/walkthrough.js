@@ -326,5 +326,13 @@ window.WALKTHROUGHS = {
         { cmd: 'sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh', explain: {
             en: 'apt-get -o sets an arbitrary config key for this run. APT::Update::Pre-Invoke is a hook meant for maintenance scripts — apt-get runs its value as a shell command before touching anything else, and since apt-get itself is root under sudo, that hook is too.',
             fr: 'apt-get -o fixe une clé de config arbitraire pour cette exécution. APT::Update::Pre-Invoke est un hook prévu pour des scripts de maintenance — apt-get exécute sa valeur comme une commande shell avant de toucher à quoi que ce soit d\'autre, et comme apt-get lui-même est root sous sudo, ce hook l\'est aussi.' } }
+    ],
+    31: [ // sudo mysql \! shell escape
+        { cmd: 'sudo -l', explain: {
+            en: 'Only mysql is allowed — a database client. It just runs SQL... or so it seems.',
+            fr: "Seul mysql est autorisé — un client de base de données. Il ne fait qu'exécuter du SQL... du moins en apparence." } },
+        { cmd: "sudo mysql -e '\\! /bin/sh'", explain: {
+            en: 'The mysql CLI has its own \\-prefixed command language layered on top of SQL, and \\! is defined as "run a shell command" — a convenience for admins, not a privilege boundary. Since mysql itself runs as root under sudo, so does the shell it hands you.',
+            fr: 'Le CLI mysql a son propre langage de commandes préfixées par \\ au-dessus du SQL, et \\! est défini comme « exécuter une commande shell » — un confort pour les admins, pas une frontière de privilèges. Comme mysql lui-même tourne en root sous sudo, le shell qu\'il donne aussi.' } }
     ]
 };

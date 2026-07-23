@@ -29,6 +29,7 @@ window.MACHINE_META = [
     { cat: 'CAP',      diff: 'HARD' },
     { cat: 'SUDO',     diff: 'HARD' },
     { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'MEDIUM' }
 ];
 

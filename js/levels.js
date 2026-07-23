@@ -2405,5 +2405,79 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://gtfobins.github.io/gtfobins/apt-get/'
             }
         }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 31 — sudo mysql \! (GTFOBins: client-builtin shell escape)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 31,
+        codename: 'box-31',
+        title: { en: 'Box-31 · Query Escape', fr: 'Box-31 · Échappement de requête' },
+        brief: {
+            en: "sudo -l grants mysql, nothing else — a database client. It just runs queries... except its interactive shell has a builtin escape command that has nothing to do with SQL.",
+            fr: "sudo -l n'accorde que mysql, rien d'autre — un client de base de données. Il ne fait qu'exécuter des requêtes... sauf que son shell interactif a une commande d'échappement intégrée qui n'a rien à voir avec le SQL."
+        },
+        user: 'player',
+        host: 'box-31',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l', 'Look up mysql on GTFOBins', 'Use the client\'s shell-escape builtin to get root'],
+            fr: ['Vérifier sudo -l', 'Chercher mysql sur GTFOBins', "Utiliser la commande d'échappement du client pour obtenir root"]
+        },
+        hints: {
+            en: [
+                'sudo -l — mysql is allowed. Check GTFOBins for "mysql".',
+                'The mysql CLI has builtin commands starting with \\ — one of them runs an arbitrary shell command.',
+                'sudo mysql -e \'\\! /bin/sh\' — the \\! escape runs outside the SQL engine, as whoever mysql is running as.'
+            ],
+            fr: [
+                'sudo -l — mysql est autorisé. Regarde GTFOBins pour "mysql".',
+                "Le CLI mysql a des commandes intégrées qui commencent par \\ — l'une d'elles exécute une commande shell arbitraire.",
+                'sudo mysql -e \'\\! /bin/sh\' — l\'échappement \\! s\'exécute en dehors du moteur SQL, avec les droits de celui qui fait tourner mysql.'
+            ]
+        },
+        flag: 'flag{mysql_bang_escape_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{mysql_bang_escape_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'mysql'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/mysql': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/mysql', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers NOPASSWD on mysql (GTFOBins client shell-escape builtin)',
+                why: "A database client feels safely far from a shell — its whole job is running SQL. But the mysql CLI's interactive mode has its own command language on top of SQL, prefixed with \\, and \\! is defined as \"execute a shell command\". It was built as a convenience for administrators switching between SQL and shell mid-session, not as a privilege boundary — so when mysql itself is running as root under sudo, \\! hands you a root shell with no SQL involved at all.",
+                fix: "Never grant an interactive database client via sudo unless the target is trusted with the shell it's built on top of — there's no way to allow \"just queries\" once the client's own escape commands are in scope. Where automation genuinely only needs to run fixed queries, invoke mysql non-interactively with a locked-down script and no -e/--execute exposed to arbitrary input, and check GTFOBins before sudoers rules for any client with a REPL.",
+                link: 'https://gtfobins.github.io/gtfobins/mysql/'
+            },
+            fr: {
+                vuln: "NOPASSWD sudoers sur mysql (échappement shell intégré au client, GTFOBins)",
+                why: "Un client de base de données paraît sûr, loin d'un shell — son seul travail est d'exécuter du SQL. Mais le mode interactif du CLI mysql a son propre langage de commandes au-dessus du SQL, préfixé par \\, et \\! est défini comme « exécuter une commande shell ». Ça a été conçu comme un confort pour les administrateurs qui basculent entre SQL et shell en pleine session, pas comme une frontière de privilèges — donc quand mysql lui-même tourne en root sous sudo, \\! donne un shell root sans aucun SQL impliqué.",
+                fix: "N'accorde jamais un client de base de données interactif via sudo sauf si la cible est digne de confiance avec le shell sur lequel il repose — impossible d'autoriser « juste des requêtes » une fois que les commandes d'échappement du client entrent en jeu. Quand l'automatisation n'a réellement besoin que d'exécuter des requêtes fixes, invoque mysql en mode non interactif avec un script verrouillé, sans exposer -e/--execute à une entrée arbitraire, et vérifie GTFOBins avant toute règle sudoers pour un client avec un REPL.",
+                link: 'https://gtfobins.github.io/gtfobins/mysql/'
+            }
+        }
     }
 ];

