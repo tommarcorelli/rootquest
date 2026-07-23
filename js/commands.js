@@ -832,8 +832,18 @@ window.CMD = {
                 }
                 return lines;
             }
+            // -u user / -u#uid: run as someone other than the default root
+            // target. Needed for box-28 (CVE-2019-14287-style bypass): sudoers
+            // can grant "(ALL, !root)" — allowed to run as anyone *except* root
+            // by name — and a vulnerable sudo still resolves an out-of-range
+            // uid like -1 or 4294967295 to root, because the exclusion check
+            // only ever compares against the literal name "root".
+            let targetSpec = 'root';
+            if (args[0] === '-u') { targetSpec = args[1] || ''; args = args.slice(2); }
+            else if (args[0] && args[0] !== '-u' && args[0].startsWith('-u')) { targetSpec = args[0].slice(2); args = args.slice(1); }
+
             // sudo [VAR=value ...] <cmd> [args]
-            if (args.length === 0) return [{ text: 'usage: sudo [-l] command', cls: 'err' }];
+            if (args.length === 0) return [{ text: 'usage: sudo [-l] [-u user] command', cls: 'err' }];
             const level = window.GAME.level();
             const entries = this.sudoEntries(level);
 
@@ -906,7 +916,25 @@ window.CMD = {
             const cmdPath = cmdArgs[0].startsWith('/') ? cmdArgs[0] : '/usr/bin/' + cmdArgs[0];
             const allowed = entries.find(e => e.cmd === cmdPath || e.cmd === cmdArgs[0] || e.cmd === 'ALL');
             if (!allowed) {
-                return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${cmdArgs.join(' ')}' as root.`, cls: 'err' }];
+                return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${cmdArgs.join(' ')}' as ${targetSpec === 'root' ? 'root' : targetSpec}.`, cls: 'err' }];
+            }
+            // (ALL, !root)-style rule: allowed to run as anyone except the named
+            // user 'root'. Requesting root by name (or explicitly by -u#0) is
+            // correctly refused — that's the whole point of the exclusion. But
+            // an out-of-range uid (-1, or its uint32 wraparound 4294967295)
+            // still resolves to uid 0 once handed to setresuid(), since the
+            // exclusion list was only ever checked against the string "root".
+            if (allowed.runasExcept) {
+                if (targetSpec === allowed.runasExcept || targetSpec === '#0') {
+                    return [{ text: `Sorry, user ${SESSION.user} is not allowed to execute '${cmdArgs.join(' ')}' as ${allowed.runasExcept}.`, cls: 'err' }];
+                }
+                if (targetSpec === '#-1' || targetSpec === '#4294967295') {
+                    const win = (level.wins || []).find(w => w.type === 'sudo_negative_uid');
+                    return this.spawnShell(true, { via: `sudo -u${targetSpec} ${cmdArgs.join(' ')}`, type: win ? win.type : 'sudo_negative_uid' });
+                }
+                if (targetSpec !== 'root') {
+                    return [{ text: `sudo: executed ${cmdArgs.join(' ')} as ${targetSpec.replace(/^#/, 'uid ')} — not root, no escalation here`, cls: 'dim' }];
+                }
             }
             // Generic GTFOBins-style shell escape. The type granted is whatever sudo
             // win the level declares, so both sudo_vim_escape (box-05) and the newer
@@ -1257,6 +1285,18 @@ window.CMD = {
                 return /child_process/.test(joined) && /spawn|exec/.test(joined);
             case 'bash': case 'sh': case 'dash':
                 return true; // running a shell itself as root == root
+            case 'systemd-run':
+                // GTFOBins: systemd-run talks to the system manager (PID 1,
+                // running as root) to launch a transient unit — sudo just
+                // gets you in the door, the unit's own command runs as root
+                // regardless of what it is, so any invocation is a win.
+                return true;
+            case 'apt-get': case 'apt':
+                // GTFOBins: apt/apt-get run arbitrary hook commands via -o
+                // config overrides (APT::Update::Pre-Invoke and friends) —
+                // package management config injection, not a code-execution
+                // feature anyone remembers to restrict.
+                return /pre-invoke/i.test(joined) && /\/bin\/(sh|bash)/.test(joined);
             default:
                 return false;
         }

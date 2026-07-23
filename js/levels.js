@@ -2183,5 +2183,227 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://man7.org/linux/man-pages/man7/capabilities.7.html'
             }
         }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 28 — CVE-2019-14287: sudo "(ALL, !root)" negative-uid bypass
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 28,
+        codename: 'box-28',
+        title: { en: 'Box-28 · Minus One', fr: 'Box-28 · Moins un' },
+        brief: {
+            en: "sudo -l says you can run /bin/bash as anyone except root. Sounds safe — except old sudo has a bug about how \"except root\" actually gets checked.",
+            fr: "sudo -l dit que tu peux lancer /bin/bash en tant que n'importe qui sauf root. Ça semble sûr — sauf que les vieilles versions de sudo ont un bug dans la façon dont \"sauf root\" est vraiment vérifié."
+        },
+        user: 'player',
+        host: 'box-28',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l and read the exclusion carefully', 'Confirm -u root is really blocked', 'Find the uid that bypasses a name-only exclusion', 'Get a root shell'],
+            fr: ["Vérifier sudo -l et bien lire l'exclusion", 'Confirmer que -u root est vraiment bloqué', "Trouver l'uid qui contourne une exclusion basée uniquement sur le nom", 'Obtenir un shell root']
+        },
+        hints: {
+            en: [
+                'sudo -l — read the "(ALL, !root)" part closely. It excludes a user by name.',
+                'sudo -u root /bin/bash still gets refused — the exclusion does catch the literal name.',
+                'This is CVE-2019-14287: try sudo -u#-1 /bin/bash (or the uint32 wraparound, sudo -u#4294967295 /bin/bash).'
+            ],
+            fr: [
+                'sudo -l — lis bien la partie "(ALL, !root)". Ça exclut un utilisateur par son nom.',
+                'sudo -u root /bin/bash est toujours refusé — l\'exclusion attrape bien le nom littéral.',
+                "C'est le CVE-2019-14287 : essaie sudo -u#-1 /bin/bash (ou le débordement uint32, sudo -u#4294967295 /bin/bash)."
+            ]
+        },
+        flag: 'flag{sudo_negative_uid_cve201914287}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{sudo_negative_uid_cve201914287}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['bash', 'sh'] },
+            '/bin/bash': ELF_BIN(),
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/bin/bash', nopasswd: true, runas: 'ALL, !root', runasExcept: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_negative_uid' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'sudo "(ALL, !root)" runas exclusion — CVE-2019-14287',
+                why: "The sudoers rule reads as safe: run /bin/bash as any user, but never as root. And sudo -u root really is refused. The bug is in how versions before 1.8.28 resolve a numeric target: -u#-1 (or its unsigned-32-bit wraparound, -u#4294967295) never gets compared against the literal string \"root\" during the policy check, so the exclusion never fires — but the resulting setresuid() call still lands on uid 0, because -1 cast to uid_t is 0. The name-based blocklist and the actual privilege the kernel grants are two different things, and this bug lived in that gap.",
+                fix: "Upgrade to sudo >= 1.8.28, where negative/overflowed uids are rejected outright. Structurally, prefer an explicit allowlist of runas users over an \"ALL except\" exclusion — a positive list has nothing for a uid trick to sneak past. Audit with sudo -l and treat any \"!user\" exclusion pattern as a red flag worth a version check.",
+                link: 'https://nvd.nist.gov/vuln/detail/CVE-2019-14287'
+            },
+            fr: {
+                vuln: 'Exclusion "runas" sudo "(ALL, !root)" — CVE-2019-14287',
+                why: "La règle sudoers semble sûre : lancer /bin/bash en tant que n'importe qui, mais jamais root. Et sudo -u root est bien refusé. Le bug est dans la façon dont les versions antérieures à 1.8.28 résolvent une cible numérique : -u#-1 (ou son débordement en entier 32 bits non signé, -u#4294967295) n'est jamais comparé à la chaîne littérale \"root\" pendant la vérification de la policy, donc l'exclusion ne se déclenche jamais — mais l'appel setresuid() qui suit aboutit quand même à l'uid 0, car -1 casté en uid_t vaut 0. La liste d'exclusion basée sur le nom et le privilège réellement accordé par le noyau sont deux choses différentes, et ce bug vivait exactement dans cet écart.",
+                fix: "Mets à jour vers sudo >= 1.8.28, qui rejette directement les uid négatifs ou en débordement. Structurellement, préfère une liste blanche explicite d'utilisateurs runas à une exclusion \"ALL sauf\" — une liste positive ne laisse aucune place à une astuce d'uid pour se glisser entre les mailles. Audite avec sudo -l et traite tout motif d'exclusion \"!utilisateur\" comme un signal à vérifier côté version.",
+                link: 'https://nvd.nist.gov/vuln/detail/CVE-2019-14287'
+            }
+        }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 29 — sudo systemd-run (GTFOBins: transient unit runs as root)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 29,
+        codename: 'box-29',
+        title: { en: 'Box-29 · Run As A Service', fr: 'Box-29 · Lancé comme un service' },
+        brief: {
+            en: 'sudo -l grants systemd-run, nothing else. It looks harmless — it just launches services. But services are managed by a process that runs as root.',
+            fr: "sudo -l n'accorde que systemd-run, rien d'autre. Ça semble inoffensif — ça ne fait que lancer des services. Mais les services sont gérés par un processus qui tourne en root."
+        },
+        user: 'player',
+        host: 'box-29',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l', 'Understand who actually runs a systemd unit', 'Launch a transient shell unit as root'],
+            fr: ['Vérifier sudo -l', 'Comprendre qui exécute réellement une unité systemd', 'Lancer une unité transitoire shell en root']
+        },
+        hints: {
+            en: [
+                'sudo -l — systemd-run is allowed. Check GTFOBins for "systemd-run".',
+                'systemd-run talks to the system manager (PID 1) to schedule a transient unit — that manager runs as root, not as you.',
+                'sudo systemd-run /bin/sh — the unit\'s command runs as root regardless of who invoked systemd-run.'
+            ],
+            fr: [
+                'sudo -l — systemd-run est autorisé. Regarde GTFOBins pour "systemd-run".',
+                "systemd-run parle au gestionnaire système (PID 1) pour planifier une unité transitoire — ce gestionnaire tourne en root, pas avec tes droits.",
+                "sudo systemd-run /bin/sh — la commande de l'unité s'exécute en root, peu importe qui a invoqué systemd-run."
+            ]
+        },
+        flag: 'flag{systemd_run_sudo_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{systemd_run_sudo_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'systemd-run'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/systemd-run': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/systemd-run', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers NOPASSWD on systemd-run (GTFOBins)',
+                why: 'systemd-run doesn\'t run your command directly — it hands a job description to the system manager (PID 1) over D-Bus, and that manager schedules and executes it. sudo only gets systemd-run itself in the door; the manager it talks to already runs as root, so the transient unit it schedules runs as root too, independent of who called systemd-run. Any binary that ultimately hands execution off to a privileged daemon has the same shape of risk as a direct root shell.',
+                fix: 'Never grant systemd-run (or any service-manager client) via sudo unless the target is fully trusted with root — there is no safe restricted subset of it. Prefer polkit-scoped, unit-specific permissions (systemctl start/stop on one named unit) over a blanket systemd-run grant, and check GTFOBins before writing any new sudoers rule.',
+                link: 'https://gtfobins.github.io/gtfobins/systemd-run/'
+            },
+            fr: {
+                vuln: 'NOPASSWD sudoers sur systemd-run (GTFOBins)',
+                why: "systemd-run n'exécute pas directement ta commande — il transmet une description de job au gestionnaire système (PID 1) via D-Bus, et c'est ce gestionnaire qui la planifie et l'exécute. sudo ne fait entrer que systemd-run lui-même ; le gestionnaire auquel il parle tourne déjà en root, donc l'unité transitoire qu'il planifie tourne en root aussi, indépendamment de qui a appelé systemd-run. Tout binaire qui finit par déléguer l'exécution à un démon privilégié porte le même risque qu'un accès root direct.",
+                fix: "N'accorde jamais systemd-run (ni aucun client d'un gestionnaire de services) via sudo, sauf si la cible est entièrement digne de confiance avec root — il n'existe aucun sous-ensemble restreint sûr. Préfère des permissions scoppées via polkit, spécifiques à une unité (systemctl start/stop sur une unité nommée) plutôt qu'un accès systemd-run général, et vérifie GTFOBins avant d'écrire toute nouvelle règle sudoers.",
+                link: 'https://gtfobins.github.io/gtfobins/systemd-run/'
+            }
+        }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 30 — sudo apt-get (GTFOBins: -o config override runs a hook as root)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 30,
+        codename: 'box-30',
+        title: { en: 'Box-30 · Update Hook', fr: 'Box-30 · Le hook de mise à jour' },
+        brief: {
+            en: 'sudo -l grants apt-get, nothing else — a package manager, not an interpreter. But apt-get lets you override its config from the command line, including which commands it runs before an update.',
+            fr: "sudo -l n'accorde qu'apt-get, rien d'autre — un gestionnaire de paquets, pas un interpréteur. Mais apt-get permet de surcharger sa config en ligne de commande, y compris quelles commandes il exécute avant une mise à jour."
+        },
+        user: 'player',
+        host: 'box-30',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l', 'Look up apt-get on GTFOBins', 'Override the Pre-Invoke hook to run a shell'],
+            fr: ['Vérifier sudo -l', 'Chercher apt-get sur GTFOBins', 'Surcharger le hook Pre-Invoke pour lancer un shell']
+        },
+        hints: {
+            en: [
+                'sudo -l — apt-get is allowed. Check GTFOBins for "apt-get" or "apt".',
+                'apt-get -o lets you set arbitrary config keys for this run only, including hook commands normally set in /etc/apt/apt.conf.',
+                'sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh — the hook runs before apt-get does anything else, as root.'
+            ],
+            fr: [
+                'sudo -l — apt-get est autorisé. Regarde GTFOBins pour "apt-get" ou "apt".',
+                "apt-get -o permet de fixer n'importe quelle clé de config pour cette exécution, y compris les commandes de hook normalement définies dans /etc/apt/apt.conf.",
+                'sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh — le hook s\'exécute avant tout le reste d\'apt-get, en root.'
+            ]
+        },
+        flag: 'flag{apt_get_preinvoke_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{apt_get_preinvoke_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'apt-get'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/apt-get': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/apt-get', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers NOPASSWD on apt-get (GTFOBins config-override hook)',
+                why: "apt-get isn't a shell or an interpreter, so a NOPASSWD grant on it looks conservative. But apt-get -o lets the caller set any configuration key for that run, including the *Pre-Invoke hooks normally reserved for /etc/apt/apt.conf. APT::Update::Pre-Invoke runs its value as a shell command before the update itself does anything — and since apt-get is running as root under sudo, so does the hook. The package manager was never the risk; its unrestricted configuration surface was.",
+                fix: 'Never grant a package manager via sudo without restricting arguments (sudoers supports per-argument rules, e.g. limiting to `apt-get update` with no `-o`/`-c` allowed) — a bare NOPASSWD on the binary path hands over every flag it supports, including config overrides. Check GTFOBins before writing any sudoers rule for a tool you have not audited for a "config injection" style escape.',
+                link: 'https://gtfobins.github.io/gtfobins/apt-get/'
+            },
+            fr: {
+                vuln: "NOPASSWD sudoers sur apt-get (hook de surcharge de config, GTFOBins)",
+                why: "apt-get n'est ni un shell ni un interpréteur, donc un accès NOPASSWD dessus paraît raisonnable. Mais apt-get -o permet à l'appelant de fixer n'importe quelle clé de configuration pour cette exécution, y compris les hooks *Pre-Invoke normalement réservés à /etc/apt/apt.conf. APT::Update::Pre-Invoke exécute sa valeur comme une commande shell avant même que la mise à jour ne commence — et comme apt-get tourne en root sous sudo, le hook aussi. Le gestionnaire de paquets n'a jamais été le risque ; sa surface de configuration sans restriction l'était.",
+                fix: "N'accorde jamais un gestionnaire de paquets via sudo sans restreindre les arguments (sudoers permet des règles par argument, par exemple limiter à `apt-get update` sans autoriser `-o`/`-c`) — un NOPASSWD nu sur le chemin du binaire donne accès à tous les flags qu'il supporte, y compris les surcharges de config. Vérifie GTFOBins avant d'écrire une règle sudoers pour un outil que tu n'as pas audité pour ce type de contournement par injection de config.",
+                link: 'https://gtfobins.github.io/gtfobins/apt-get/'
+            }
+        }
     }
 ];

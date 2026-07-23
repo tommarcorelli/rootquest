@@ -299,5 +299,32 @@ window.WALKTHROUGHS = {
         { cmd: 'su pwnd', explain: {
             en: 'Same passwordless-root trick as box-06/box-20, delivered through a capability instead of a permission or sudo misconfiguration.',
             fr: 'Même astuce de root sans mot de passe qu\'aux box-06/box-20, livrée via une capability plutôt qu\'une permission ou une mauvaise config sudo.' } }
+    ],
+    28: [ // CVE-2019-14287 sudo negative-uid bypass
+        { cmd: 'sudo -l', explain: {
+            en: '(ALL, !root) NOPASSWD: /bin/bash — allowed to run bash as anyone except root. Looks like a safe restriction.',
+            fr: '(ALL, !root) NOPASSWD: /bin/bash — autorisé à lancer bash en tant que n\'importe qui sauf root. Ça ressemble à une restriction sûre.' } },
+        { cmd: 'sudo -u root /bin/bash', explain: {
+            en: 'Refused, as expected — the exclusion does match the literal name "root".',
+            fr: 'Refusé, comme attendu — l\'exclusion attrape bien le nom littéral "root".' } },
+        { cmd: 'sudo -u#-1 /bin/bash', explain: {
+            en: 'CVE-2019-14287: on sudo < 1.8.28, a numeric target is never string-compared against the "!root" exclusion, but -1 still resolves to uid 0 once cast to uid_t by the actual setresuid() call. The exclusion never fires, and the shell comes up as root anyway.',
+            fr: 'CVE-2019-14287 : sur sudo < 1.8.28, une cible numérique n\'est jamais comparée en chaîne à l\'exclusion "!root", mais -1 se résout quand même en uid 0 une fois casté en uid_t par le vrai appel setresuid(). L\'exclusion ne se déclenche jamais, et le shell arrive en root malgré tout.' } }
+    ],
+    29: [ // sudo systemd-run
+        { cmd: 'sudo -l', explain: {
+            en: 'systemd-run is allowed as root, nothing else. It doesn\'t look like a shell or an interpreter, so it\'s easy to assume it\'s safe.',
+            fr: 'systemd-run est autorisé en root, rien d\'autre. Ça ne ressemble ni à un shell ni à un interpréteur, donc on pourrait croire que c\'est sûr.' } },
+        { cmd: 'sudo systemd-run /bin/sh', explain: {
+            en: 'systemd-run doesn\'t execute anything itself — it asks the system manager (PID 1, always root) to schedule the command as a transient unit. The manager runs it as root regardless of who asked, so the shell comes back with full privileges.',
+            fr: 'systemd-run n\'exécute rien lui-même — il demande au gestionnaire système (PID 1, toujours root) de planifier la commande comme une unité transitoire. Le gestionnaire l\'exécute en root peu importe qui l\'a demandé, donc le shell revient avec les pleins privilèges.' } }
+    ],
+    30: [ // sudo apt-get Pre-Invoke hook
+        { cmd: 'sudo -l', explain: {
+            en: 'Only apt-get is allowed — a package manager, not an interpreter. Seems safe on the surface.',
+            fr: "Seul apt-get est autorisé — un gestionnaire de paquets, pas un interpréteur. Ça semble sûr en apparence." } },
+        { cmd: 'sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh', explain: {
+            en: 'apt-get -o sets an arbitrary config key for this run. APT::Update::Pre-Invoke is a hook meant for maintenance scripts — apt-get runs its value as a shell command before touching anything else, and since apt-get itself is root under sudo, that hook is too.',
+            fr: 'apt-get -o fixe une clé de config arbitraire pour cette exécution. APT::Update::Pre-Invoke est un hook prévu pour des scripts de maintenance — apt-get exécute sa valeur comme une commande shell avant de toucher à quoi que ce soit d\'autre, et comme apt-get lui-même est root sous sudo, ce hook l\'est aussi.' } }
     ]
 };

