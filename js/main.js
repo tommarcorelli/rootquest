@@ -31,6 +31,7 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'EASY' },
     { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'MEDIUM' }
 ];
 
@@ -821,6 +822,10 @@ window.GAME = {
     achState() {
         return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
     },
+    isThemeUnlocked(name) {
+        const req = window.UNLOCKABLE_THEMES && window.UNLOCKABLE_THEMES[name];
+        return !req || this.achievements.includes(req);
+    },
     updateAchievements(toast) {
         const s = this.achState();
         const earned = ACHIEVEMENTS.filter(a => a.check(s)).map(a => a.id);
@@ -829,6 +834,7 @@ window.GAME = {
             this.achievements = earned;
             this.saveProgress();
             if (toast) fresh.forEach(id => this.achievementToast(ACHIEVEMENTS.find(a => a.id === id)));
+            if (window.refreshThemeOptions) window.refreshThemeOptions();
         }
         return earned;
     },
@@ -1025,14 +1031,30 @@ window.GAME = {
 
 // Theme: swap the palette by setting data-theme on <html>, persist it, and keep
 // every .theme-select control in sync.
+// "void" is a bonus theme unlocked by earning the "Root Wizard" achievement
+// (own every machine) — see GAME.isThemeUnlocked(). Free themes are always
+// available; this only ever adds, never takes away, from what v1.2 shipped.
+window.UNLOCKABLE_THEMES = { void: 'root_wizard' };
 window.setTheme = function(name) {
-    const THEMES = ['kali', 'matrix', 'dracula', 'amber', 'light'];
+    const THEMES = ['kali', 'matrix', 'dracula', 'amber', 'light', 'void'];
     if (!THEMES.includes(name)) name = 'kali';
+    if (!window.GAME || !window.GAME.isThemeUnlocked(name)) name = window.currentTheme || 'kali';
+    if (!THEMES.includes(name)) name = 'kali'; // guard against a stale/tampered persisted value
     window.currentTheme = name;
     if (name === 'kali') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', name);
     document.querySelectorAll('.theme-select').forEach(s => { s.value = name; });
     if (window.GAME && window.GAME.saveProgress) window.GAME.saveProgress();
+};
+
+// Enable/label the locked-theme <option> once its unlock condition is met.
+// Called at boot (after progress loads) and after every achievement check.
+window.refreshThemeOptions = function() {
+    document.querySelectorAll('.theme-select option.theme-opt-locked').forEach(opt => {
+        const unlocked = window.GAME && window.GAME.isThemeUnlocked(opt.value);
+        opt.disabled = !unlocked;
+        opt.textContent = unlocked ? '◈ Void' : '🔒 Void';
+    });
 };
 
 window.setLanguage = function(lang) {
@@ -1056,6 +1078,7 @@ window.setLanguage = function(lang) {
 document.addEventListener('DOMContentLoaded', () => {
     window.GAME.loadSave();
     window.setTheme(window.currentTheme || 'kali');
+    if (window.refreshThemeOptions) window.refreshThemeOptions();
     if (window.SFX) window.SFX.init();
     if (window.WALKMODE) window.WALKMODE.init();
     document.querySelectorAll('.lang-btn').forEach(b => {

@@ -1281,6 +1281,13 @@ window.CMD = {
                 return /os\.system|pty\.spawn|exec|system\(/.test(joined);
             case 'less': case 'more': case 'man':
                 return joined.includes('!/bin/sh') || joined.includes('!sh');
+            case 'git':
+                // GTFOBins: git -p forces every subcommand through a pager
+                // (less, by default) even when output would otherwise fit
+                // on one screen — and a pager launched as a child of a
+                // process running as root inherits that root. Same escape
+                // as less/more/man above, just reached through git first.
+                return joined.includes('-p') && (joined.includes('!/bin/sh') || joined.includes('!sh'));
             case 'node':
                 return /child_process/.test(joined) && /spawn|exec/.test(joined);
             case 'bash': case 'sh': case 'dash':

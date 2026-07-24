@@ -100,6 +100,7 @@ const SOLUTIONS = {
     30: ['sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh'],
     31: ["sudo mysql -e '\\! /bin/sh'"],
     32: ['sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh'],
+    33: ['sudo git -p help !/bin/sh'],
 };
 
 let pass = 0, fail = 0;
@@ -247,6 +248,7 @@ for (const level of LEVELS) {
         addEventListener: () => {},
         getElementById: () => null,
         querySelectorAll: () => [],
+        documentElement: { setAttribute() {}, removeAttribute() {} },
         body: { classList: { add() {}, remove() {} } },
     };
     vm.createContext(sandbox3);
@@ -277,6 +279,23 @@ for (const level of LEVELS) {
     const ok = t1 && t2;
     console.log(`${ok ? 'PASS' : 'FAIL'}  achievements (dynamic halfway threshold tracks current machine count)`);
     ok ? pass++ : fail++;
+
+    // Bonus "void" theme: locked until Root Wizard (own everything) is earned.
+    // Reuses the G.completed = [1] state from just above (root_wizard NOT
+    // earned yet at this point) before re-earning it for the unlocked check.
+    G.completed = [1];
+    G.achievements = G.updateAchievements(false);
+    const lockedDenies = !G.isThemeUnlocked('void');
+    sandbox3.setTheme('void');
+    const lockedNoOp = sandbox3.currentTheme !== 'void';
+    G.completed = Array.from({ length: total }, (_, i) => i + 1);
+    G.achievements = G.updateAchievements(false);
+    const unlockedAllows = G.isThemeUnlocked('void');
+    sandbox3.setTheme('void');
+    const unlockedApplies = sandbox3.currentTheme === 'void';
+    const themeOk = lockedDenies && lockedNoOp && unlockedAllows && unlockedApplies;
+    console.log(`${themeOk ? 'PASS' : 'FAIL'}  void theme locked until Root Wizard, unlocks after`);
+    themeOk ? pass++ : fail++;
 
     // Explanation-mode coverage: every built-in box must have a non-empty
     // WALKTHROUGHS entry, or the "explain" feature silently degrades to its

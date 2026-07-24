@@ -2555,5 +2555,79 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://gtfobins.github.io/gtfobins/tar/'
             }
         }
+    },
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 33 — sudo git -p (GTFOBins: forced pager inherits root)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 33,
+        codename: 'box-33',
+        title: { en: 'Box-33 · Paged Out', fr: 'Box-33 · Paginé' },
+        brief: {
+            en: "sudo -l grants git, nothing else — a version control tool. It just shows diffs and logs... through a pager it launches as a child process.",
+            fr: "sudo -l n'accorde que git, rien d'autre — un outil de contrôle de version. Il ne fait qu'afficher des diffs et des logs... via un pager qu'il lance comme processus enfant."
+        },
+        user: 'player',
+        host: 'box-33',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check sudo -l', 'Look up git on GTFOBins', 'Force a pager and escape it to a root shell'],
+            fr: ['Vérifier sudo -l', 'Chercher git sur GTFOBins', 'Forcer un pager et s\'en échapper vers un shell root']
+        },
+        hints: {
+            en: [
+                'sudo -l — git is allowed. Check GTFOBins for "git".',
+                'git -p forces output through a pager (usually less) even for short output.',
+                'sudo git -p help !/bin/sh — the pager is a child of git, which is root under sudo, so the pager\'s shell escape is root too.'
+            ],
+            fr: [
+                'sudo -l — git est autorisé. Regarde GTFOBins pour "git".',
+                'git -p force la sortie à passer par un pager (généralement less), même pour une sortie courte.',
+                "sudo git -p help !/bin/sh — le pager est un enfant de git, qui est root sous sudo, donc l'échappement shell du pager l'est aussi."
+            ]
+        },
+        flag: 'flag{git_pager_escape_pwn}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{git_pager_escape_pwn}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'git'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/git': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/git', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers NOPASSWD on git (GTFOBins forced-pager escape)',
+                why: "git looks safe to grant via sudo — it manages repositories, it doesn't run arbitrary code by name. But almost any git subcommand can be forced through a pager with -p, and by default that pager is less, which has its own shell-escape builtin (the same one box-19 exploits directly). The pager is spawned as a child process of git, inheriting whatever privilege git is running with — so once git is root under sudo, the pager it launches is root too, and the shell it escapes to is root by extension. The vulnerability was never in git's own code; it was in the trusted child process git hands control to.",
+                fix: "Never grant a tool with an external pager/editor dependency via sudo without also locking down that dependency — GIT_PAGER=cat or --no-pager doesn't close the hole if -p can override it. Prefer restricting sudoers to the specific read-only subcommands actually needed (e.g. only `git log`, no `-p`), and check GTFOBins before writing sudoers rules for any tool that shells out to a pager, editor, or other helper program.",
+                link: 'https://gtfobins.github.io/gtfobins/git/'
+            },
+            fr: {
+                vuln: "NOPASSWD sudoers sur git (échappement par pager forcé, GTFOBins)",
+                why: "git semble sûr à accorder via sudo — il gère des dépôts, il n'exécute pas de code arbitraire par son nom. Mais presque toute sous-commande git peut être forcée à passer par un pager avec -p, et par défaut ce pager est less, qui a son propre échappement shell intégré (le même que box-19 exploite directement). Le pager est lancé comme processus enfant de git, héritant du privilège avec lequel git tourne — donc une fois git root sous sudo, le pager qu'il lance l'est aussi, et le shell vers lequel il s'échappe l'est par extension. La faille n'a jamais été dans le code de git lui-même ; elle était dans le processus enfant de confiance auquel git délègue le contrôle.",
+                fix: "N'accorde jamais un outil ayant une dépendance externe (pager, éditeur) via sudo sans verrouiller aussi cette dépendance — GIT_PAGER=cat ou --no-pager ne ferme pas la faille si -p peut le surcharger. Préfère restreindre sudoers aux sous-commandes en lecture seule réellement nécessaires (par exemple seulement `git log`, sans -p), et vérifie GTFOBins avant d'écrire des règles sudoers pour tout outil qui délègue à un pager, un éditeur ou un autre programme auxiliaire.",
+                link: 'https://gtfobins.github.io/gtfobins/git/'
+            }
+        }
     }
 ];

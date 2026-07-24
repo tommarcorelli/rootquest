@@ -75,6 +75,18 @@
     --text: #12222e; --text-dim: #48606f; --text-muted: #8298a6;
     --root: #d61f45;
 }
+/* Unlocked by earning the "Root Wizard" achievement (own every machine) —
+   see GAME.isThemeUnlocked() in main.js. Deliberately monochrome: a single
+   ice-white phosphor glow on pure black, no rainbow accents, closer to a
+   real P4-phosphor CRT than any of the other (colorful) themes. */
+:root[data-theme="void"] {
+    --bg-void: #000000; --bg-0: #050505;
+    --glass-1: rgba(10, 10, 10, 0.70); --glass-2: rgba(16, 16, 16, 0.88); --glass-3: rgba(22, 22, 22, 0.94);
+    --cyan: #e8f4ff; --green: #e8f4ff; --magenta: #e8f4ff; --amber: #e8f4ff;
+    --accent: #e8f4ff; --accent-rgb: 232, 244, 255; --accent-2: #a8c8e8;
+    --text: #e8f4ff; --text-dim: #6a7d8c; --text-muted: #3a4650;
+    --root: #ffffff;
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -323,6 +335,7 @@ html, body {
 .theme-select:hover { color: var(--text); border-color: var(--accent); box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.35); }
 .theme-select:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
 .theme-select option { background: var(--bg-0); color: var(--text); }
+.theme-select option.theme-opt-locked { color: var(--text-muted); font-style: italic; }
 
 /* Sound toggle — square ghost button holding an emoji */
 .sound-btn { padding: 6px 10px; font-size: 13px; line-height: 1; }

