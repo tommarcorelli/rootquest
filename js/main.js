@@ -34,7 +34,9 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'MEDIUM' },
     { cat: 'SUDO',     diff: 'EASY' },
-    { cat: 'CRON',     diff: 'EASY' }
+    { cat: 'CRON',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'SUDO',     diff: 'MEDIUM' }
 ];
 
 // Difficulty tiers rendered on the hub, in order. CUSTOM only ever gets

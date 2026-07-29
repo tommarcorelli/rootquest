@@ -1290,6 +1290,19 @@ window.CMD = {
                 return joined.includes('-p') && (joined.includes('!/bin/sh') || joined.includes('!sh'));
             case 'node':
                 return /child_process/.test(joined) && /spawn|exec/.test(joined);
+            case 'zip':
+                // GTFOBins: zip -T tests the archive it just created by
+                // running a configurable "unzip command" against it —
+                // --unzip-command is meant to point at unzip, not a shell,
+                // but zip never checks that.
+                return /--unzip-command/.test(joined) && /\/bin\/(sh|bash)/.test(joined);
+            case 'rsync':
+                // GTFOBins: -e lets you swap out the remote-shell program
+                // rsync uses to reach a remote host — it's meant to be ssh,
+                // but rsync just execs whatever it's given, so pointing it
+                // at a shell runs that shell instead of ever contacting
+                // anything remote.
+                return joined.includes('-e') && /\/bin\/(sh|bash)/.test(joined);
             case 'nice':
                 // GTFOBins: nice only ever adjusts scheduling priority before
                 // exec'ing whatever command follows it — it doesn't restrict

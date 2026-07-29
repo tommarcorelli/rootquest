@@ -2798,5 +2798,161 @@ echo "healthcheck ok at $(date)" >> /var/log/monitor.log
                 link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 36 — sudo NOPASSWD on zip (GTFOBins, unzip-command hook)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 36,
+        codename: 'box-36',
+        title: { en: 'Box-36 · Zipped Up', fr: 'Box-36 · Bien fermé' },
+        brief: {
+            en: "sudo -l grants zip — an archiving tool. It just compresses files... and then, if you ask it to test its own work, runs whatever you tell it to test with.",
+            fr: "sudo -l accorde zip — un outil d'archivage. Il ne fait que compresser des fichiers... et, si tu lui demandes de tester son propre travail, lance ce que tu lui dis d'utiliser pour tester."
+        },
+        user: 'player',
+        host: 'box-36',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise zip\'s -T test hook on GTFOBins', 'Use it to launch a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître le hook de test -T de zip sur GTFOBins', 'L\'utiliser pour lancer un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'zip -T tests the archive it just built by running a configurable "unzip command" against it. Check GTFOBins for "zip".',
+                'Payload: sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'zip -T teste l\'archive qu\'il vient de créer en lançant une "commande unzip" configurable dessus. Regarde GTFOBins pour "zip".',
+                'Payload : sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"'
+            ]
+        },
+        flag: 'flag{unz1p_c0mmand_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'hosts'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/hosts': { type: 'file', owner: 'root', mode: '644', content: '127.0.0.1 localhost\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{unz1p_c0mmand_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'zip'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/zip': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/zip', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on zip',
+                why: "zip's -T flag re-opens the archive it just wrote to make sure it isn't corrupt, by handing it to an \"unzip command\" — meant to be unzip itself, but --unzip-command accepts any program. zip never validates that the command it's about to run is actually an unzip tool; it just runs it, as whatever user zip itself is running as.",
+                fix: 'Never grant sudo on zip (or any archiver with a configurable test/verify hook) without restricting arguments. If a script only ever needs zip to compress files non-interactively, drop the NOPASSWD entry down to that exact invocation rather than the bare binary.',
+                link: 'https://gtfobins.github.io/gtfobins/zip/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur zip',
+                why: "Le flag -T de zip rouvre l'archive qu'il vient d'écrire pour vérifier qu'elle n'est pas corrompue, en la confiant à une \"commande unzip\" — censée être unzip lui-même, mais --unzip-command accepte n'importe quel programme. zip ne vérifie jamais que la commande qu'il s'apprête à lancer est vraiment un outil de décompression ; il la lance, tout simplement, avec l'identité sous laquelle zip lui-même tourne.",
+                fix: "Ne jamais donner sudo sur zip (ou tout archiveur avec un hook de test/vérification configurable) sans restreindre les arguments. Si un script n'a besoin de zip que pour compresser des fichiers de façon non interactive, réduis l'entrée NOPASSWD à cet appel exact plutôt qu'au binaire brut.",
+                link: 'https://gtfobins.github.io/gtfobins/zip/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 37 — sudo NOPASSWD on rsync (GTFOBins, -e remote-shell swap)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 37,
+        codename: 'box-37',
+        title: { en: 'Box-37 · Out of Sync', fr: 'Box-37 · Désynchronisé' },
+        brief: {
+            en: "sudo -l grants rsync — a file-sync tool. It just copies files between hosts efficiently... using whatever program you tell it to reach the remote host with.",
+            fr: "sudo -l accorde rsync — un outil de synchronisation de fichiers. Il ne fait que copier des fichiers entre hôtes efficacement... en utilisant le programme que tu lui dis d'employer pour joindre l'hôte distant."
+        },
+        user: 'player',
+        host: 'box-37',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise rsync\'s -e remote-shell flag on GTFOBins', 'Use it to launch a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître le flag -e (shell distant) de rsync sur GTFOBins', 'L\'utiliser pour lancer un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'rsync\'s -e flag picks which program it uses to reach a "remote" host — it\'s meant to be ssh, but rsync will run anything you name. Check GTFOBins for "rsync".',
+                'Payload: sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'Le flag -e de rsync choisit quel programme il utilise pour joindre un hôte "distant" — censé être ssh, mais rsync lancera tout ce que tu nommes. Regarde GTFOBins pour "rsync".',
+                'Payload : sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null'
+            ]
+        },
+        flag: 'flag{rsync_r3mote_sh3ll_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin', 'dev'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{rsync_r3mote_sh3ll_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'rsync'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/rsync': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/dev': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/rsync', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on rsync',
+                why: "rsync's -e flag exists to let you swap in a different remote-shell program instead of the default ssh — a legitimate feature for unusual network setups. rsync never checks that what you hand it is actually a shell client; it just execs it. Pointing -e at /bin/sh runs a shell directly, with rsync's own privilege, before rsync ever needs to \"reach\" anything.",
+                fix: "Never grant sudo on rsync without pinning the exact source/destination and forbidding flag injection (Defaults!/usr/bin/rsync !env_reset alone isn't enough — the -e flag is the issue, not the environment). If a script needs privileged rsync, wrap it so extra flags can't be appended, or use a dedicated service account with no shell instead.",
+                link: 'https://gtfobins.github.io/gtfobins/rsync/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur rsync',
+                why: "Le flag -e de rsync existe pour permettre de remplacer le programme de shell distant par défaut (ssh) — une fonctionnalité légitime pour des configurations réseau particulières. rsync ne vérifie jamais que ce qu'on lui donne est vraiment un client shell ; il l'exécute, tout simplement. Pointer -e vers /bin/sh lance un shell directement, avec le privilège de rsync lui-même, avant même que rsync n'ait besoin de \"joindre\" quoi que ce soit.",
+                fix: "Ne jamais donner sudo sur rsync sans figer précisément la source/destination et interdire l'injection de flags (Defaults!/usr/bin/rsync !env_reset seul ne suffit pas — le problème est le flag -e, pas l'environnement). Si un script a besoin de rsync privilégié, encapsule-le pour empêcher l'ajout de flags, ou utilise un compte de service dédié sans shell.",
+                link: 'https://gtfobins.github.io/gtfobins/rsync/'
+            }
+        }
     }
 ];

