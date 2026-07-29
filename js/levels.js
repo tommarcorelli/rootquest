@@ -2629,5 +2629,174 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
                 link: 'https://gtfobins.github.io/gtfobins/git/'
             }
         }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 34 — sudo NOPASSWD on nice (GTFOBins)
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 34,
+        codename: 'box-34',
+        title: { en: 'Box-34 · Nice Try', fr: 'Box-34 · Belle tentative' },
+        brief: {
+            en: "sudo -l grants nice, nothing else — a scheduling-priority tool. It just decides how much CPU time a program gets... then runs that program for you.",
+            fr: "sudo -l n'accorde que nice, rien d'autre — un outil de priorité d'ordonnancement. Il décide juste combien de temps CPU un programme reçoit... puis lance ce programme pour toi."
+        },
+        user: 'player',
+        host: 'box-34',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Check your sudo permissions', 'Recognise nice on GTFOBins', 'Use it to launch a root shell'],
+            fr: ['Vérifier tes droits sudo', 'Reconnaître nice sur GTFOBins', 'L\'utiliser pour lancer un shell root']
+        },
+        hints: {
+            en: [
+                'Try: sudo -l',
+                'nice only adjusts scheduling priority — then it still has to run the command you gave it. Check GTFOBins for "nice".',
+                'Payload: sudo nice /bin/sh'
+            ],
+            fr: [
+                'Essaie : sudo -l',
+                'nice ne fait qu\'ajuster la priorité d\'ordonnancement — il doit quand même lancer la commande que tu lui donnes. Regarde GTFOBins pour "nice".',
+                'Payload : sudo nice /bin/sh'
+            ]
+        },
+        flag: 'flag{n1ce_pr10rity_r00t}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{n1ce_pr10rity_r00t}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'sudo', 'nice'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/usr/bin/sudo': SUID_BIN(),
+            '/usr/bin/nice': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        sudoers: {
+            player: [
+                { cmd: '/usr/bin/nice', nopasswd: true, runas: 'root' }
+            ]
+        },
+        wins: [
+            { type: 'sudo_shell' }
+        ],
+        debrief: {
+            en: {
+                vuln: 'Sudoers misconfiguration — NOPASSWD on nice',
+                why: "nice's whole job is to launch a program at an adjusted CPU scheduling priority — it never inspects or restricts what that program is. sudo nice /bin/sh skips straight to running /bin/sh, just with a priority tweak nobody asked for, as root, since that's who sudo made nice run as.",
+                fix: 'Never grant sudo on nice, or on any wrapper whose entire purpose is to launch an arbitrary program with some option applied. If a script legitimately needs a niced command, hard-code the exact command in sudoers instead of exposing the raw nice binary.',
+                link: 'https://gtfobins.github.io/gtfobins/nice/'
+            },
+            fr: {
+                vuln: 'Mauvaise config sudoers — NOPASSWD sur nice',
+                why: "Le rôle de nice est de lancer un programme avec une priorité d'ordonnancement CPU ajustée — il n'inspecte ni ne restreint jamais ce programme. sudo nice /bin/sh se contente de lancer /bin/sh, avec un réglage de priorité que personne n'a demandé, en root, puisque c'est sous cette identité que sudo a fait tourner nice.",
+                fix: 'Ne jamais donner sudo sur nice, ni sur un wrapper dont le seul rôle est de lancer un programme arbitraire avec une option appliquée. Si un script a légitimement besoin d\'une commande avec priorité ajustée, fige la commande exacte dans sudoers plutôt que d\'exposer le binaire nice brut.',
+                link: 'https://gtfobins.github.io/gtfobins/nice/'
+            }
+        }
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // LEVEL 35 — Writable monitoring script run by root cron
+    // ─────────────────────────────────────────────────────────────
+    {
+        id: 35,
+        codename: 'box-35',
+        title: { en: 'Box-35 · Watched Pot', fr: 'Box-35 · La marmite surveillée' },
+        brief: {
+            en: 'A monitoring agent runs as root every minute, health-checking a script it trusts a little too much.',
+            fr: "Un agent de surveillance tourne en root chaque minute, vérifiant l'état d'un script auquel il fait un peu trop confiance."
+        },
+        user: 'player',
+        host: 'box-35',
+        cwd: '/home/player',
+        objectives: {
+            en: ['Read /etc/crontab', 'Find a writable script called by root', 'Overwrite it and wait for cron'],
+            fr: ['Lire /etc/crontab', 'Trouver un script accessible en écriture appelé par root', 'Réécrire ce script et attendre cron']
+        },
+        hints: {
+            en: [
+                'cat /etc/crontab shows system-wide jobs.',
+                '/opt/monitor/healthcheck.sh runs as root every minute. Check its permissions: ls -la /opt/monitor/healthcheck.sh',
+                'Overwrite the script: echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh — then type "wait".'
+            ],
+            fr: [
+                'cat /etc/crontab affiche les jobs système.',
+                '/opt/monitor/healthcheck.sh tourne en root chaque minute. Vérifie ses permissions : ls -la /opt/monitor/healthcheck.sh',
+                'Réécris le script : echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh — puis tape "wait".'
+            ]
+        },
+        flag: 'flag{h34lthcheck_hij4ck}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'opt', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'crontab'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/crontab': { type: 'file', owner: 'root', mode: '644', content:
+`# /etc/crontab: system-wide crontab
+SHELL=/bin/sh
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+# m h dom mon dow user  command
+*  *  *   *   *  root  /opt/monitor/healthcheck.sh
+5  0  *   *   *  root  logrotate /etc/logrotate.conf
+` },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{h34lthcheck_hij4ck}\n' },
+            '/opt': { type: 'dir', owner: 'root', mode: '755', children: ['monitor'] },
+            '/opt/monitor': { type: 'dir', owner: 'root', mode: '755', children: ['healthcheck.sh'] },
+            '/opt/monitor/healthcheck.sh': { type: 'file', owner: 'root', mode: '777', writable_by_all: true, content:
+`#!/bin/sh
+# Service health probe — pings local endpoints, logs failures
+echo "healthcheck ok at $(date)" >> /var/log/monitor.log
+` },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash'] },
+            '/usr/bin/ls': ELF_BIN(),
+            '/usr/bin/cat': ELF_BIN(),
+            '/usr/bin/sh': ELF_BIN(),
+            '/usr/bin/bash': ELF_BIN(),
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: ['log'] },
+            '/var/log': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': ELF_BIN()
+        },
+        wins: [
+            { type: 'cron_hijack', path: '/opt/monitor/healthcheck.sh' }
+        ],
+        harden: {
+            type: 'lock_perms', target: '/opt/monitor/healthcheck.sh',
+            obj: { en: 'Make /opt/monitor/healthcheck.sh no longer world-writable', fr: 'Rends /opt/monitor/healthcheck.sh non modifiable par tous' },
+            hint: { en: 'chmod 700 /opt/monitor/healthcheck.sh', fr: 'chmod 700 /opt/monitor/healthcheck.sh' }
+        },
+        debrief: {
+            en: {
+                vuln: 'World-writable cron script (monitoring agent)',
+                why: "root's crontab runs /opt/monitor/healthcheck.sh every minute to probe service health, but the script itself is writable by any user (mode 777). A monitoring script feels lower-stakes than a backup job — it doesn't touch data — but it runs with exactly the same root privilege, so overwriting it is just as complete a takeover.",
+                fix: 'Scripts run by root must never be group- or world-writable, regardless of how mundane their job looks. Set correct ownership and permissions (chmod 700, chown root:root) on any file referenced by a privileged cron job, and audit /etc/crontab and cron.d entries for what they call — monitoring and health-check tooling included.',
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
+            },
+            fr: {
+                vuln: 'Script cron accessible en écriture pour tous (agent de surveillance)',
+                why: "Le crontab root exécute /opt/monitor/healthcheck.sh chaque minute pour sonder l'état des services, mais le script lui-même est accessible en écriture par n'importe quel utilisateur (mode 777). Un script de surveillance paraît moins sensible qu'un job de sauvegarde — il ne touche pas aux données — mais il tourne avec exactement le même privilège root, donc l'écraser est une prise de contrôle tout aussi complète.",
+                fix: "Un script exécuté par root ne doit jamais être accessible en écriture au groupe ou à tous, peu importe à quel point sa tâche paraît anodine. Fixe les bons propriétaire/permissions (chmod 700, chown root:root) sur tout fichier appelé par un job cron privilégié, et audite /etc/crontab et cron.d — outils de surveillance et de health-check inclus.",
+                link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation'
+            }
+        }
     }
 ];

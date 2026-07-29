@@ -1290,6 +1290,12 @@ window.CMD = {
                 return joined.includes('-p') && (joined.includes('!/bin/sh') || joined.includes('!sh'));
             case 'node':
                 return /child_process/.test(joined) && /spawn|exec/.test(joined);
+            case 'nice':
+                // GTFOBins: nice only ever adjusts scheduling priority before
+                // exec'ing whatever command follows it — it doesn't restrict
+                // what that command is, so under sudo it's a bare passthrough
+                // to a root shell.
+                return /\/bin\/(sh|bash)/.test(joined);
             case 'bash': case 'sh': case 'dash':
                 return true; // running a shell itself as root == root
             case 'systemd-run':
