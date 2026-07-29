@@ -48,6 +48,11 @@ you add, rename, or remove one.
 | `hint-button` | hint button | consumes a hint slot (affects rank) |
 | `blue-team-btn` | harden button | post-root blue-team challenge |
 | `explain-btn` | 🎓 walkthrough toggle | opens `walkthrough-panel` |
+| `mentor-btn` | 🧭 mentor mode toggle | enables contextual coaching lines (`.mentor` terminal class), see `js/mentor.js` |
+| `killchain-panel` | kill chain panel in the win modal | populated by `GAME.renderKillChain()`, built from `WALKTHROUGHS` |
+| `halloffame-toggle` / `halloffame-panel` | hub Hall of Fame collapsible | populated by `GAME.renderHallOfFame()` from `this.bestTimes` |
+| `notify-toggle-btn` | 🔔 daily-challenge reminder opt-in | `GAME.shouldNotifyDaily()`/`fireDailyNotificationIfDue()`, foreground-only Notification API |
+| `install-btn` | PWA install button | hidden until `beforeinstallprompt` fires, calls `.prompt()` |
 | `walkthrough-panel` | commented full solution | non-scored, hidden for custom boxes |
 | `mission-title`, `mission-brief`, `objectives-list` | mission card | current box's briefing |
 | `level-node-<id>` | tier map node | per-box progress marker outside the hub grid |

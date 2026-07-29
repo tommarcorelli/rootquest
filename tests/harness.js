@@ -168,6 +168,7 @@ for (const level of LEVELS) {
     sandbox2.globalThis = sandbox2;
     sandbox2.console = { log() {}, warn() {}, error() {} };
     sandbox2.setTimeout = () => {};
+    sandbox2.addEventListener = () => {};
     const store = {};
     sandbox2.localStorage = {
         getItem: (k) => (k in store ? store[k] : null),
@@ -243,6 +244,7 @@ for (const level of LEVELS) {
     sandbox3.globalThis = sandbox3;
     sandbox3.console = { log() {}, warn() {}, error() {} };
     sandbox3.setTimeout = () => {};
+    sandbox3.addEventListener = () => {}; // beforeinstallprompt/appinstalled listeners registered at main.js load time
     sandbox3.localStorage = { getItem: () => null, setItem: () => {} };
     sandbox3.document = {
         addEventListener: () => {},
@@ -252,6 +254,7 @@ for (const level of LEVELS) {
         body: { classList: { add() {}, remove() {} } },
     };
     vm.createContext(sandbox3);
+    vm.runInContext(JS('i18n.js'), sandbox3, { filename: 'i18n.js' });
     vm.runInContext(JS('levels.js'), sandbox3, { filename: 'levels.js' });
     vm.runInContext(JS('main.js'), sandbox3, { filename: 'main.js' });
     vm.runInContext(JS('walkthrough.js'), sandbox3, { filename: 'walkthrough.js' });
@@ -308,6 +311,41 @@ for (const level of LEVELS) {
     const wtOk = missing.length === 0;
     console.log(`${wtOk ? 'PASS' : 'FAIL'}  walkthrough coverage (every built-in box has an explain-mode entry)${wtOk ? '' : ' — missing: ' + missing.join(', ')}`);
     wtOk ? pass++ : fail++;
+
+    // Daily-reminder decision logic — pure (shouldNotifyDaily never touches
+    // the DOM), so it's exercised here against a stand-in `Notification`
+    // rather than a real browser permission.
+    G.notifyDailyEnabled = false;
+    G.lastDailyNotifiedKey = null;
+    G.completed = [];
+    sandbox3.Notification = { permission: 'default' };
+    const offByDefault = G.shouldNotifyDaily() === false;
+
+    G.notifyDailyEnabled = true;
+    sandbox3.Notification.permission = 'denied';
+    const deniedBlocks = G.shouldNotifyDaily() === false;
+
+    sandbox3.Notification.permission = 'granted';
+    const grantedAllows = G.shouldNotifyDaily() === true;
+
+    const dailyId = sandbox3.LEVELS[G.dailyChallengeIndex()].id;
+    G.completed = [dailyId];
+    const ownedBlocks = G.shouldNotifyDaily() === false;
+    G.completed = [];
+
+    G.lastDailyNotifiedKey = G.todayKey();
+    const alreadyShownBlocks = G.shouldNotifyDaily() === false;
+    G.lastDailyNotifiedKey = null;
+
+    let fired = 0;
+    sandbox3.Notification = function() { fired++; };
+    sandbox3.Notification.permission = 'granted';
+    const firstFire = G.fireDailyNotificationIfDue() === true && fired === 1;
+    const secondFire = G.fireDailyNotificationIfDue() === false && fired === 1; // same day: no repeat
+
+    const notifyOk = offByDefault && deniedBlocks && grantedAllows && ownedBlocks && alreadyShownBlocks && firstFire && secondFire;
+    console.log(`${notifyOk ? 'PASS' : 'FAIL'}  daily reminder logic (opt-in + permission gate, owned-today skip, once-per-day fire)`);
+    notifyOk ? pass++ : fail++;
 }
 
 // ── Service-worker cache version vs package.json ────────────────────────────
@@ -325,6 +363,74 @@ for (const level of LEVELS) {
     const swVersion = m && m[1];
     const ok = swVersion === pkgVersion;
     console.log(`${ok ? 'PASS' : 'FAIL'}  service-worker CACHE_VERSION matches package.json (${swVersion} vs ${pkgVersion})`);
+    ok ? pass++ : fail++;
+}
+
+// ── Mentor engine: rules fire, are rate-limited, never spoil/score ──────────
+// Loaded standalone (mentor.js has no hard dependency on levels.js/main.js —
+// it reads window.SESSION/GAME/MACHINE_META defensively at call time), with
+// small stand-ins for CMD/TERM/SESSION so the rule engine can be driven
+// deterministically without a real box.
+{
+    const msandbox = {};
+    msandbox.window = msandbox;
+    msandbox.globalThis = msandbox;
+    msandbox.console = console;
+    vm.createContext(msandbox);
+    msandbox.currentLang = 'en';
+    msandbox.CMD = {
+        execute(raw) {
+            const bad = /^nope/.test(raw);
+            return [{ text: bad ? 'Permission denied' : 'ok', cls: bad ? 'err' : '' }];
+        }
+    };
+    const printed = [];
+    msandbox.TERM = { print: (lines) => printed.push(...lines), scrollToBottom: () => {} };
+    msandbox.SESSION = { isRoot: false, blueTeam: false, cmdCount: 0 };
+    msandbox.GAME = { level: () => ({}), currentLevel: 0 };
+    msandbox.MACHINE_META = [{ cat: 'SUID' }];
+    msandbox.MENTORMODE = { enabled: true };
+    vm.runInContext(JS('mentor.js'), msandbox, { filename: 'mentor.js' });
+    msandbox.MENTOR.resetForLevel();
+
+    // Recon nudge: RECON_THRESHOLD (7) commands go by, none matching the
+    // SUID recon pattern -> exactly one 'mentor'-classed line printed.
+    for (let i = 1; i <= 7; i++) {
+        msandbox.SESSION.cmdCount = i;
+        msandbox.CMD.execute('ls -la');
+    }
+    const reconFired = printed.filter(l => l.cls === 'mentor').length === 1;
+
+    // Off switch: with MENTORMODE disabled, nothing gets printed at all,
+    // even past every threshold.
+    printed.length = 0;
+    msandbox.MENTORMODE.enabled = false;
+    msandbox.MENTOR.resetForLevel();
+    for (let i = 1; i <= 30; i++) {
+        msandbox.SESSION.cmdCount = i;
+        msandbox.CMD.execute('nope');
+    }
+    const silentWhenOff = printed.length === 0;
+
+    // Error streak: three consecutive failing commands (spaced past the
+    // rate-limit gate) should fire the 'errors' rule exactly once, and the
+    // bug this test guards against — the streak counter resetting/never
+    // incrementing because it lived behind the rate-limit gate — must not
+    // resurface (validated by deliberately re-introducing that ordering and
+    // confirming this assertion goes red).
+    printed.length = 0;
+    msandbox.MENTORMODE.enabled = true;
+    msandbox.MENTOR.resetForLevel();
+    msandbox.SESSION.cmdCount = 1;
+    msandbox.CMD.execute('ls -la'); // clean command first, so the streak starts at 0
+    for (let i = 2; i <= 4; i++) {
+        msandbox.SESSION.cmdCount = i;
+        msandbox.CMD.execute('nope');
+    }
+    const errorsFired = printed.filter(l => l.cls === 'mentor').length === 1;
+
+    const ok = reconFired && silentWhenOff && errorsFired;
+    console.log(`${ok ? 'PASS' : 'FAIL'}  mentor engine (recon nudge fires once, mode-off stays silent, 3-error streak fires once)`);
     ok ? pass++ : fail++;
 }
 

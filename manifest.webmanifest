@@ -1,7 +1,8 @@
 {
+  "id": "./",
   "name": "rootQuest — Linux Privilege Escalation Playground",
   "short_name": "rootQuest",
-  "description": "Terminal-based Linux privilege escalation training game. 23 machines across 3 difficulty tiers, bilingual EN/FR.",
+  "description": "Terminal-based Linux privilege escalation training game. 33 machines across 3 difficulty tiers, bilingual EN/FR.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

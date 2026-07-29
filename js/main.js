@@ -239,6 +239,8 @@ window.GAME = {
     flags: { sRank: false, speed: false }, // one-shot achievement triggers
     started: false,    // a machine has been entered at least once
     bestTimes: {},     // level id -> best clear time in seconds (speedrun records)
+    notifyDailyEnabled: false, // opt-in local reminder for the daily challenge
+    lastDailyNotifiedKey: null, // date key (YYYY-M-D) of the last reminder shown, so it fires at most once/day
 
     STORAGE_KEY: 'rootquest_save_v1',
 
@@ -258,6 +260,8 @@ window.GAME = {
             if (Array.isArray(data.cmdHistory) && window.TERM) window.TERM.history = data.cmdHistory.slice(-300);
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
+            if (typeof data.notifyDailyEnabled === 'boolean') this.notifyDailyEnabled = data.notifyDailyEnabled;
+            if (typeof data.lastDailyNotifiedKey === 'string') this.lastDailyNotifiedKey = data.lastDailyNotifiedKey;
         } catch (e) {
             // Corrupted or unavailable storage (private browsing, quota) — start fresh.
         }
@@ -273,7 +277,9 @@ window.GAME = {
                 bestTimes: this.bestTimes,
                 cmdHistory: (window.TERM && window.TERM.history || []).slice(-300),
                 lang: window.currentLang,
-                theme: window.currentTheme || 'kali'
+                theme: window.currentTheme || 'kali',
+                notifyDailyEnabled: this.notifyDailyEnabled,
+                lastDailyNotifiedKey: this.lastDailyNotifiedKey
             }));
         } catch (e) {
             // Storage unavailable — progress just won't persist across reloads.
@@ -341,6 +347,7 @@ window.GAME = {
         SESSION.blueTeam = false;
         SESSION.sudoAuthed = false;
         SESSION.nfsMount = null;
+        if (window.MENTOR) window.MENTOR.resetForLevel();
         document.body.classList.remove('is-root');
 
         // Load filesystem for level
@@ -403,14 +410,67 @@ window.GAME = {
         this.renderOperatorStatus();
         this.renderAchievements();
         this.renderDailyChallenge();
+        this.renderHallOfFame();
+        this.renderNotifyButton();
     },
 
-    // Deterministic pick from today's date, so everyone sees the same
-    // challenge on a given day (built-in boxes only — custom ones are
-    // per-browser, so a shared daily pick can't include them).
-    dailySeed() {
+    // Syncs the 🔔 button's label/state with the actual opt-in flag AND the
+    // real browser permission — the two can disagree (e.g. the player
+    // enabled it, then later blocked notifications in browser settings), and
+    // the button should reflect reality rather than just the stored flag.
+    renderNotifyButton() {
+        const btn = document.getElementById('notifyToggleBtn');
+        if (!btn) return;
+        const supported = typeof Notification !== 'undefined';
+        if (!supported) { btn.hidden = true; return; }
+        btn.hidden = false;
+        if (Notification.permission === 'denied') {
+            btn.querySelector('span').textContent = t('notifyDenied');
+            btn.setAttribute('aria-pressed', 'false');
+            btn.disabled = true;
+            return;
+        }
+        btn.disabled = false;
+        const on = this.notifyDailyEnabled && Notification.permission === 'granted';
+        btn.querySelector('span').textContent = t(on ? 'notifyToggleOn' : 'notifyToggleOff');
+        btn.setAttribute('aria-pressed', String(on));
+    },
+
+    // Local "Hall of Fame": every owned machine with a recorded speedrun
+    // time, ranked fastest-first. Pure read of already-persisted state
+    // (this.bestTimes / this.completed) — no new tracking needed, no
+    // server, nothing shared between browsers.
+    renderHallOfFame() {
+        const panel = document.getElementById('halloffamePanel');
+        if (!panel) return;
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const entries = Object.keys(this.bestTimes || {})
+            .map(id => ({ id: Number(id), sec: this.bestTimes[id] }))
+            .filter(e => this.completed.includes(e.id) && LEVELS.some(l => l.id === e.id))
+            .sort((a, b) => a.sec - b.sec);
+        if (!entries.length) {
+            panel.innerHTML = `<p class="halloffame-empty">${esc(t('halloffameEmpty'))}</p>`;
+            return;
+        }
+        const medal = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+        panel.innerHTML = '<ol class="halloffame-list">' + entries.map((e, i) => {
+            const lvl = LEVELS.find(l => l.id === e.id);
+            const title = (lvl.title[currentLang] || lvl.title.en).split('·').pop().trim();
+            return `<li><span class="hof-medal">${medal(i)}</span>` +
+                `<span class="hof-name">${esc(title)}</span>` +
+                `<span class="hof-time">${this.formatTime(e.sec)}</span></li>`;
+        }).join('') + '</ol>';
+    },
+
+    // Shared date key (local time) used both to pick today's challenge and
+    // to track whether today's reminder has already fired.
+    todayKey() {
         const d = new Date();
-        const key = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    },
+
+    dailySeed() {
+        const key = this.todayKey();
         let h = 0;
         for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
         return h;
@@ -425,6 +485,37 @@ window.GAME = {
     dailyChallengeIndex() {
         const pool = this.builtInIndexes();
         return pool.length ? pool[this.dailySeed() % pool.length] : 0;
+    },
+
+    // Pure decision — no DOM/Notification API calls in here, so it's testable
+    // headlessly: true only if the player opted in, the browser has actually
+    // granted permission, today's reminder hasn't fired yet, and today's pick
+    // isn't already owned.
+    shouldNotifyDaily() {
+        if (!this.notifyDailyEnabled) return false;
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return false;
+        if (this.lastDailyNotifiedKey === this.todayKey()) return false;
+        const lvl = LEVELS[this.dailyChallengeIndex()];
+        if (!lvl || this.completed.includes(lvl.id)) return false;
+        return true;
+    },
+
+    // Only the side-effecting half: fire the actual Notification and record
+    // that today's reminder has been shown. Foreground-only — this is a
+    // plain Notification, not a Push subscription, so it can only fire while
+    // this tab has loaded; there is no background delivery without a push
+    // server, which this static, serverless game doesn't have.
+    fireDailyNotificationIfDue() {
+        if (!this.shouldNotifyDaily()) return false;
+        const lvl = LEVELS[this.dailyChallengeIndex()];
+        const title = lvl.title[window.currentLang] || lvl.title.en;
+        const vuln = (title.split('·')[1] || title).trim();
+        try {
+            new Notification('rootQuest', { body: `${t('dailyNotifyBody')} ${lvl.codename.toUpperCase()} — ${vuln}`, icon: './assets/icons/icon-192.png' });
+        } catch (e) { /* some browsers require a service-worker-registered notification; best-effort only */ }
+        this.lastDailyNotifiedKey = this.todayKey();
+        this.saveProgress();
+        return true;
     },
 
     renderDailyChallenge() {
@@ -707,6 +798,7 @@ window.GAME = {
         }
         document.getElementById('winFlag').textContent = lvl.flag;
         this.renderDebrief(lvl);
+        this.renderKillChain(lvl);
         this.renderStats();
         this.updateAchievements(true);
         const btBtn = document.getElementById('blueTeamBtn');
@@ -930,6 +1022,46 @@ window.GAME = {
         }
     },
 
+    // Kill chain: a compact visual replay of the box's solution, bucketed
+    // into Recon / Setup / Exploit purely by step position (first/middle/
+    // last third of the authored walkthrough) — no per-box authoring needed,
+    // works for all 33 built-in boxes since every one already has a
+    // WALKTHROUGHS entry (enforced by the harness's coverage test). Custom
+    // boxes without a walkthrough simply hide the panel.
+    renderKillChain(lvl) {
+        const panel = document.getElementById('killchainPanel');
+        const flow = document.getElementById('killchainFlow');
+        if (!panel || !flow) return;
+        const steps = (window.WALKTHROUGHS && window.WALKTHROUGHS[lvl.id]) || [];
+        if (!steps.length) { panel.style.display = 'none'; return; }
+        panel.style.display = '';
+
+        const n = steps.length;
+        const stageOf = (i) => i < Math.ceil(n / 3) ? 0 : (i < Math.ceil(2 * n / 3) ? 1 : 2);
+        const buckets = [[], [], []];
+        steps.forEach((s, i) => buckets[stageOf(i)].push(s));
+        const stageKeys = ['killchainRecon', 'killchainSetup', 'killchainExploit'];
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        const nodes = [];
+        buckets.forEach((bucket, i) => {
+            if (!bucket.length) return;
+            nodes.push(
+                `<div class="killchain-node stage-${i}">` +
+                `<div class="killchain-label">${esc(t(stageKeys[i]))}</div>` +
+                bucket.map(s => `<code>${esc(s.cmd)}</code>`).join('') +
+                `</div>`
+            );
+        });
+        nodes.push(
+            `<div class="killchain-node stage-root">` +
+            `<div class="killchain-label">👑 ${esc(t('killchainRoot'))}</div>` +
+            `<code>${esc(lvl.flag || '')}</code>` +
+            `</div>`
+        );
+        flow.innerHTML = nodes.join('<div class="killchain-arrow">→</div>');
+    },
+
     nextLevel() {
         if (this.currentLevel < LEVELS.length - 1) {
             document.getElementById('winModal').style.display = 'none';
@@ -995,6 +1127,10 @@ window.GAME = {
             });
         });
 
+        document.querySelectorAll('.mentor-btn').forEach(b => {
+            b.addEventListener('click', () => { if (window.MENTORMODE) window.MENTORMODE.toggle(); });
+        });
+
         const proofBtn = document.getElementById('proofBtn');
         if (proofBtn) proofBtn.addEventListener('click', () => this.openProofModal());
         const proofCloseBtn = document.getElementById('proofCloseBtn');
@@ -1016,6 +1152,14 @@ window.GAME = {
                 if (open) customPanel.removeAttribute('hidden'); else customPanel.setAttribute('hidden', '');
             });
         }
+        const halloffameToggle = document.getElementById('halloffameToggle');
+        const halloffamePanel = document.getElementById('halloffamePanel');
+        if (halloffameToggle && halloffamePanel) {
+            halloffameToggle.addEventListener('click', () => {
+                const open = halloffamePanel.hasAttribute('hidden');
+                if (open) halloffamePanel.removeAttribute('hidden'); else halloffamePanel.setAttribute('hidden', '');
+            });
+        }
         const customImportBtn = document.getElementById('customImportBtn');
         const customJsonInput = document.getElementById('customJsonInput');
         if (customImportBtn && customJsonInput) {
@@ -1024,6 +1168,34 @@ window.GAME = {
 
         const dailyPlayBtn = document.getElementById('dailyPlayBtn');
         if (dailyPlayBtn) dailyPlayBtn.addEventListener('click', () => this.playDailyChallenge());
+
+        const notifyToggleBtn = document.getElementById('notifyToggleBtn');
+        if (notifyToggleBtn) {
+            notifyToggleBtn.addEventListener('click', () => {
+                if (typeof Notification === 'undefined') return;
+                if (this.notifyDailyEnabled) {
+                    // Already on — this click turns it back off. No need to
+                    // touch the browser permission, just stop reminding.
+                    this.notifyDailyEnabled = false;
+                    this.saveProgress();
+                    this.renderNotifyButton();
+                    return;
+                }
+                if (Notification.permission === 'granted') {
+                    this.notifyDailyEnabled = true;
+                    this.saveProgress();
+                    this.renderNotifyButton();
+                    this.fireDailyNotificationIfDue();
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then((perm) => {
+                        this.notifyDailyEnabled = perm === 'granted';
+                        this.saveProgress();
+                        this.renderNotifyButton();
+                        if (perm === 'granted') this.fireDailyNotificationIfDue();
+                    });
+                }
+            });
+        }
         const surpriseBtn = document.getElementById('surpriseBtn');
         if (surpriseBtn) surpriseBtn.addEventListener('click', () => this.surpriseMe());
     }
@@ -1070,10 +1242,29 @@ window.setLanguage = function(lang) {
         const winModal = document.getElementById('winModal');
         if (winModal && winModal.style.display === 'flex' && window.GAME.renderDebrief) {
             window.GAME.renderDebrief(window.GAME.level());
+            if (window.GAME.renderKillChain) window.GAME.renderKillChain(window.GAME.level());
         }
         window.GAME.saveProgress();
     }
 };
+
+// PWA installability: Chrome/Edge suppress their own install UI unless the
+// page calls prompt() on a captured beforeinstallprompt event, so without
+// this the install path silently doesn't exist on those browsers. Captured
+// at top level (not inside DOMContentLoaded) since the event can fire
+// before that listener runs.
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.hidden = false;
+});
+window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    const btn = document.getElementById('installBtn');
+    if (btn) btn.hidden = true;
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     window.GAME.loadSave();
@@ -1081,9 +1272,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.refreshThemeOptions) window.refreshThemeOptions();
     if (window.SFX) window.SFX.init();
     if (window.WALKMODE) window.WALKMODE.init();
+    if (window.MENTORMODE) window.MENTORMODE.init();
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });
     window.applyI18n();
     window.GAME.boot();
+
+    const installBtn = document.getElementById('installBtn');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            installBtn.hidden = true;
+        });
+    }
+
+    // Foreground-only reminder (see fireDailyNotificationIfDue's comment) —
+    // fires at most once per day, only if the player opted in earlier.
+    try { window.GAME.fireDailyNotificationIfDue(); } catch (e) { /* Notification API unavailable/blocked — skip silently */ }
 });

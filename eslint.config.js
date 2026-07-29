@@ -29,6 +29,7 @@ module.exports = [
                 CanvasRenderingContext2D: 'readonly',
                 location: 'readonly',
                 history: 'readonly',
+                Notification: 'readonly',
                 // Every module hangs its API off `window.*` and reads the
                 // others back from there (no bundler / import graph), so the
                 // cross-file globals below are all "defined elsewhere".

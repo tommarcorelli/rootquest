@@ -128,6 +128,8 @@ privesc-game/
     ├── walkthrough.js  # Explanation mode: commented solution per box (EN/FR)
     ├── fs.js           # Simulated filesystem
     ├── commands.js     # Command interpreter
+    ├── mentormode.js   # Mentor mode toggle state
+    ├── mentor.js       # Mentor coaching engine (contextual nudges, rule-based)
     ├── terminal.js     # Terminal UI (history, prompt, rendering)
     ├── sfx.js          # Synthesized sound effects (Web Audio)
     ├── walkmode.js     # Explanation mode toggle state

@@ -54,6 +54,9 @@
                 <button class="btn-ghost explain-btn" id="explainBtn" data-testid="explain-btn" aria-label="Toggle explanation mode" aria-pressed="false" title="Explanation mode">
                     🎓 <span data-i18n="explainBtn">Explain</span>
                 </button>
+                <button class="btn-ghost mentor-btn" id="mentorBtn" data-testid="mentor-btn" aria-label="Toggle mentor mode" aria-pressed="false" title="Mentor mode">
+                    🧭 <span data-i18n="mentorBtn">Mentor</span>
+                </button>
                 <button class="btn-ghost sound-btn" data-testid="sound-btn" aria-label="Toggle sound" aria-pressed="false" title="Sound">🔇</button>
                 <select class="theme-select" data-testid="theme-select" aria-label="Theme" title="Theme">
                     <option value="kali">◈ Kali</option>
@@ -167,6 +170,13 @@
                     </a>
                 </div>
 
+                <div class="killchain" id="killchainPanel" data-testid="killchain-panel">
+                    <div class="killchain-head">
+                        <span class="killchain-tag" data-i18n="killchainTitle">KILL CHAIN</span>
+                    </div>
+                    <div class="killchain-flow" id="killchainFlow"></div>
+                </div>
+
                 <div class="modal-actions">
                     <button class="btn-primary" id="nextLevelBtn" data-testid="next-level-btn">
                         <span data-i18n="nextLevelBtn">Next machine →</span>
@@ -268,9 +278,21 @@
                     <button class="btn-ghost daily-play-btn" id="dailyPlayBtn" type="button" data-testid="daily-play-btn">
                         <span data-i18n="dailyPlay">Play →</span>
                     </button>
+                    <button class="btn-ghost notify-toggle-btn" id="notifyToggleBtn" type="button" aria-pressed="false" data-testid="notify-toggle-btn">
+                        <span data-i18n="notifyToggleOff">🔔 Remind me</span>
+                    </button>
                 </div>
+                <button class="btn-ghost install-btn" id="installBtn" type="button" data-testid="install-btn" hidden>
+                    <span data-i18n="installBtn">⬇ Install rootQuest</span>
+                </button>
                 <div class="operator-status" id="operatorStatus" data-testid="operator-status"></div>
                 <div class="achievements" id="achievements" data-testid="achievements"></div>
+                <div class="halloffame" id="halloffame" data-testid="halloffame">
+                    <button class="btn-ghost halloffame-toggle" id="halloffameToggle" type="button" data-testid="halloffame-toggle">
+                        <span data-i18n="halloffameToggle">🏆 Hall of Fame</span>
+                    </button>
+                    <div class="halloffame-panel" id="halloffamePanel" data-testid="halloffame-panel" hidden></div>
+                </div>
                 <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
                 <div class="home-custom" id="homeCustom" data-testid="home-custom">
                     <button class="btn-ghost home-custom-toggle" id="customToggleBtn" type="button" data-testid="custom-toggle-btn">
@@ -313,6 +335,8 @@
     <script src="js/walkthrough.js"></script>
     <script src="js/fs.js"></script>
     <script src="js/commands.js"></script>
+    <script src="js/mentormode.js"></script>
+    <script src="js/mentor.js"></script>
     <script src="js/terminal.js"></script>
     <script src="js/sfx.js"></script>
     <script src="js/walkmode.js"></script>
