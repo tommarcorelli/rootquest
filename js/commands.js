@@ -13,6 +13,8 @@ window.SESSION = {
     pendingCron: false,
     cronPayload: null,
     cmdCount: 0,   // commands typed this machine (for the victory scorecard)
+    cmdLog: [],    // [{cmd, dt}] recorded this machine — dt = ms since startTime, feeds the ghost replay
+    ghostReplaying: false, // true while a stored ghost log is being played back
     startTime: 0,  // Date.now() when the machine was loaded
     blueTeam: false, // in the post-root "harden the box" phase
     sudoAuthed: false, // has `sudo -l` already prompted+cached a password this machine (real sudo tickets)

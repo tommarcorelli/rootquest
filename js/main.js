@@ -243,6 +243,7 @@ window.GAME = {
     flags: { sRank: false, speed: false }, // one-shot achievement triggers
     started: false,    // a machine has been entered at least once
     bestTimes: {},     // level id -> best clear time in seconds (speedrun records)
+    ghosts: {},        // level id -> recorded command log ([{cmd, dt}]) of the run that set bestTimes[id]
     notifyDailyEnabled: false, // opt-in local reminder for the daily challenge
     lastDailyNotifiedKey: null, // date key (YYYY-M-D) of the last reminder shown, so it fires at most once/day
 
@@ -261,6 +262,7 @@ window.GAME = {
             if (Array.isArray(data.achievements)) this.achievements = data.achievements;
             if (data.flags && typeof data.flags === 'object') this.flags = { sRank: !!data.flags.sRank, speed: !!data.flags.speed };
             if (data.bestTimes && typeof data.bestTimes === 'object') this.bestTimes = data.bestTimes;
+            if (data.ghosts && typeof data.ghosts === 'object') this.ghosts = data.ghosts;
             if (Array.isArray(data.cmdHistory) && window.TERM) window.TERM.history = data.cmdHistory.slice(-300);
             if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
@@ -279,6 +281,7 @@ window.GAME = {
                 achievements: this.achievements,
                 flags: this.flags,
                 bestTimes: this.bestTimes,
+                ghosts: this.ghosts,
                 cmdHistory: (window.TERM && window.TERM.history || []).slice(-300),
                 lang: window.currentLang,
                 theme: window.currentTheme || 'kali',
@@ -297,6 +300,7 @@ window.GAME = {
         this.achievements = [];
         this.flags = { sRank: false, speed: false };
         this.bestTimes = {};
+        this.ghosts = {};
         this.saveProgress();
         this.buildHomeGrid();
         this.updateLevelsMap();
@@ -347,6 +351,7 @@ window.GAME = {
         SESSION.pendingCron = false;
         SESSION.cronPayload = null;
         SESSION.cmdCount = 0;
+        SESSION.cmdLog = [];
         SESSION.startTime = Date.now();
         SESSION.blueTeam = false;
         SESSION.sudoAuthed = false;
@@ -460,10 +465,53 @@ window.GAME = {
         panel.innerHTML = '<ol class="halloffame-list">' + entries.map((e, i) => {
             const lvl = LEVELS.find(l => l.id === e.id);
             const title = (lvl.title[currentLang] || lvl.title.en).split('·').pop().trim();
+            const hasGhost = Array.isArray(this.ghosts && this.ghosts[e.id]) && this.ghosts[e.id].length > 0;
+            const ghostBtn = hasGhost
+                ? `<button class="hof-ghost-btn" type="button" data-ghost-id="${e.id}" title="${esc(t('ghostReplayBtn'))}" aria-label="${esc(t('ghostReplayBtn'))}">👻</button>`
+                : '';
             return `<li><span class="hof-medal">${medal(i)}</span>` +
                 `<span class="hof-name">${esc(title)}</span>` +
-                `<span class="hof-time">${this.formatTime(e.sec)}</span></li>`;
+                `<span class="hof-time">${this.formatTime(e.sec)}</span>${ghostBtn}</li>`;
         }).join('') + '</ol>';
+    },
+
+    // Replays a stored ghost log (the command sequence from the run that set
+    // a level's best time) sequentially in the real terminal — not a visual
+    // overlay, a genuine playback: the level reloads fresh and the recorded
+    // commands run themselves, at compressed timing, exactly as the player
+    // typed them. Any keypress interrupts and hands control back.
+    playGhost(id) {
+        const log = this.ghosts && this.ghosts[id];
+        if (!log || !log.length) return;
+        const idx = LEVELS.findIndex(l => l.id === id);
+        if (idx < 0) return;
+        this.selectMachine(idx);
+
+        SESSION.ghostReplaying = true;
+        if (TERM.inputEl) TERM.inputEl.disabled = true;
+        TERM.print([{ text: '', cls: '' }, { text: '👻 ' + t('ghostReplayStart'), cls: 'ghost' }]);
+        TERM.scrollToBottom();
+
+        const steps = window.GHOST.compressGaps(log, 1200);
+        const timers = [];
+        const finish = (interrupted) => {
+            if (!SESSION.ghostReplaying) return; // already finished — avoid a double message
+            timers.forEach(clearTimeout);
+            SESSION.ghostReplaying = false;
+            if (TERM.inputEl) { TERM.inputEl.disabled = false; TERM.inputEl.focus(); }
+            TERM.print([{ text: '👻 ' + t(interrupted ? 'ghostReplayInterrupted' : 'ghostReplayDone'), cls: 'ghost' }]);
+            TERM.scrollToBottom();
+            document.removeEventListener('keydown', onInterrupt, true);
+        };
+        const onInterrupt = () => finish(true);
+        document.addEventListener('keydown', onInterrupt, true);
+        steps.forEach((step, i) => {
+            timers.push(setTimeout(() => {
+                if (!SESSION.ghostReplaying) return;
+                TERM.submit(step.cmd);
+                if (i === steps.length - 1) finish(false);
+            }, step.dt));
+        });
     },
 
     // Shared date key (local time) used both to pick today's challenge and
@@ -864,6 +912,11 @@ window.GAME = {
         if (sec > 0 && (prevBest === undefined || sec < prevBest)) {
             this.bestTimes[lvlId] = sec;
             isNewBest = true;
+            // The ghost is tied to the run that earned this record — captured
+            // here, at the exact moment it becomes the new best, not before.
+            if (Array.isArray(SESSION.cmdLog) && SESSION.cmdLog.length) {
+                this.ghosts[lvlId] = SESSION.cmdLog.slice(0, 200); // defensive cap
+            }
         }
         const bestEl = document.getElementById('statBest');
         if (bestEl) {
@@ -1162,6 +1215,12 @@ window.GAME = {
             halloffameToggle.addEventListener('click', () => {
                 const open = halloffamePanel.hasAttribute('hidden');
                 if (open) halloffamePanel.removeAttribute('hidden'); else halloffamePanel.setAttribute('hidden', '');
+            });
+            halloffamePanel.addEventListener('click', (e) => {
+                const btn = e.target.closest('.hof-ghost-btn');
+                if (!btn) return;
+                const id = Number(btn.getAttribute('data-ghost-id'));
+                if (!Number.isNaN(id)) this.playGhost(id);
             });
         }
         const customImportBtn = document.getElementById('customImportBtn');

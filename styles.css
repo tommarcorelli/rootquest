@@ -560,6 +560,13 @@ html, body {
 .hof-medal { flex: 0 0 28px; text-align: center; color: var(--text-muted); }
 .hof-name { flex: 1 1 auto; color: var(--text-dim); }
 .hof-time { flex: 0 0 auto; color: var(--accent); font-weight: 700; }
+.hof-ghost-btn {
+    flex: 0 0 auto;
+    background: transparent; border: 1px solid var(--line-soft);
+    color: var(--text-muted); cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 3px 6px;
+}
+.hof-ghost-btn:hover { color: var(--text); border-color: var(--text-muted); }
 .halloffame-empty { font-size: 11px; color: var(--text-muted); margin: 0; }
 
 /* Achievement toast */
@@ -635,6 +642,13 @@ body.is-root .badge-root { display: inline-flex; align-items: center; }
     border-left: 2px solid var(--magenta);
     padding-left: 8px;
     opacity: 0.92;
+}
+.term-output .ghost {
+    color: var(--text-muted);
+    font-style: italic;
+    border-left: 2px dashed var(--text-muted);
+    padding-left: 8px;
+    opacity: 0.8;
 }
 .term-output .prompt-line { color: var(--accent); }
 .term-output .flag {

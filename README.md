@@ -134,6 +134,7 @@ privesc-game/
     ├── commands.js     # Command interpreter
     ├── mentormode.js   # Mentor mode toggle state
     ├── mentor.js       # Mentor coaching engine (contextual nudges, rule-based)
+    ├── ghost.js        # Ghost replay: records the command log a best-time run is built from
     ├── terminal.js     # Terminal UI (history, prompt, rendering)
     ├── sfx.js          # Synthesized sound effects (Web Audio)
     ├── walkmode.js     # Explanation mode toggle state

@@ -51,6 +51,7 @@ you add, rename, or remove one.
 | `mentor-btn` | 🧭 mentor mode toggle | enables contextual coaching lines (`.mentor` terminal class), see `js/mentor.js` |
 | `killchain-panel` | kill chain panel in the win modal | populated by `GAME.renderKillChain()`, built from `WALKTHROUGHS` |
 | `halloffame-toggle` / `halloffame-panel` | hub Hall of Fame collapsible | populated by `GAME.renderHallOfFame()` from `this.bestTimes` |
+| `hof-ghost-btn` (class, not testid — `[data-ghost-id]`) | 👻 per-entry ghost replay button | delegated click in `halloffamePanel`, calls `GAME.playGhost(id)` |
 | `notify-toggle-btn` | 🔔 daily-challenge reminder opt-in | `GAME.shouldNotifyDaily()`/`fireDailyNotificationIfDue()`, foreground-only Notification API |
 | `install-btn` | PWA install button | hidden until `beforeinstallprompt` fires, calls `.prompt()` |
 | `walkthrough-panel` | commented full solution | non-scored, hidden for custom boxes |

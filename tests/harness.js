@@ -352,6 +352,78 @@ for (const level of LEVELS) {
     notifyOk ? pass++ : fail++;
 }
 
+// ── Ghost replay: gap compression (pure) + capture-on-new-best-time only ────
+{
+    const gsandbox = {};
+    gsandbox.window = gsandbox;
+    gsandbox.globalThis = gsandbox;
+    gsandbox.console = console;
+    vm.createContext(gsandbox);
+    vm.runInContext(JS('ghost.js'), gsandbox, { filename: 'ghost.js' }); // CMD undefined here — the wrap step is a no-op, only GHOST.compressGaps is under test
+
+    const raw = [{ cmd: 'id', dt: 300 }, { cmd: 'sudo -l', dt: 500 }, { cmd: 'wait', dt: 60300 }];
+    const compressed = gsandbox.GHOST.compressGaps(raw, 1200);
+    const gapsOk = compressed.length === 3
+        && compressed[0].dt <= 1200
+        && (compressed[1].dt - compressed[0].dt) <= 1200
+        && (compressed[2].dt - compressed[1].dt) <= 1200 // the real 59.8s gap must have been capped
+        && compressed.every((c, i) => c.cmd === raw[i].cmd) // command order/content untouched
+        && compressed[2].dt < raw[2].dt; // genuinely shorter than the recorded run
+
+    console.log(`${gapsOk ? 'PASS' : 'FAIL'}  ghost replay gap compression (order preserved, long pauses capped)`);
+    gapsOk ? pass++ : fail++;
+}
+{
+    const gsandbox4 = {};
+    gsandbox4.window = gsandbox4;
+    gsandbox4.globalThis = gsandbox4;
+    gsandbox4.console = { log() {}, warn() {}, error() {} };
+    gsandbox4.setTimeout = () => {};
+    gsandbox4.addEventListener = () => {};
+    gsandbox4.localStorage = { getItem: () => null, setItem: () => {} };
+    gsandbox4.document = {
+        addEventListener: () => {},
+        getElementById: (id) => (id === 'winStats' ? {} : null),
+        querySelectorAll: () => [],
+        documentElement: { setAttribute() {}, removeAttribute() {} },
+        body: { classList: { add() {}, remove() {} } },
+    };
+    vm.createContext(gsandbox4);
+    vm.runInContext(JS('i18n.js'), gsandbox4, { filename: 'i18n.js' });
+    vm.runInContext(JS('levels.js'), gsandbox4, { filename: 'levels.js' });
+    vm.runInContext(JS('commands.js'), gsandbox4, { filename: 'commands.js' }); // defines SESSION
+    vm.runInContext(JS('main.js'), gsandbox4, { filename: 'main.js' });
+    const G4 = gsandbox4.GAME;
+    G4.currentLevel = 0;
+    const lvlId = gsandbox4.LEVELS[0].id;
+    G4.completed = [];
+    G4.bestTimes = {};
+    G4.ghosts = {};
+
+    // First run: 30s, sets a best time -> ghost should be captured.
+    gsandbox4.SESSION.startTime = Date.now() - 30000;
+    gsandbox4.SESSION.cmdCount = 2;
+    gsandbox4.SESSION.hintIndex = 0;
+    gsandbox4.SESSION.cmdLog = [{ cmd: 'id', dt: 100 }, { cmd: 'sudo -l', dt: 2000 }];
+    G4.renderStats();
+    const firstRunCaptured = G4.bestTimes[lvlId] > 0
+        && Array.isArray(G4.ghosts[lvlId])
+        && G4.ghosts[lvlId].length === 2
+        && G4.ghosts[lvlId][0].cmd === 'id';
+
+    // Second run: slower (60s) — must NOT beat the record, so the ghost from
+    // the first (faster) run must be left untouched, even though this run
+    // also produced a cmdLog.
+    gsandbox4.SESSION.startTime = Date.now() - 60000;
+    gsandbox4.SESSION.cmdLog = [{ cmd: 'ls', dt: 50 }];
+    G4.renderStats();
+    const slowerRunIgnored = G4.ghosts[lvlId].length === 2 && G4.ghosts[lvlId][0].cmd === 'id';
+
+    const ghostCaptureOk = firstRunCaptured && slowerRunIgnored;
+    console.log(`${ghostCaptureOk ? 'PASS' : 'FAIL'}  ghost log capture (only saved on a new best time, untouched otherwise)`);
+    ghostCaptureOk ? pass++ : fail++;
+}
+
 // ── Service-worker cache version vs package.json ────────────────────────────
 // Cache-first PWA: a returning visitor keeps whatever JS/CSS was cached under
 // CACHE_VERSION forever, until that string itself changes — the fetch handler
