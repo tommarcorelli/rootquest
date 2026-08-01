@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#04060a">
-    <meta name="description" content="rootQuest — a 100% browser-based terminal game to train Linux privilege escalation. 23 machines, 23 vulnerabilities, bilingual EN/FR.">
+    <meta name="description" content="rootQuest — a 100% browser-based terminal game to train Linux privilege escalation. 38 machines, 38 vulnerabilities, EN/FR/ES.">
     <meta property="og:title" content="rootQuest — Linux Privilege Escalation Playground">
     <meta property="og:description" content="23 machines, 23 privesc vulnerabilities, one terminal. Enumerate, identify, exploit, root.">
     <meta property="og:image" content="assets/icons/icon-512.png">
@@ -67,8 +67,9 @@
                     <option value="void" class="theme-opt-locked">🔒 Void</option>
                 </select>
                 <div class="lang-toggle" data-testid="lang-toggle">
-                    <button class="lang-btn active" data-lang="en" data-testid="lang-en">EN</button>
-                    <button class="lang-btn" data-lang="fr" data-testid="lang-fr">FR</button>
+                    <button class="lang-btn" data-lang="en" data-testid="lang-en">EN</button>
+                    <button class="lang-btn active" data-lang="fr" data-testid="lang-fr">FR</button>
+                    <button class="lang-btn" data-lang="es" data-testid="lang-es">ES</button>
                 </div>
             </div>
         </header>
@@ -245,8 +246,9 @@
                         <span data-i18n="homeStart">▶ INITIALIZE BREACH</span>
                     </button>
                     <div class="lang-toggle" data-testid="home-lang-toggle">
-                        <button class="lang-btn active" data-lang="en">EN</button>
-                        <button class="lang-btn" data-lang="fr">FR</button>
+                        <button class="lang-btn" data-lang="en">EN</button>
+                        <button class="lang-btn active" data-lang="fr">FR</button>
+                        <button class="lang-btn" data-lang="es">ES</button>
                     </div>
                     <select class="theme-select" data-testid="home-theme-select" aria-label="Theme" title="Theme">
                         <option value="kali">◈ Kali</option>

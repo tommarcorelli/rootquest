@@ -41,7 +41,7 @@ you add, rename, or remove one.
 | `term-output` | output log | asserted on for command results (`toContainText`, etc.) |
 | `term-input` | command input | where `page.fill` / `page.press` drive the game |
 | `menu-button` | back-to-hub button | |
-| `lang-toggle`, `lang-en`, `lang-fr` | language buttons | switch EN/FR mid-mission |
+| `lang-toggle`, `lang-en`, `lang-fr`, `lang-es` | language buttons | switch EN/FR/ES mid-mission |
 | `theme-select` | theme `<select>` | |
 | `sound-btn` | SFX toggle | |
 | `reset-button` | "reset machine" | restarts the current box only |

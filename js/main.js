@@ -36,7 +36,8 @@ window.MACHINE_META = [
     { cat: 'SUDO',     diff: 'EASY' },
     { cat: 'CRON',     diff: 'EASY' },
     { cat: 'SUDO',     diff: 'EASY' },
-    { cat: 'SUDO',     diff: 'MEDIUM' }
+    { cat: 'SUDO',     diff: 'MEDIUM' },
+    { cat: 'SUDO',     diff: 'EASY' }
 ];
 
 // Difficulty tiers rendered on the hub, in order. CUSTOM only ever gets
@@ -66,14 +67,14 @@ window.CHEATS_BY_CAT = {
 
 // Achievements — checked against a small progress snapshot.
 window.ACHIEVEMENTS = [
-    { id: 'first_blood', icon: '🩸', name: { en: 'First Blood', fr: 'Premier sang' }, desc: { en: 'Root your first machine', fr: 'Rooter ta première machine' }, check: s => s.owned >= 1 },
-    { id: 'apprentice', icon: '🎓', name: { en: 'Apprentice', fr: 'Apprenti' }, desc: { en: 'Own 5 machines', fr: 'Posséder 5 machines' }, check: s => s.owned >= 5 },
-    { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin' }, desc: { en: 'Own half the machines', fr: 'Posséder la moitié des machines' }, check: s => s.owned >= Math.ceil(s.total / 2) },
-    { id: 'root_wizard', icon: '👑', name: { en: 'Root Wizard', fr: 'Magicien du root' }, desc: { en: 'Own all machines', fr: 'Posséder toutes les machines' }, check: s => s.owned >= s.total },
-    { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)' }, check: s => s.hardened >= 1 },
-    { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team' }, desc: { en: 'Harden every fixable box', fr: 'Durcir toutes les box corrigeables' }, check: s => s.hardened >= s.hardenable },
-    { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)' }, check: s => s.sRank },
-    { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s' }, check: s => s.speed }
+    { id: 'first_blood', icon: '🩸', name: { en: 'First Blood', fr: 'Premier sang', es: 'Primera sangre' }, desc: { en: 'Root your first machine', fr: 'Rooter ta première machine', es: 'Consigue root en tu primera máquina' }, check: s => s.owned >= 1 },
+    { id: 'apprentice', icon: '🎓', name: { en: 'Apprentice', fr: 'Apprenti', es: 'Aprendiz' }, desc: { en: 'Own 5 machines', fr: 'Posséder 5 machines', es: 'Consigue 5 máquinas' }, check: s => s.owned >= 5 },
+    { id: 'halfway', icon: '⚡', name: { en: 'Halfway There', fr: 'À mi-chemin', es: 'A mitad de camino' }, desc: { en: 'Own half the machines', fr: 'Posséder la moitié des machines', es: 'Consigue la mitad de las máquinas' }, check: s => s.owned >= Math.ceil(s.total / 2) },
+    { id: 'root_wizard', icon: '👑', name: { en: 'Root Wizard', fr: 'Magicien du root', es: 'Mago del root' }, desc: { en: 'Own all machines', fr: 'Posséder toutes les machines', es: 'Consigue todas las máquinas' }, check: s => s.owned >= s.total },
+    { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur', es: 'Defensor' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)', es: 'Endurece una box (blue team)' }, check: s => s.hardened >= 1 },
+    { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team', es: 'Leyenda blue team' }, desc: { en: 'Harden every fixable box', fr: 'Durcir toutes les box corrigeables', es: 'Endurece todas las box corregibles' }, check: s => s.hardened >= s.hardenable },
+    { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme', es: 'Fantasma' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)', es: 'Consigue un rango S (sin pistas)' }, check: s => s.sRank },
+    { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner', es: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s', es: 'Consigue root en una box en menos de 45s' }, check: s => s.speed }
 ];
 
 // Custom box import/export — validated JSON, no build step, no server.
@@ -101,8 +102,12 @@ window.GAME_CUSTOM = {
     // field, and fills in the missing half so nothing downstream ever sees
     // an undefined translation.
     bi(v, fallback) {
-        if (v && typeof v === 'object') return { en: v.en || v.fr || fallback, fr: v.fr || v.en || fallback };
-        return { en: (v != null ? String(v) : fallback), fr: (v != null ? String(v) : fallback) };
+        if (v && typeof v === 'object') {
+            const en = v.en || v.fr || v.es || fallback;
+            return { en, fr: v.fr || v.en || fallback, es: v.es || v.en || fallback };
+        }
+        const s = (v != null ? String(v) : fallback);
+        return { en: s, fr: s, es: s };
     },
 
     normalize(obj, id) {
@@ -114,8 +119,8 @@ window.GAME_CUSTOM = {
             user: obj.user,
             host: obj.host,
             cwd: obj.cwd,
-            objectives: { en: (obj.objectives && obj.objectives.en) || [], fr: (obj.objectives && (obj.objectives.fr || obj.objectives.en)) || [] },
-            hints: { en: (obj.hints && obj.hints.en) || [], fr: (obj.hints && (obj.hints.fr || obj.hints.en)) || [] },
+            objectives: { en: (obj.objectives && obj.objectives.en) || [], fr: (obj.objectives && (obj.objectives.fr || obj.objectives.en)) || [], es: (obj.objectives && (obj.objectives.es || obj.objectives.en)) || [] },
+            hints: { en: (obj.hints && obj.hints.en) || [], fr: (obj.hints && (obj.hints.fr || obj.hints.en)) || [], es: (obj.hints && (obj.hints.es || obj.hints.en)) || [] },
             flag: obj.flag,
             fs: obj.fs,
             sudoers: obj.sudoers,
@@ -264,7 +269,7 @@ window.GAME = {
             if (data.bestTimes && typeof data.bestTimes === 'object') this.bestTimes = data.bestTimes;
             if (data.ghosts && typeof data.ghosts === 'object') this.ghosts = data.ghosts;
             if (Array.isArray(data.cmdHistory) && window.TERM) window.TERM.history = data.cmdHistory.slice(-300);
-            if (data.lang === 'en' || data.lang === 'fr') window.currentLang = data.lang;
+            if (data.lang === 'en' || data.lang === 'fr' || data.lang === 'es') window.currentLang = data.lang;
             if (typeof data.theme === 'string') window.currentTheme = data.theme;
             if (typeof data.notifyDailyEnabled === 'boolean') this.notifyDailyEnabled = data.notifyDailyEnabled;
             if (typeof data.lastDailyNotifiedKey === 'string') this.lastDailyNotifiedKey = data.lastDailyNotifiedKey;
@@ -1060,7 +1065,7 @@ window.GAME = {
     },
 
     renderDebrief(lvl) {
-        const debrief = lvl.debrief && lvl.debrief[currentLang];
+        const debrief = lvl.debrief && (lvl.debrief[currentLang] || lvl.debrief.en);
         const el = document.getElementById('winDebrief');
         if (!debrief || !el) {
             if (el) el.style.display = 'none';
@@ -1293,7 +1298,7 @@ window.refreshThemeOptions = function() {
 };
 
 window.setLanguage = function(lang) {
-    if (lang !== 'en' && lang !== 'fr') return;
+    if (lang !== 'en' && lang !== 'fr' && lang !== 'es') return;
     window.currentLang = lang;
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === lang);

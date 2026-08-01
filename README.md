@@ -1,6 +1,6 @@
 # rootQuest — Linux Privilege Escalation Playground
 
-A 100% browser-based, vanilla JS terminal game. 37 independent Linux machines, 37 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
+A 100% browser-based, vanilla JS terminal game. 38 independent Linux machines, 38 different privilege-escalation vulnerabilities, sorted into difficulty tiers. Enumerate, identify, exploit, root.
 
 ## Play
 
@@ -53,6 +53,7 @@ start index.html         # Windows
 | 35 | box-35 | Easy | World-writable root cron script (monitoring agent) | Overwrite `/opt/monitor/healthcheck.sh`, `wait` |
 | 36 | box-36 | Easy | Sudoers NOPASSWD on `zip` — `-T --unzip-command` runs an arbitrary "unzip" hook (GTFOBins) | `sudo zip test.zip /etc/hosts -T --unzip-command="sh -c /bin/sh"` |
 | 37 | box-37 | Medium | Sudoers NOPASSWD on `rsync` — `-e` swaps the remote-shell program for a local shell (GTFOBins) | `sudo rsync -e "/bin/sh -c /bin/sh" 127.0.0.1:/dev/null /dev/null` |
+| 38 | box-38 | Easy | Sudoers NOPASSWD on `make` — `--eval` injects a rule whose recipe is a root shell (GTFOBins) | `sudo make -s --eval="x:\n\t-/bin/sh"` |
 
 ## Controls
 
@@ -103,7 +104,7 @@ The hub has a "Custom box" panel (below the machine grid) to import a box from J
 }
 ```
 
-`title`, `brief`, `objectives`, `hints`, and `debrief` accept either a plain string/array or `{ "en": ..., "fr": ... }` for bilingual content — a missing translation falls back to the other language. `fs["/"]` (a root directory node) is the only required filesystem entry; everything else in `fs` is up to you, following the same `{ type, owner, mode, children|content }` shape used by the built-in boxes in `js/levels.js`.
+`title`, `brief`, `objectives`, `hints`, and `debrief` accept either a plain string/array or `{ "en": ..., "fr": ..., "es": ... }` for multilingual content — a missing translation falls back to English. `fs["/"]` (a root directory node) is the only required filesystem entry; everything else in `fs` is up to you, following the same `{ type, owner, mode, children|content }` shape used by the built-in boxes in `js/levels.js`.
 
 `wins` is checked against the `type` your box's win-condition logic reports — for a self-contained payload (a planted SUID binary, say), set `"exploit": "<your type>"` on that file node in `fs` so running it directly grants root; more elaborate mechanics (matching a specific command sequence) currently require editing `js/commands.js`, same as any built-in box.
 
@@ -113,7 +114,7 @@ Custom boxes also get a `🔗` button that copies a self-contained share link in
 
 ## Language
 
-Toggle EN/FR from the top-right, or type `lang fr`.
+Toggle EN/FR/ES from the top-right, or type `lang fr` (or `lang es`).
 
 ## Themes
 
@@ -129,7 +130,7 @@ privesc-game/
 └── js/
     ├── i18n.js         # Bilingual dictionary
     ├── levels.js       # 23 machines with their filesystems
-    ├── walkthrough.js  # Explanation mode: commented solution per box (EN/FR)
+    ├── walkthrough.js  # Explanation mode: commented solution per box (EN/FR/ES)
     ├── fs.js           # Simulated filesystem
     ├── commands.js     # Command interpreter
     ├── mentormode.js   # Mentor mode toggle state

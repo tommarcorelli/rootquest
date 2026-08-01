@@ -360,7 +360,7 @@ window.CMD = {
             if (!name) return [{ text: 'What manual page do you want? (usage: man <command>)', cls: 'dim' }];
             const m = CMD.MANPAGES[name];
             if (!m) return [{ text: `No manual entry for ${name}`, cls: 'err' }];
-            const lang = window.currentLang === 'fr' ? 'fr' : 'en';
+            const lang = window.currentLang;
             const out = [
                 { text: `${name.toUpperCase()}(1)`, cls: 'ok' },
                 { text: 'NAME', cls: 'info' },
@@ -1172,11 +1172,11 @@ window.CMD = {
 
         lang(args) {
             const l = args[0];
-            if (l === 'en' || l === 'fr') {
+            if (l === 'en' || l === 'fr' || l === 'es') {
                 window.setLanguage(l);
                 return [{ text: `Language set to ${l.toUpperCase()}`, cls: 'ok' }];
             }
-            return [{ text: 'usage: lang <en|fr>', cls: 'err' }];
+            return [{ text: 'usage: lang <en|fr|es>', cls: 'err' }];
         },
 
         exit() {
@@ -1339,6 +1339,13 @@ window.CMD = {
                 // own — a maintenance/progress-reporting hook, not
                 // something anyone thinks of as "code execution".
                 return /checkpoint-action\s*=\s*exec\s*=.*\/bin\/(sh|bash)/.test(joined);
+            case 'make':
+                // GTFOBins: --eval injects a rule straight into make's
+                // internal makefile before it reads any file on disk —
+                // a build-automation convenience, not sandboxed in any
+                // way. A rule whose recipe is a shell runs that shell
+                // with make's own privilege the moment make executes it.
+                return /--eval/.test(joined) && /\/bin\/(sh|bash)/.test(joined);
             default:
                 return false;
         }
