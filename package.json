@@ -1,6 +1,6 @@
 {
   "name": "rootquest",
-  "version": "1.32.2",
+  "version": "1.33.0",
   "private": true,
   "description": "rootQuest — browser-based Linux privilege-escalation training game (38 machines, EN/FR/ES, vanilla JS).",
   "scripts": {

@@ -108,6 +108,15 @@ The hub has a "Custom box" panel (below the machine grid) to import a box from J
 
 `wins` is checked against the `type` your box's win-condition logic reports — for a self-contained payload (a planted SUID binary, say), set `"exploit": "<your type>"` on that file node in `fs` so running it directly grants root; more elaborate mechanics (matching a specific command sequence) currently require editing `js/commands.js`, same as any built-in box.
 
+The panel also has a **🧰 Visual builder** tab (`js/boxbuilder.js`) for the four most common vulnerability shapes, so writing the `fs` tree by hand is optional for these:
+
+- **Misconfigured SUID binary** — any path you give becomes a planted SUID file with a self-contained `exploit` payload (same mechanic as box-08's PwnKit).
+- **World-writable cron script** — reuses the generic `cron_hijack` win already driven entirely by the `path` field, so any script location works.
+- **World-writable `/etc/passwd`** — reuses the generic `passwd_write` win (append a UID-0 line, `su` into it).
+- **Sudoers NOPASSWD (GTFOBins)** — pick a binary from a curated list (`find`/`awk`/`env`/`python3`/`perl`/`node`/`nice`/`less`/`vim`); the generic `sudoEscapes()` detector in `js/commands.js` already recognizes all of them.
+
+Fill in codename/title/brief/flag, pick a template, hit "Générer le JSON" — it fills the same textarea the paste-JSON flow uses, so nothing about validation or import changes; review the generated JSON (and tweak hints/objectives to taste) before importing. Anything outside these four shapes still needs hand-written `fs`/`wins` JSON.
+
 Custom boxes are saved to `localStorage` (this browser only) under their own hub tier. Each machine card also has a small `{ }` button that copies that box's JSON to your clipboard — including built-in ones, handy as a starting template.
 
 Custom boxes also get a `🔗` button that copies a self-contained share link instead — the box's JSON, percent-encoded then base64'd into the URL hash (`#box=...`), no server involved. Anyone who opens that link gets the box auto-imported into their own `localStorage` and a confirmation toast; the hash is cleared right after so refreshing or bookmarking the page doesn't re-import it.

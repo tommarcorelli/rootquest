@@ -1203,6 +1203,24 @@ body.is-root .brand-name { animation: rootShake 0.4s ease; }
 .custom-json-msg.is-err { color: var(--red); }
 .custom-json-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
 
+.custom-mode-tabs { display: flex; gap: 8px; }
+.custom-mode-btn { font-size: 11px; letter-spacing: 0.5px; opacity: 0.6; padding: 4px 10px; }
+.custom-mode-btn:hover { opacity: 0.9; }
+.custom-mode-btn.is-active { opacity: 1; border-color: var(--accent); color: var(--accent); }
+.custom-build-panel { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px dashed var(--line-soft); }
+.custom-build-row { display: flex; gap: 10px; }
+.custom-build-row .custom-build-field { flex: 1; }
+.custom-build-field { display: flex; flex-direction: column; gap: 4px; }
+.custom-build-field label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.3px; }
+.custom-build-field input, .custom-build-field select, .custom-build-field textarea {
+    background: var(--bg-alt, rgba(0,0,0,0.3)); color: var(--text);
+    border: 1px solid var(--line-soft); font-family: var(--font-mono); font-size: 12px;
+    padding: 7px 8px; resize: vertical;
+}
+.custom-build-field input:focus-visible, .custom-build-field select:focus-visible, .custom-build-field textarea:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+}
+
 .ach-toast-plain .ach-toast-txt { font-family: var(--font-mono); font-size: 12px; }
 
 @media (max-width: 560px) {

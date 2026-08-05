@@ -301,6 +301,68 @@
                         <span data-i18n="customToggle">+ Custom box (import / export JSON)</span>
                     </button>
                     <div class="home-custom-panel" id="customPanel" data-testid="custom-panel" hidden>
+                        <div class="custom-mode-tabs" data-testid="custom-mode-tabs">
+                            <button class="custom-mode-btn is-active" id="customModePasteBtn" type="button" data-testid="custom-mode-paste-btn">
+                                <span data-i18n="customModePaste">📋 Coller du JSON</span>
+                            </button>
+                            <button class="custom-mode-btn" id="customModeBuildBtn" type="button" data-testid="custom-mode-build-btn">
+                                <span data-i18n="customModeBuild">🧰 Assistant visuel</span>
+                            </button>
+                        </div>
+                        <div class="custom-build-panel" id="customBuildPanel" data-testid="custom-build-panel" hidden>
+                            <div class="custom-build-field">
+                                <label for="cbTemplate" data-i18n="cbTemplateLabel">Type de vulnérabilité</label>
+                                <select id="cbTemplate" data-testid="cb-template">
+                                    <option value="suid_misuse" data-i18n="cbTplSuid">Binaire SUID mal configuré</option>
+                                    <option value="cron_hijack" data-i18n="cbTplCron">Script cron accessible en écriture</option>
+                                    <option value="passwd_writable" data-i18n="cbTplPasswd">/etc/passwd accessible en écriture</option>
+                                    <option value="sudo_gtfobin" data-i18n="cbTplSudo">Sudoers NOPASSWD (GTFOBins)</option>
+                                </select>
+                            </div>
+                            <div class="custom-build-row">
+                                <div class="custom-build-field">
+                                    <label for="cbCodename" data-i18n="cbCodenameLabel">Codename</label>
+                                    <input type="text" id="cbCodename" data-testid="cb-codename" placeholder="custom-01">
+                                </div>
+                                <div class="custom-build-field">
+                                    <label for="cbFlag" data-i18n="cbFlagLabel">Flag</label>
+                                    <input type="text" id="cbFlag" data-testid="cb-flag" placeholder="flag{...}">
+                                </div>
+                            </div>
+                            <div class="custom-build-field">
+                                <label for="cbTitle" data-i18n="cbTitleLabel">Titre</label>
+                                <input type="text" id="cbTitle" data-testid="cb-title" placeholder="Custom · My Vulnerability">
+                            </div>
+                            <div class="custom-build-field">
+                                <label for="cbBrief" data-i18n="cbBriefLabel">Description courte</label>
+                                <textarea id="cbBrief" data-testid="cb-brief" rows="2"></textarea>
+                            </div>
+                            <div class="custom-build-field" id="cbPathField">
+                                <label for="cbPath" id="cbPathLabel" data-i18n="cbPathLabelSuid">Chemin du binaire vulnérable</label>
+                                <input type="text" id="cbPath" data-testid="cb-path">
+                            </div>
+                            <div class="custom-build-field" id="cbSudoBinField" hidden>
+                                <label for="cbSudoBin" data-i18n="cbSudoBinLabel">Binaire autorisé par sudo</label>
+                                <select id="cbSudoBin" data-testid="cb-sudobin">
+                                    <option value="find">find</option>
+                                    <option value="awk">awk</option>
+                                    <option value="env">env</option>
+                                    <option value="python3">python3</option>
+                                    <option value="perl">perl</option>
+                                    <option value="node">node</option>
+                                    <option value="nice">nice</option>
+                                    <option value="less">less</option>
+                                    <option value="vim">vim</option>
+                                </select>
+                            </div>
+                            <div class="home-custom-actions">
+                                <button class="btn-primary" id="cbGenerateBtn" type="button" data-testid="cb-generate-btn">
+                                    <span data-i18n="cbGenerate">Générer le JSON ↓</span>
+                                </button>
+                                <span class="custom-json-msg" id="cbMsg" data-testid="cb-msg"></span>
+                            </div>
+                            <p class="custom-json-hint" data-i18n="cbHint">Génère un squelette de box jouable — relis et personnalise le JSON avant d'importer.</p>
+                        </div>
                         <textarea id="customJsonInput" class="custom-json-input" data-testid="custom-json-input" rows="6" data-i18n-placeholder="customPlaceholder" placeholder="Paste a box's JSON here…"></textarea>
                         <div class="home-custom-actions">
                             <button class="btn-primary" id="customImportBtn" type="button" data-testid="custom-import-btn">
@@ -345,6 +407,7 @@
     <script src="js/walkmode.js"></script>
     <script src="js/proof.js"></script>
     <script src="js/nano.js"></script>
+    <script src="js/boxbuilder.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
     <script>

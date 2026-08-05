@@ -240,6 +240,77 @@ for (const level of LEVELS) {
     (t6 && t7 && t8) ? pass++ : fail++;
 }
 
+// ── Box builder (visual custom-box templates) ───────────────────────────────
+// Each template must (a) generate JSON that GAME_CUSTOM.validate() accepts,
+// and (b) actually be rootable in the real engine via its own hinted payload
+// — a schema-valid box that can't be exploited would be a silent trap for
+// anyone using the assistant.
+{
+    const sandbox4 = {};
+    sandbox4.window = sandbox4;
+    sandbox4.globalThis = sandbox4;
+    sandbox4.console = { log() {}, warn() {}, error() {} };
+    sandbox4.setTimeout = () => {};
+    sandbox4.addEventListener = () => {};
+    sandbox4.localStorage = { getItem: () => null, setItem: () => {} };
+    sandbox4.location = { href: 'http://localhost/', hash: '' };
+    sandbox4.navigator = {};
+    sandbox4.document = {
+        addEventListener: () => {},
+        getElementById: () => null,
+        querySelectorAll: () => [],
+        body: { classList: { add() {}, remove() {} } },
+    };
+    vm.createContext(sandbox4);
+    for (const f of ['i18n.js', 'fs.js', 'levels.js', 'commands.js', 'boxbuilder.js', 'main.js']) {
+        vm.runInContext(JS(f), sandbox4, { filename: f });
+    }
+
+    let bCurrent = null;
+    sandbox4.currentLang = 'fr';
+    sandbox4.updatePrompt = () => {};
+    sandbox4.GAME = { level: () => bCurrent, win: () => {}, giveHint: () => [], nextLevel: () => [], reset: () => {}, markHardened: () => {} };
+    function bLoad(level) {
+        bCurrent = level;
+        sandbox4.FS.load(level);
+        Object.assign(sandbox4.SESSION, {
+            user: level.user || 'player', host: level.host, cwd: level.cwd || '/home/player',
+            env: { PATH: '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' },
+            isRoot: false, hintIndex: 0, tmpBins: {}, pendingCron: false,
+            cronPayload: null, cmdCount: 0, startTime: Date.now(),
+            blueTeam: false, sudoAuthed: false, nfsMount: null,
+        });
+        sandbox4.TERM = { history: [] };
+    }
+    function bPlay(cmds) { for (const c of cmds) { sandbox4.TERM.history.push(c); sandbox4.CMD.execute(c); } }
+
+    const cases = [
+        { template: 'suid_misuse', path: '/usr/local/bin/backup-tool', solve: (p) => [p] },
+        { template: 'suid_misuse', path: '/opt/tools/agent/helper', solve: (p) => [p] },
+        { template: 'cron_hijack', path: '/opt/tasks/monitor.sh', solve: (p) => [`echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > ${p}`, 'wait'] },
+        { template: 'passwd_writable', path: null, solve: () => ["echo 'r00t::0:0::/root:/bin/bash' >> /etc/passwd", 'su r00t'] },
+        { template: 'sudo_gtfobin', sudoBin: 'find', solve: () => ['sudo -l', 'sudo find . -exec /bin/sh \\;'] },
+        { template: 'sudo_gtfobin', sudoBin: 'python3', solve: () => ['sudo -l', "sudo python3 -c 'import os; os.system(\"/bin/sh\")'"] },
+        { template: 'sudo_gtfobin', sudoBin: 'nice', solve: () => ['sudo -l', 'sudo nice /bin/sh'] },
+    ];
+
+    let bbPass = 0, bbFail = 0;
+    cases.forEach((c, i) => {
+        const codename = 'bb-test-' + i;
+        const json = sandbox4.BOXBUILDER.generate({ template: c.template, codename, path: c.path, sudoBin: c.sudoBin, flag: `flag{${codename}}` });
+        const obj = JSON.parse(json);
+        const schemaOk = sandbox4.GAME_CUSTOM.validate(obj).valid;
+        const box = { id: 9500 + i, codename: obj.codename, user: obj.user, host: obj.host, cwd: obj.cwd, fs: obj.fs, wins: obj.wins, sudoers: obj.sudoers, flag: obj.flag };
+        bLoad(box);
+        bPlay(c.solve(c.path));
+        const rootOk = sandbox4.SESSION.isRoot;
+        const ok = schemaOk && rootOk;
+        console.log(`${ok ? 'PASS' : 'FAIL'}  box builder — ${c.template}${c.sudoBin ? ' (' + c.sudoBin + ')' : ''}${ok ? '' : ' — schema:' + schemaOk + ' root:' + rootOk}`);
+        ok ? bbPass++ : bbFail++;
+    });
+    pass += bbPass; fail += bbFail;
+}
+
 // ── Achievements ─────────────────────────────────────────────────────────
 // Separate sandbox, untouched by the custom-box tests above, so LEVELS.length
 // is exactly the base machine count and the "halfway" math below is exact.

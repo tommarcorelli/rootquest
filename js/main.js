@@ -1341,6 +1341,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.SFX) window.SFX.init();
     if (window.WALKMODE) window.WALKMODE.init();
     if (window.MENTORMODE) window.MENTORMODE.init();
+    if (window.BOXBUILDER) window.BOXBUILDER.init();
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });
