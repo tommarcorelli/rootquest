@@ -317,6 +317,7 @@
                                     <option value="cron_hijack" data-i18n="cbTplCron">Script cron accessible en écriture</option>
                                     <option value="passwd_writable" data-i18n="cbTplPasswd">/etc/passwd accessible en écriture</option>
                                     <option value="sudo_gtfobin" data-i18n="cbTplSudo">Sudoers NOPASSWD (GTFOBins)</option>
+                                    <option value="path_hijack" data-i18n="cbTplPath">Aide SUID appelant une commande non qualifiée (PATH hijack)</option>
                                 </select>
                             </div>
                             <div class="custom-build-row">
@@ -354,6 +355,10 @@
                                     <option value="less">less</option>
                                     <option value="vim">vim</option>
                                 </select>
+                            </div>
+                            <div class="custom-build-field" id="cbHijackCmdField" hidden>
+                                <label for="cbHijackCmd" data-i18n="cbHijackCmdLabel">Commande non qualifiée appelée par l'aide SUID</label>
+                                <input type="text" id="cbHijackCmd" data-testid="cb-hijackcmd" placeholder="ps">
                             </div>
                             <div class="home-custom-actions">
                                 <button class="btn-primary" id="cbGenerateBtn" type="button" data-testid="cb-generate-btn">

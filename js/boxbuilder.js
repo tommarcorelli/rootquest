@@ -157,6 +157,35 @@ window.BOXBUILDER = {
                 },
                 harden: undefined
             };
+        },
+        path_hijack(path, flag, _sudoBin, hijackCmd) {
+            const helper = path || '/usr/local/bin/status-helper';
+            const cmd = (hijackCmd || 'ps').trim() || 'ps';
+            const fs = window.BOXBUILDER.baseFS(flag);
+            fs['/usr/bin/' + cmd] = window.BOXBUILDER.ELF_BIN();
+            fs['/usr/bin'].children.push(cmd);
+            window.BOXBUILDER.placeFile(fs, helper, {
+                type: 'file', owner: 'root', mode: '4755', suid: true,
+                content: `ELF binary (status helper)\nEmbedded strings:\n  system("${cmd}");\n`,
+                calls_unqualified: cmd
+            });
+            return {
+                fs,
+                wins: [{ type: 'path_hijack', target: helper, hijack_cmd: cmd }],
+                objectives: ['Trouver le binaire SUID', `Constater qu'il appelle "${cmd}" sans chemin absolu`, 'Détourner le $PATH avec un faux binaire', 'Exécuter le binaire SUID'],
+                hints: [
+                    `find / -perm -4000 2>/dev/null révèle ${helper}.`,
+                    `strings ${helper} montre un appel système à "${cmd}" sans chemin absolu (pas /usr/bin/${cmd}).`,
+                    `Fabrique un faux ${cmd} dans /tmp qui lance un shell, place /tmp en tête du $PATH, puis relance ${helper}.`
+                ],
+                debrief: {
+                    vuln: `Binaire SUID appelant "${cmd}" sans chemin absolu (PATH hijack)`,
+                    why: `${helper} est SUID root mais invoque "${cmd}" sans chemin absolu — il fait confiance au $PATH de l'appelant. Un faux ${cmd} placé dans un dossier antérieur du $PATH s'exécute donc en root à sa place.`,
+                    fix: `Toujours invoquer les commandes externes par chemin absolu (/usr/bin/${cmd}) dans un binaire privilégié, ou fixer un $PATH sûr avant tout system()/exec().`,
+                    link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#relative-path'
+                },
+                harden: undefined
+            };
         }
     },
 
@@ -166,7 +195,7 @@ window.BOXBUILDER = {
         const codename = (form.codename || 'custom-01').trim();
         const flag = (form.flag || `flag{${codename.replace(/[^a-z0-9]+/gi, '_')}}`).trim();
         const tpl = this.templates[form.template] || this.templates.suid_misuse;
-        const part = tpl(form.path && form.path.trim(), flag, form.sudoBin);
+        const part = tpl(form.path && form.path.trim(), flag, form.sudoBin, form.hijackCmd);
         const box = {
             codename,
             title: (form.title || codename).trim(),
@@ -217,12 +246,14 @@ window.BOXBUILDER = {
         const pathLabel = document.getElementById('cbPathLabel');
         const pathInput = document.getElementById('cbPath');
         const sudoBinField = document.getElementById('cbSudoBinField');
+        const hijackCmdField = document.getElementById('cbHijackCmdField');
 
         const PATH_DEFAULTS = {
             suid_misuse: { path: '/usr/local/bin/backup-tool', labelKey: 'cbPathLabelSuid' },
             cron_hijack: { path: '/opt/task.sh', labelKey: 'cbPathLabelCron' },
             passwd_writable: null,
-            sudo_gtfobin: null
+            sudo_gtfobin: null,
+            path_hijack: { path: '/usr/local/bin/status-helper', labelKey: 'cbPathLabelHelper' }
         };
 
         const syncTemplateFields = () => {
@@ -238,6 +269,7 @@ window.BOXBUILDER = {
                 pathField.hidden = true;
             }
             sudoBinField.hidden = kind !== 'sudo_gtfobin';
+            hijackCmdField.hidden = kind !== 'path_hijack';
         };
         if (tplSelect) {
             tplSelect.addEventListener('change', syncTemplateFields);
@@ -255,7 +287,8 @@ window.BOXBUILDER = {
                     brief: document.getElementById('cbBrief').value,
                     flag: document.getElementById('cbFlag').value,
                     path: pathInput ? pathInput.value : '',
-                    sudoBin: document.getElementById('cbSudoBin').value
+                    sudoBin: document.getElementById('cbSudoBin').value,
+                    hijackCmd: document.getElementById('cbHijackCmd').value
                 };
                 const json = this.generate(form);
                 jsonInput.value = json;
