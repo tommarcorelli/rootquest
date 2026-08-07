@@ -308,6 +308,9 @@
                             <button class="custom-mode-btn" id="customModeBuildBtn" type="button" data-testid="custom-mode-build-btn">
                                 <span data-i18n="customModeBuild">🧰 Assistant visuel</span>
                             </button>
+                            <button class="custom-mode-btn" id="customModeGraphBtn" type="button" data-testid="custom-mode-graph-btn">
+                                <span data-i18n="customModeGraph">🗂️ Éditeur graphique</span>
+                            </button>
                         </div>
                         <div class="custom-build-panel" id="customBuildPanel" data-testid="custom-build-panel" hidden>
                             <div class="custom-build-field">
@@ -368,6 +371,69 @@
                             </div>
                             <p class="custom-json-hint" data-i18n="cbHint">Génère un squelette de box jouable — relis et personnalise le JSON avant d'importer.</p>
                         </div>
+                        <div class="custom-graph-panel" id="customGraphPanel" data-testid="custom-graph-panel" hidden>
+                            <div class="custom-build-row">
+                                <div class="custom-build-field">
+                                    <label for="cgCodename" data-i18n="cbCodenameLabel">Codename</label>
+                                    <input type="text" id="cgCodename" data-testid="cg-codename" placeholder="custom-02">
+                                </div>
+                                <div class="custom-build-field">
+                                    <label for="cgFlag" data-i18n="cbFlagLabel">Flag</label>
+                                    <input type="text" id="cgFlag" data-testid="cg-flag" placeholder="flag{...}">
+                                </div>
+                            </div>
+                            <div class="custom-build-field">
+                                <label for="cgTitle" data-i18n="cbTitleLabel">Titre</label>
+                                <input type="text" id="cgTitle" data-testid="cg-title" placeholder="Custom · My Vulnerability">
+                            </div>
+                            <div class="custom-build-field">
+                                <label for="cgBrief" data-i18n="cbBriefLabel">Description courte</label>
+                                <textarea id="cgBrief" data-testid="cg-brief" rows="2"></textarea>
+                            </div>
+                            <div class="custom-build-row">
+                                <div class="custom-build-field" style="flex:2;">
+                                    <label for="cgStart" data-i18n="cgStartLabel">Partir de</label>
+                                    <select id="cgStart" data-testid="cg-start">
+                                        <option value="empty" data-i18n="cgStartEmpty">Squelette vide</option>
+                                        <option value="suid_misuse" data-i18n="cbTplSuid">Binaire SUID mal configuré</option>
+                                        <option value="cron_hijack" data-i18n="cbTplCron">Script cron accessible en écriture</option>
+                                        <option value="passwd_writable" data-i18n="cbTplPasswd">/etc/passwd accessible en écriture</option>
+                                        <option value="sudo_gtfobin" data-i18n="cbTplSudo">Sudoers NOPASSWD (GTFOBins)</option>
+                                        <option value="path_hijack" data-i18n="cbTplPath">Aide SUID appelant une commande non qualifiée (PATH hijack)</option>
+                                    </select>
+                                </div>
+                                <div class="custom-build-field" style="justify-content:flex-end;">
+                                    <button class="btn-ghost" id="cgLoadStartBtn" type="button" data-testid="cg-load-start-btn">
+                                        <span data-i18n="cgLoadStart">↻ Charger ce point de départ</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="custom-graph-body" data-testid="cg-body">
+                                <div class="custom-graph-tree" id="cgTree" data-testid="cg-tree"></div>
+                                <div class="custom-graph-node" id="cgNodeEditor" data-testid="cg-node-editor">
+                                    <p class="custom-json-hint" id="cgNodeHint" data-i18n="cgNodeHint">Sélectionne un nœud dans l'arborescence pour le modifier, ou choisis un dossier puis « + fichier »/« + dossier ».</p>
+                                </div>
+                            </div>
+                            <div class="custom-build-field">
+                                <label for="cgWinType" data-i18n="cgWinTypeLabel">Condition de victoire</label>
+                                <select id="cgWinType" data-testid="cg-wintype">
+                                    <option value="auto" data-i18n="cgWinAuto">Auto (depuis les nœuds « exploit direct »)</option>
+                                    <option value="cron_hijack" data-i18n="cgWinCron">Script cron accessible en écriture</option>
+                                    <option value="passwd_write" data-i18n="cgWinPasswd">/etc/passwd accessible en écriture</option>
+                                    <option value="sudo_shell" data-i18n="cgWinSudo">Sudoers NOPASSWD (GTFOBins)</option>
+                                    <option value="path_hijack" data-i18n="cgWinPath">PATH hijack (aide SUID)</option>
+                                    <option value="custom" data-i18n="cgWinCustom">Personnalisée (type saisi à la main)</option>
+                                </select>
+                            </div>
+                            <div class="custom-build-row" id="cgWinFields" data-testid="cg-winfields"></div>
+                            <div class="home-custom-actions">
+                                <button class="btn-primary" id="cgGenerateBtn" type="button" data-testid="cg-generate-btn">
+                                    <span data-i18n="cbGenerate">Générer le JSON ↓</span>
+                                </button>
+                                <span class="custom-json-msg" id="cgMsg" data-testid="cg-msg"></span>
+                            </div>
+                            <p class="custom-json-hint" data-i18n="cgHint">Construis ton arborescence fichier par fichier, choisis une condition de victoire, puis relis le JSON généré avant d'importer.</p>
+                        </div>
                         <textarea id="customJsonInput" class="custom-json-input" data-testid="custom-json-input" rows="6" data-i18n-placeholder="customPlaceholder" placeholder="Paste a box's JSON here…"></textarea>
                         <div class="home-custom-actions">
                             <button class="btn-primary" id="customImportBtn" type="button" data-testid="custom-import-btn">
@@ -413,6 +479,7 @@
     <script src="js/proof.js"></script>
     <script src="js/nano.js"></script>
     <script src="js/boxbuilder.js"></script>
+    <script src="js/boxeditor.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
     <script>

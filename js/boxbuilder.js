@@ -219,27 +219,37 @@ window.BOXBUILDER = {
     init() {
         const pasteBtn = document.getElementById('customModePasteBtn');
         const buildBtn = document.getElementById('customModeBuildBtn');
+        const graphBtn = document.getElementById('customModeGraphBtn');
         const buildPanel = document.getElementById('customBuildPanel');
+        const graphPanel = document.getElementById('customGraphPanel');
         const jsonInput = document.getElementById('customJsonInput');
         const importActions = jsonInput ? jsonInput.nextElementSibling : null;
         if (!pasteBtn || !buildBtn || !buildPanel || !jsonInput) return;
 
-        const showPaste = () => {
-            buildPanel.hidden = true;
-            jsonInput.hidden = false;
-            if (importActions) importActions.hidden = false;
-            pasteBtn.classList.add('is-active');
-            buildBtn.classList.remove('is-active');
+        const tabs = [
+            { btn: pasteBtn, panel: null },
+            { btn: buildBtn, panel: buildPanel },
+            { btn: graphBtn, panel: graphPanel }
+        ];
+        // Exposed so boxeditor.js's own button can switch tabs without
+        // duplicating this logic; also used internally after "Generate".
+        const showMode = (activeBtn) => {
+            tabs.forEach(({ btn, panel }) => {
+                if (!btn) return;
+                const active = btn === activeBtn;
+                btn.classList.toggle('is-active', active);
+                if (panel) panel.hidden = !active;
+            });
+            const onPaste = activeBtn === pasteBtn;
+            jsonInput.hidden = !onPaste;
+            if (importActions) importActions.hidden = !onPaste;
         };
-        const showBuild = () => {
-            buildPanel.hidden = false;
-            jsonInput.hidden = true;
-            if (importActions) importActions.hidden = true;
-            buildBtn.classList.add('is-active');
-            pasteBtn.classList.remove('is-active');
-        };
-        pasteBtn.addEventListener('click', showPaste);
-        buildBtn.addEventListener('click', showBuild);
+        window.BOXBUILDER.showMode = showMode;
+        window.BOXBUILDER.showPasteTab = () => showMode(pasteBtn);
+
+        pasteBtn.addEventListener('click', () => showMode(pasteBtn));
+        buildBtn.addEventListener('click', () => showMode(buildBtn));
+        if (graphBtn) graphBtn.addEventListener('click', () => showMode(graphBtn));
 
         const tplSelect = document.getElementById('cbTemplate');
         const pathField = document.getElementById('cbPathField');
@@ -292,7 +302,7 @@ window.BOXBUILDER = {
                 };
                 const json = this.generate(form);
                 jsonInput.value = json;
-                showPaste();
+                showMode(pasteBtn);
                 jsonInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (msgEl) { msgEl.textContent = ''; }
             });

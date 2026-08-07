@@ -33,6 +33,50 @@ you add, rename, or remove one.
 | `reset-progress-btn` | "Reset progress" button | wipes `localStorage` save (with confirmation) |
 | `restart-all-btn` | replay-everything button | shown once all boxes are owned |
 
+## Custom box · visual builder & graphical editor
+
+Three tabs share the same `#customJsonInput` textarea and `GAME_CUSTOM.import()`
+flow — these testids are only for the two assistants that fill that textarea
+for you (`js/boxbuilder.js`, `js/boxeditor.js`); the paste-JSON ids are in the
+table above.
+
+| testid | element | purpose |
+|---|---|---|
+| `custom-mode-tabs` | tab row | switches between the three modes below |
+| `custom-mode-paste-btn` | "📋 Coller du JSON" tab | shows the raw-paste textarea |
+| `custom-mode-build-btn` | "🧰 Assistant visuel" tab | shows the template form |
+| `custom-mode-graph-btn` | "🗂️ Éditeur graphique" tab | shows the fs-tree builder |
+| `custom-build-panel` | template form container | |
+| `cb-template` | vulnerability-type `<select>` | picks one of the 5 templates |
+| `cb-codename` / `cb-title` / `cb-brief` / `cb-flag` | metadata inputs | box identity fields |
+| `cb-path` | path input | binary/script path (hidden for templates that don't need one) |
+| `cb-sudobin` | sudo-binary `<select>` | shown only for the sudo GTFOBins template |
+| `cb-hijackcmd` | unqualified-command input | shown only for the PATH hijack template |
+| `cb-generate-btn` | "Générer le JSON ↓" | assembles the box, fills `custom-json-input`, switches to the paste tab |
+| `cb-msg` | feedback line | reserved for future validation messages |
+| `custom-graph-panel` | graphical editor container | |
+| `cg-codename` / `cg-title` / `cg-brief` / `cg-flag` | metadata inputs | box identity fields |
+| `cg-start` | "Partir de" `<select>` | empty skeleton or one of the 5 templates as a base |
+| `cg-load-start-btn` | "↻ Charger ce point de départ" | (re)initializes the tree from the chosen starting point |
+| `cg-body` | tree + node-editor row | layout container |
+| `cg-tree` | fs-tree container | click any row (`[data-path]`) to select that node |
+| `cg-node-editor` | node property form | rebuilt on every selection change |
+| `cgn-owner` / `cgn-mode` / `cgn-content` | node fields | present for the node type they apply to (content: files only) |
+| `cgn-suid` / `cgn-writable` | node checkboxes | SUID bit / world-writable (files only) |
+| `cgn-calls` | "Calls unqualified command" input | drives the PATH-hijack `calls_unqualified` mechanic (files only) |
+| `cgn-exploit` | "Direct exploit type" input | self-contained `exploit` mechanic — also feeds the "Auto" win condition (files only) |
+| `cg-save-node-btn` | "Enregistrer" | writes the form back into the selected node |
+| `cg-add-file-btn` / `cg-add-dir-btn` | "+ Fichier" / "+ Dossier" | prompts for a name, creates a child under the selected dir |
+| `cg-delete-node-btn` | "Supprimer" | recursively deletes the selected node (confirmation prompt); absent for `/` |
+| `cg-wintype` | win-condition `<select>` | auto / cron / passwd / sudo / path-hijack / custom |
+| `cg-winfields` | dynamic fields container | rebuilt to match the chosen win type |
+| `cg-win-path` | path input | shown for cron_hijack and path_hijack |
+| `cg-win-hijackcmd` | unqualified-command input | shown for path_hijack |
+| `cg-win-sudobin` | sudo-binary `<select>` | shown for sudo_shell |
+| `cg-win-customtype` | free-text win-type input | shown for "custom" |
+| `cg-generate-btn` | "Générer le JSON ↓" | assembles the box via `BOXEDITOR.buildBox()`, fills `custom-json-input`, switches to the paste tab |
+| `cg-msg` | feedback line | reserved for future validation messages |
+
 ## In-mission topbar / terminal
 
 | testid | element | purpose |

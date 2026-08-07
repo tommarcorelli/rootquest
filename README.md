@@ -116,7 +116,15 @@ The panel also has a **🧰 Visual builder** tab (`js/boxbuilder.js`) for the fi
 - **Sudoers NOPASSWD (GTFOBins)** — pick a binary from a curated list (`find`/`awk`/`env`/`python3`/`perl`/`node`/`nice`/`less`/`vim`); the generic `sudoEscapes()` detector in `js/commands.js` already recognizes all of them.
 - **SUID helper calling an unqualified command (PATH hijack)** — reuses the generic `path_hijack` win (box-04's mechanic): pick the helper's path and which command it calls unqualified, and any fake binary earlier in `$PATH` will hijack it.
 
-Fill in codename/title/brief/flag, pick a template, hit "Générer le JSON" — it fills the same textarea the paste-JSON flow uses, so nothing about validation or import changes; review the generated JSON (and tweak hints/objectives to taste) before importing. Anything outside these five shapes still needs hand-written `fs`/`wins` JSON.
+Fill in codename/title/brief/flag, pick a template, hit "Générer le JSON" — it fills the same textarea the paste-JSON flow uses, so nothing about validation or import changes; review the generated JSON (and tweak hints/objectives to taste) before importing. Anything outside these five shapes still needs hand-written `fs`/`wins` JSON — or use the third tab below.
+
+A third tab, **🗂️ Graphical editor** (`js/boxeditor.js`), covers that "anything else": a clickable file-tree builder rather than fixed templates. Pick a starting point (empty skeleton, or any of the five templates above as a base to customize), then click through the tree to add files/folders, edit each node's owner/mode/content, and flag SUID/world-writable bits or a `calls_unqualified` command directly in the form — no JSON syntax involved. A **win condition** picker below the tree lets you wire up the actual victory check:
+
+- **Auto** — any file node you gave a "direct exploit type" to (the same self-contained `exploit` mechanic used above) automatically becomes a win condition; this is the "I built my own SUID payload" case and needs no further configuration.
+- **Cron / passwd / sudo GTFOBins / PATH hijack** — same four generic mechanics the visual builder uses, so a box combining a hand-built tree with one of these known win types works exactly like its templated counterpart.
+- **Custom** — type your own win `type` string; useful once you've added matching logic to `js/commands.js` yourself, same as any built-in box.
+
+Hit "Générer le JSON" here too, and it lands in the same shared textarea. The tree editor doesn't replace hand-editing `fs`/`wins` JSON for very unusual mechanics, but it removes the need for it in the vast majority of cases.
 
 Custom boxes are saved to `localStorage` (this browser only) under their own hub tier. Each machine card also has a small `{ }` button that copies that box's JSON to your clipboard — including built-in ones, handy as a starting template.
 

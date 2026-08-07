@@ -110,6 +110,23 @@ window.GAME_CUSTOM = {
         return { en: s, fr: s, es: s };
     },
 
+    // Same fallback contract as bi(), but for array-valued fields
+    // (objectives/hints): a plain array applies to all three languages,
+    // an { en, fr, es } object fills in missing translations from English.
+    // Before this, a plain array silently normalized to [] in every
+    // language — contradicting the README, which documents plain arrays
+    // as accepted — so any custom box (including every box builder
+    // template) authored with `"objectives": ["...", "..."]` lost its
+    // objectives/hints entirely on import.
+    biList(v, fallback) {
+        if (Array.isArray(v)) return { en: v, fr: v, es: v };
+        if (v && typeof v === 'object') {
+            const en = v.en || v.fr || v.es || fallback;
+            return { en, fr: v.fr || v.en || fallback, es: v.es || v.en || fallback };
+        }
+        return { en: fallback, fr: fallback, es: fallback };
+    },
+
     normalize(obj, id) {
         return {
             id,
@@ -119,8 +136,8 @@ window.GAME_CUSTOM = {
             user: obj.user,
             host: obj.host,
             cwd: obj.cwd,
-            objectives: { en: (obj.objectives && obj.objectives.en) || [], fr: (obj.objectives && (obj.objectives.fr || obj.objectives.en)) || [], es: (obj.objectives && (obj.objectives.es || obj.objectives.en)) || [] },
-            hints: { en: (obj.hints && obj.hints.en) || [], fr: (obj.hints && (obj.hints.fr || obj.hints.en)) || [], es: (obj.hints && (obj.hints.es || obj.hints.en)) || [] },
+            objectives: this.biList(obj.objectives, []),
+            hints: this.biList(obj.hints, []),
             flag: obj.flag,
             fs: obj.fs,
             sudoers: obj.sudoers,
@@ -1342,6 +1359,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.WALKMODE) window.WALKMODE.init();
     if (window.MENTORMODE) window.MENTORMODE.init();
     if (window.BOXBUILDER) window.BOXBUILDER.init();
+    if (window.BOXEDITOR) window.BOXEDITOR.init();
     document.querySelectorAll('.lang-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-lang') === window.currentLang);
     });

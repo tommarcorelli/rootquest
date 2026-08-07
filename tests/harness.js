@@ -208,6 +208,13 @@ for (const level of LEVELS) {
         && sandbox2.LEVELS.length === startLen + 1
         && sandbox2.MACHINE_META.length === sandbox2.LEVELS.length
         && sandbox2.LEVELS[sandbox2.LEVELS.length - 1].custom === true;
+
+    // Regression: a plain array for objectives/hints (the shape the README
+    // documents and every box builder template emits) must survive
+    // normalize() intact, not silently collapse to [] in every language.
+    const withArrays = GC.normalize({ objectives: ['Step one', 'Step two'], hints: ['h1', 'h2'] }, 12345);
+    const t2b = withArrays.objectives.en.length === 2 && withArrays.objectives.fr.length === 2
+        && withArrays.objectives.es.length === 2 && withArrays.hints.en.length === 2;
     const t3 = good.ok && good.level.title.en === 'Custom · Test Box' && good.level.title.fr === 'Custom · Test Box';
 
     const exported = GC.exportJSON(sandbox2.LEVELS.length - 1);
@@ -233,7 +240,7 @@ for (const level of LEVELS) {
     const badHash = GC.importFromHash('#box=%%%not-valid-at-all');
     const t8 = noHash && badHash && badHash.ok === false;
 
-    const ok = t1 && t2 && t3 && t4 && t5 && t6 && t7 && t8;
+    const ok = t1 && t2 && t2b && t3 && t4 && t5 && t6 && t7 && t8;
     console.log(`${ok ? 'PASS' : 'FAIL'}  custom box import (validation + append + export + persistence)`);
     ok ? pass++ : fail++;
     console.log(`${(t6 && t7 && t8) ? 'PASS' : 'FAIL'}  custom box share link (export URL + re-import from hash)`);
@@ -262,7 +269,7 @@ for (const level of LEVELS) {
         body: { classList: { add() {}, remove() {} } },
     };
     vm.createContext(sandbox4);
-    for (const f of ['i18n.js', 'fs.js', 'levels.js', 'commands.js', 'boxbuilder.js', 'main.js']) {
+    for (const f of ['i18n.js', 'fs.js', 'levels.js', 'commands.js', 'boxbuilder.js', 'boxeditor.js', 'main.js']) {
         vm.runInContext(JS(f), sandbox4, { filename: f });
     }
 
@@ -311,6 +318,98 @@ for (const level of LEVELS) {
         ok ? bbPass++ : bbFail++;
     });
     pass += bbPass; fail += bbFail;
+
+    // ── Box editor (graphical fs-tree builder) ──────────────────────────────
+    // removeNode: recursive delete + parent.children stays in sync.
+    {
+        const fs2 = sandbox4.BOXBUILDER.baseFS('flag{x}');
+        sandbox4.BOXBUILDER.placeFile(fs2, '/opt/tools/helper', { type: 'file', owner: 'root', mode: '755', content: '' });
+        const before = !!fs2['/opt/tools/helper'] && !!fs2['/opt/tools'] && !!fs2['/opt'];
+        const removed = sandbox4.BOXEDITOR.removeNode(fs2, '/opt');
+        const after = !fs2['/opt'] && !fs2['/opt/tools'] && !fs2['/opt/tools/helper'] && !fs2['/'].children.includes('opt');
+        const refusesRoot = sandbox4.BOXEDITOR.removeNode(fs2, '/') === false;
+        const ok = before && removed && after && refusesRoot;
+        console.log(`${ok ? 'PASS' : 'FAIL'}  box editor — removeNode (recursive delete, parent.children in sync, refuses '/')`);
+        ok ? pass++ : fail++;
+    }
+
+    // buildBox(): each win-condition type must produce a schema-valid,
+    // actually-rootable box — this is the same correctness bar the box
+    // builder templates are held to, just assembled by hand here to stand
+    // in for what clicking through the tree editor would produce.
+    {
+        let gePass = 0, geFail = 0;
+        const runCase = (name, fs2, params, solve) => {
+            const box = sandbox4.BOXEDITOR.buildBox(fs2, params);
+            const schemaOk = sandbox4.GAME_CUSTOM.validate(box).valid;
+            const level = { id: 9600 + gePass + geFail, codename: box.codename, user: box.user, host: box.host, cwd: box.cwd, fs: box.fs, wins: box.wins, sudoers: box.sudoers, flag: box.flag };
+            bLoad(level);
+            bPlay(solve());
+            const rootOk = sandbox4.SESSION.isRoot;
+            const ok = schemaOk && rootOk;
+            console.log(`${ok ? 'PASS' : 'FAIL'}  box editor — ${name}${ok ? '' : ' — schema:' + schemaOk + ' root:' + rootOk}`);
+            ok ? gePass++ : geFail++;
+        };
+
+        // auto: a hand-placed exploit node becomes the win condition with
+        // zero extra configuration, exactly like clicking "+ fichier" then
+        // setting "Type d'exploit direct" in the node editor would.
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            sandbox4.BOXBUILDER.placeFile(fs2, '/opt/backup', { type: 'file', owner: 'root', mode: '4755', suid: true, content: '', exploit: 'ge_auto_exploit' });
+            runCase('auto (hand-placed exploit node)', fs2, { codename: 'ge-auto', winType: 'auto' }, () => ['/opt/backup']);
+        }
+        // cron_hijack
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            sandbox4.BOXBUILDER.placeFile(fs2, '/opt/task.sh', { type: 'file', owner: 'root', mode: '777', writable_by_all: true, content: '#!/bin/sh\n' });
+            runCase('cron_hijack', fs2, { codename: 'ge-cron', winType: 'cron_hijack', winPath: '/opt/task.sh' },
+                () => ['echo "cp /bin/sh /tmp/rootsh; chmod +s /tmp/rootsh" > /opt/task.sh', 'wait']);
+        }
+        // passwd_write
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            fs2['/etc/passwd'] = { type: 'file', owner: 'root', mode: '666', writable_by_all: true, content: fs2['/etc/passwd'].content };
+            fs2['/usr/bin/su'] = sandbox4.BOXBUILDER.SUID_BIN();
+            fs2['/usr/bin'].children.push('su');
+            runCase('passwd_write', fs2, { codename: 'ge-passwd', winType: 'passwd_write' },
+                () => ["echo 'r00t::0:0::/root:/bin/bash' >> /etc/passwd", 'su r00t']);
+        }
+        // sudo_shell
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            fs2['/usr/bin/sudo'] = sandbox4.BOXBUILDER.SUID_BIN();
+            fs2['/usr/bin/awk'] = sandbox4.BOXBUILDER.ELF_BIN();
+            fs2['/usr/bin'].children.push('sudo', 'awk');
+            runCase('sudo_shell', fs2, { codename: 'ge-sudo', winType: 'sudo_shell', winSudoBin: 'awk' },
+                () => ['sudo -l', 'sudo awk \'BEGIN{system("/bin/sh")}\'']);
+        }
+        // path_hijack
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            fs2['/usr/bin/whoami'] = sandbox4.BOXBUILDER.ELF_BIN();
+            fs2['/usr/bin'].children.push('whoami');
+            sandbox4.BOXBUILDER.placeFile(fs2, '/usr/local/bin/status-helper', { type: 'file', owner: 'root', mode: '4755', suid: true, content: '', calls_unqualified: 'whoami' });
+            runCase('path_hijack', fs2, { codename: 'ge-path', winType: 'path_hijack', winPath: '/usr/local/bin/status-helper', winHijackCmd: 'whoami' },
+                () => ["echo '#!/bin/sh' > /tmp/whoami", "echo '/bin/sh' >> /tmp/whoami", 'chmod +x /tmp/whoami', 'export PATH=/tmp:$PATH', '/usr/local/bin/status-helper']);
+        }
+        // custom: a fully user-authored mechanic, matched by the type name
+        // alone — the editor doesn't need to know what "leaked_backup_key"
+        // means, it just has to plumb the type through into wins.
+        {
+            const fs2 = sandbox4.BOXBUILDER.baseFS('flag{ge}');
+            sandbox4.BOXBUILDER.placeFile(fs2, '/opt/leaked-key', { type: 'file', owner: 'root', mode: '4755', suid: true, content: '', exploit: 'leaked_backup_key' });
+            const box = sandbox4.BOXEDITOR.buildBox(fs2, { codename: 'ge-custom', winType: 'custom', winCustomType: 'leaked_backup_key' });
+            const schemaOk = sandbox4.GAME_CUSTOM.validate(box).valid && box.wins[0].type === 'leaked_backup_key';
+            bLoad({ id: 9699, codename: box.codename, user: box.user, host: box.host, cwd: box.cwd, fs: box.fs, wins: box.wins, flag: box.flag });
+            bPlay(['/opt/leaked-key']);
+            const ok = schemaOk && sandbox4.SESSION.isRoot;
+            console.log(`${ok ? 'PASS' : 'FAIL'}  box editor — custom win type`);
+            ok ? gePass++ : geFail++;
+        }
+
+        pass += gePass; fail += geFail;
+    }
 }
 
 // ── Achievements ─────────────────────────────────────────────────────────
