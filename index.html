@@ -45,6 +45,7 @@
                     <strong id="levelNum">1</strong>
                     <span>/ <span id="levelTotal">13</span></span>
                 </div>
+                <button class="mode-pill" id="modePill" type="button" data-mode="normal" data-testid="mode-pill" title="Game mode">🎯 Normal</button>
                 <button class="btn-ghost" id="hintBtn" data-testid="hint-button">
                     <span data-i18n="hintBtn">Hint</span>
                 </button>
@@ -76,6 +77,39 @@
 
         <main class="layout">
             <aside class="sidebar">
+                <div class="mode-hud hud" id="modeHud" data-testid="mode-hud" style="display:none">
+                    <div class="stealth-meter" id="stealthMeter" data-testid="stealth-meter" style="display:none">
+                        <div class="stealth-head">
+                            <span class="stealth-label" data-i18n="stealthLabel">DETECTION</span>
+                            <span class="stealth-value" id="stealthValue" data-testid="stealth-value">0%</span>
+                        </div>
+                        <div class="stealth-track"><div class="stealth-fill" id="stealthFill"></div></div>
+                        <div class="stealth-tip" data-i18n="stealthTip">Chaque commande fait du bruit. Les contre-mesures le font baisser.</div>
+                    </div>
+                    <div class="timer-box" id="timerBox" data-testid="timer-box" style="display:none">
+                        <span class="timer-label" data-i18n="timerLabel">TIME LEFT</span>
+                        <span class="timer-value" id="timerValue" data-testid="timer-value">--:--</span>
+                    </div>
+                    <div class="chaos-hud" id="chaosHud" data-testid="chaos-hud" style="display:none">
+                        <div class="chaos-head">
+                            <span class="timer-label" data-i18n="chaosLabel">THREAT LEVEL</span>
+                            <span class="chaos-reaped-wrap"><strong id="chaosReaped" data-testid="chaos-reaped">0</strong>🧽</span>
+                        </div>
+                        <div class="chaos-track"><div class="chaos-fill" id="chaosLevel"></div></div>
+                        <div class="chaos-tip" data-i18n="chaosTip">La box se défend. Ne laisse rien traîner dans /tmp.</div>
+                    </div>
+                    <div class="exam-hud" id="examHud" data-testid="exam-hud" style="display:none">
+                        <div class="exam-hud-head">
+                            <span class="timer-label" data-i18n="examHudLabel">EXAM</span>
+                            <span class="exam-clock" id="examClock" data-testid="exam-clock">--:--:--</span>
+                        </div>
+                        <ul class="exam-board" id="examBoard" data-testid="exam-board"></ul>
+                        <div class="exam-hud-foot">
+                            <span data-i18n="examScoreLabel">SCORE</span>
+                            <strong id="examScore" data-testid="exam-score">0/90</strong>
+                        </div>
+                    </div>
+                </div>
                 <div class="mission-card hud">
                     <div class="mission-header">
                         <span class="mission-tag" data-i18n="missionTag">MISSION</span>
@@ -109,6 +143,15 @@
                 <div class="walkthrough hud" id="walkthroughPanel" style="display:none" data-testid="walkthrough-panel">
                     <div class="walkthrough-title" data-i18n="explainTitle">Explanation mode</div>
                     <ol id="walkthroughList"></ol>
+                    <div class="walkthrough-actions" id="walkthroughActions" data-testid="walkthrough-actions" hidden>
+                        <button class="btn-ghost walk-next-btn" id="walkNextBtn" type="button" data-testid="walk-next-btn">
+                            <span data-i18n="explainNext">Reveal next step</span>
+                        </button>
+                        <button class="btn-ghost walk-all-btn" id="walkAllBtn" type="button" data-testid="walk-all-btn">
+                            <span data-i18n="explainAll">Show everything</span>
+                        </button>
+                        <span class="walkthrough-counter" id="walkCounter" data-testid="walk-counter">0/0</span>
+                    </div>
                 </div>
             </aside>
 
@@ -150,6 +193,8 @@
                     <div class="stat"><span class="stat-val" id="statHints">0/3</span><span class="stat-label" data-i18n="statHints">Hints</span></div>
                     <div class="stat"><span class="stat-val" id="statCmds">0</span><span class="stat-label" data-i18n="statCmds">Commands</span></div>
                     <div class="stat"><span class="stat-val" id="statScore">0</span><span class="stat-label" data-i18n="statScore">Score</span></div>
+                    <div class="stat" id="statStealthCell" style="display:none"><span class="stat-val" id="statStealth">—</span><span class="stat-label" data-i18n="statStealth">Stealth</span></div>
+                    <div class="stat" id="statChaosCell" style="display:none"><span class="stat-val" id="statChaos">—</span><span class="stat-label" data-i18n="statChaos">Chaos</span></div>
                     <div class="stat stat--rank"><span class="stat-rank rank-S" id="statRank">S</span><span class="stat-label" data-i18n="statRank">Rank</span></div>
                 </div>
 
@@ -209,6 +254,58 @@
                     </button>
                     <button class="btn-ghost" id="finalMenuBtn" data-testid="final-menu-btn">
                         <span data-i18n="menuBtn">Menu</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="storyModal" style="display:none">
+            <div class="modal modal--story">
+                <div class="modal-glow"></div>
+                <div class="story-modal-tag" id="storyModalTag" data-testid="story-modal-tag">// INCOMING TRANSMISSION</div>
+                <h3 id="storyModalTitle" data-testid="story-modal-title">—</h3>
+                <pre class="story-transmission" id="storyModalBody" data-testid="story-modal-body"></pre>
+                <div class="story-choice-prompt" id="storyChoicePrompt" data-testid="story-choice-prompt" hidden></div>
+                <div class="story-choices" id="storyChoices" data-testid="story-choices"></div>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="storyModalBtn" data-testid="story-modal-btn">
+                        <span id="storyModalBtnLabel" data-i18n="storyEnter">Enter the machine →</span>
+                    </button>
+                    <button class="btn-ghost" id="storyModalMenuBtn" data-testid="story-modal-menu-btn">
+                        <span data-i18n="menuBtn">Menu</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-backdrop" id="examModal" style="display:none">
+            <div class="modal modal--exam">
+                <div class="modal-glow"></div>
+                <h3 data-i18n="examReportTitle">📜 EXAM REPORT</h3>
+                <div class="exam-verdict" id="examVerdict" data-testid="exam-verdict">—</div>
+                <p class="exam-verdict-sub" id="examVerdictSub" data-testid="exam-verdict-sub"></p>
+                <div class="exam-report-meta" id="examReportMeta"></div>
+                <div class="exam-report-wrap">
+                    <table class="exam-report-table" data-testid="exam-report-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th data-i18n="examColMachine">Machine</th>
+                                <th data-i18n="examColTier">Tier</th>
+                                <th data-i18n="examColPoints">Points</th>
+                                <th data-i18n="examColRooted">Root</th>
+                                <th data-i18n="examColTime">Time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="examReportRows"></tbody>
+                    </table>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-primary" id="examDownloadBtn" data-testid="exam-download-btn">
+                        <span data-i18n="examDownload">⬇ Download report (.md)</span>
+                    </button>
+                    <button class="btn-ghost" id="examCloseBtn" data-testid="exam-close-btn">
+                        <span data-i18n="examClose">Close</span>
                     </button>
                 </div>
             </div>
@@ -274,6 +371,82 @@
                         </button>
                     </div>
                 </div>
+                <div class="story-banner" id="storyBanner" data-testid="story-banner">
+                    <div class="story-banner-head">
+                        <span class="story-op" data-i18n="storyOp">// OPERATION HOLLOW ROOT</span>
+                        <span class="story-progress" id="storyProgress" data-testid="story-progress"></span>
+                    </div>
+                    <div class="story-banner-body">
+                        <span class="story-chapter-name" id="storyChapterName"></span>
+                        <button class="btn-primary story-play-btn" id="storyPlayBtn" type="button" data-testid="story-play-btn">
+                            <span id="storyPlayLabel" data-i18n="storyStart">▶ Commencer la campagne</span>
+                        </button>
+                        <button class="btn-ghost story-reset-btn" id="storyResetBtn" type="button" data-testid="story-reset-btn" hidden>
+                            <span data-i18n="storyReset">↺ Recommencer</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="mode-picker" id="modePicker" data-testid="mode-picker">
+                    <button class="btn-ghost mode-picker-toggle" id="modePickerToggle" type="button" data-testid="mode-picker-toggle">
+                        <span data-i18n="modePickerToggle">🎛 Modes de jeu</span>
+                    </button>
+                    <div class="mode-picker-panel" id="modePickerPanel" data-testid="mode-picker-panel" hidden>
+                        <div class="mode-group-title">
+                            <span data-i18n="modeChallengeTitle">Modes de run — cumulables</span>
+                            <span class="mode-stack-total" id="modeStackTotal" data-testid="mode-stack-total" hidden></span>
+                        </div>
+                        <div class="mode-cards" id="modeCards" data-testid="mode-cards"></div>
+                        <div class="mode-group-title" data-i18n="modeAssistTitle">Assistance — cumulable</div>
+                        <div class="mode-assist-row">
+                            <button class="btn-ghost mode-assist-btn explain-btn" id="explainBtnHome" type="button" aria-pressed="false" data-testid="explain-btn-home">
+                                🎓 <span data-i18n="explainBtn">Explain</span>
+                            </button>
+                            <button class="btn-ghost mode-assist-btn mentor-btn" id="mentorBtnHome" type="button" aria-pressed="false" data-testid="mentor-btn-home">
+                                🧭 <span data-i18n="mentorBtn">Mentor</span>
+                            </button>
+                        </div>
+                        <div class="mode-assist-note" id="modeAssistNote" data-i18n="modeAssistLocked" hidden>Le mode actif désactive toute assistance.</div>
+                        <div class="mode-group-title" data-i18n="modeExamTitle">Examen de certification</div>
+                        <div class="exam-panel" id="examPanel" data-testid="exam-panel">
+                            <div class="exam-idle" id="examIdle">
+                                <p class="exam-desc" data-i18n="examDesc">3 machines (une par tier), 4 heures, aucune assistance. Le chrono ne s'arrête pas si tu fermes l'onglet. 50 points sur 90 pour valider — deux box suffisent, une seule jamais.</p>
+                                <div class="exam-controls">
+                                    <input type="text" id="examSeed" class="rogue-seed" maxlength="16" placeholder="seed" data-testid="exam-seed" aria-label="Exam seed">
+                                    <button class="btn-primary exam-btn" id="examStartBtn" type="button" data-testid="exam-start-btn">
+                                        <span data-i18n="examStartBtn">📜 Démarrer l'examen</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="exam-live" id="examLive" hidden>
+                                <p class="exam-desc">
+                                    <span data-i18n="examInProgress">Examen en cours</span> — <span data-i18n="examSeedLabel">graine</span>
+                                    <code id="examSeedShown">------</code>
+                                </p>
+                                <div class="exam-controls">
+                                    <button class="btn-primary exam-btn" id="examResumeBtn" type="button" data-testid="exam-resume-btn">
+                                        <span data-i18n="examResumeBtn">▶ Reprendre</span>
+                                    </button>
+                                    <button class="btn-ghost exam-btn" id="examReportBtn" type="button" data-testid="exam-report-btn" hidden>
+                                        <span data-i18n="examReportBtn">📄 Rapport</span>
+                                    </button>
+                                    <button class="btn-ghost exam-btn" id="examAbandonBtn" type="button" data-testid="exam-abandon-btn">
+                                        <span data-i18n="examAbandonBtn">✕ Abandonner</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mode-group-title" data-i18n="modeRogueTitle">Machine inconnue</div>
+                        <div class="rogue-row">
+                            <p class="rogue-desc" data-i18n="rogueDesc">Une box générée à la volée depuis une graine. Aucun briefing, aucune catégorie : à toi d'énumérer. Même graine = même machine, partout.</p>
+                            <div class="rogue-controls">
+                                <input type="text" id="rogueSeed" class="rogue-seed" maxlength="16" placeholder="seed" data-testid="rogue-seed" aria-label="Rogue seed">
+                                <button class="btn-primary rogue-btn" id="rogueBtn" type="button" data-testid="rogue-btn">
+                                    <span data-i18n="rogueBtn">🎲 Générer une box</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="daily-challenge" id="dailyChallenge" data-testid="daily-challenge">
                     <span class="daily-label" data-i18n="dailyLabel">// DAILY CHALLENGE</span>
                     <span class="daily-name" id="dailyName"></span>
@@ -294,6 +467,16 @@
                         <span data-i18n="halloffameToggle">🏆 Hall of Fame</span>
                     </button>
                     <div class="halloffame-panel" id="halloffamePanel" data-testid="halloffame-panel" hidden></div>
+                </div>
+                <div class="gtfo-ref" id="gtfoRef" data-testid="gtfo-ref">
+                    <button class="btn-ghost gtfo-ref-toggle" id="gtfoRefToggle" type="button" data-testid="gtfo-ref-toggle">
+                        <span data-i18n="gtfoRefToggle">📚 GTFOBins reference</span>
+                    </button>
+                    <div class="gtfo-ref-panel" id="gtfoRefPanel" data-testid="gtfo-ref-panel" hidden>
+                        <p class="gtfo-ref-intro" data-i18n="gtfoRefIntro">Les techniques `sudo` que le jeu reconnaît. Clique une commande pour la copier.</p>
+                        <input type="text" id="gtfoRefSearch" class="gtfo-ref-search" data-testid="gtfo-ref-search" data-i18n-placeholder="gtfoRefSearch" placeholder="Filtrer par binaire… (find, python3, tar)" aria-label="Filter GTFOBins">
+                        <div class="gtfo-ref-list" id="gtfoRefList" data-testid="gtfo-ref-list"></div>
+                    </div>
                 </div>
                 <div class="home-grid" id="homeGrid" data-testid="home-grid"></div>
                 <div class="home-custom" id="homeCustom" data-testid="home-custom">
@@ -466,12 +649,19 @@
     </div>
 
     <script src="js/i18n.js"></script>
+    <script src="js/modes.js"></script>
+    <script src="js/gtfobins.js"></script>
     <script src="js/levels.js"></script>
     <script src="js/walkthrough.js"></script>
     <script src="js/fs.js"></script>
     <script src="js/commands.js"></script>
     <script src="js/mentormode.js"></script>
     <script src="js/mentor.js"></script>
+    <script src="js/stealth.js"></script>
+    <script src="js/timeattack.js"></script>
+    <script src="js/exam.js"></script>
+    <script src="js/chaos.js"></script>
+    <script src="js/story.js"></script>
     <script src="js/ghost.js"></script>
     <script src="js/terminal.js"></script>
     <script src="js/sfx.js"></script>
@@ -480,6 +670,7 @@
     <script src="js/nano.js"></script>
     <script src="js/boxbuilder.js"></script>
     <script src="js/boxeditor.js"></script>
+    <script src="js/rogue.js"></script>
     <script src="js/main.js"></script>
     <script src="js/fx.js"></script>
     <script>

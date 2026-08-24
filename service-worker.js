@@ -8,26 +8,40 @@
 // version — tests/harness.js asserts the two match, so drifting apart
 // fails `npm run test:logic` / CI instead of silently shipping stale
 // assets to already-installed users).
-const CACHE_VERSION = 'rootquest-v1.35.0';
+const CACHE_VERSION = 'rootquest-v1.43.0';
+// Must list every <script> in index.html: an asset missing here is a file an
+// offline visitor's page references and the cache has never heard of.
+// tests/harness.js compares this list against the markup, so adding a module
+// without listing it fails the suite instead of only breaking offline mode.
 const CORE_ASSETS = [
     './',
     './index.html',
     './styles.css',
     './manifest.webmanifest',
     './js/i18n.js',
+    './js/modes.js',
+    './js/gtfobins.js',
     './js/levels.js',
     './js/walkthrough.js',
     './js/fs.js',
     './js/commands.js',
     './js/mentormode.js',
     './js/mentor.js',
+    './js/stealth.js',
+    './js/timeattack.js',
+    './js/exam.js',
+    './js/chaos.js',
+    './js/story.js',
     './js/ghost.js',
     './js/terminal.js',
     './js/sfx.js',
     './js/walkmode.js',
     './js/proof.js',
     './js/nano.js',
+    './js/boxbuilder.js',
+    './js/boxeditor.js',
     './js/main.js',
+    './js/rogue.js',
     './js/fx.js',
     './assets/fonts/fonts.css',
     './assets/fonts/jetbrainsmono-400-latin.woff2',

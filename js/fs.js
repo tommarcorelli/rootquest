@@ -7,6 +7,10 @@ window.FS = {
         this._level = level;
         // Deep clone the level's fs
         this._tree = JSON.parse(JSON.stringify(level.fs));
+        // Boxes whose blue-team fix is editing /etc/sudoers need it to be a
+        // real file rather than the usual unreadable stub. Generated from the
+        // level's declared rules so no box has to carry a duplicate copy.
+        if (window.CMD && window.CMD.materializeSudoers) window.CMD.materializeSudoers(level);
     },
 
     exists(path) {
@@ -71,6 +75,17 @@ window.FS = {
         return true;
     },
 
+    createDir(path, owner) {
+        const n = this.normalize(path);
+        if (this._tree[n]) return false;
+        const parentNode = this._tree[this.parent(n)];
+        if (!parentNode || parentNode.type !== 'dir') return false;
+        this._tree[n] = { type: 'dir', owner: owner || window.SESSION.user, mode: '755', children: [] };
+        const name = this.basename(n);
+        if (!parentNode.children.includes(name)) parentNode.children.push(name);
+        return true;
+    },
+
     writeFile(path, content) {
         const n = this.normalize(path);
         if (!this._tree[n]) {
@@ -86,6 +101,27 @@ window.FS = {
             return this.createFile(n, content);
         }
         this._tree[n].content = (this._tree[n].content || '') + content;
+        return true;
+    },
+
+    // Unlinks a node and drops it from its parent's `children`. Directories
+    // are removed recursively (the `rm -r` case) so no orphan entries are
+    // left behind in the flat tree.
+    remove(path) {
+        const n = this.normalize(path);
+        const node = this._tree[n];
+        if (!node || n === '/') return false;
+        if (node.type === 'dir') {
+            for (const name of [...(node.children || [])]) {
+                this.remove(n === '/' ? '/' + name : n + '/' + name);
+            }
+        }
+        const parentNode = this._tree[this.parent(n)];
+        if (parentNode && Array.isArray(parentNode.children)) {
+            const name = this.basename(n);
+            parentNode.children = parentNode.children.filter(c => c !== name);
+        }
+        delete this._tree[n];
         return true;
     },
 

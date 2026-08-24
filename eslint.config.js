@@ -30,6 +30,10 @@ module.exports = [
                 location: 'readonly',
                 history: 'readonly',
                 Notification: 'readonly',
+                crypto: 'readonly',
+                Uint32Array: 'readonly',
+                Blob: 'readonly',
+                URL: 'readonly',
                 // Every module hangs its API off `window.*` and reads the
                 // others back from there (no bundler / import graph), so the
                 // cross-file globals below are all "defined elsewhere".

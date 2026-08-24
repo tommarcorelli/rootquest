@@ -196,6 +196,11 @@ window.TERM = {
         }
         if (window.SFX && lines.some(l => l.cls === 'err')) window.SFX.error();
         this.scrollToBottom();
+        // Explanation mode ticks off steps as you run them, so it has to
+        // re-render once the command has actually landed in the history.
+        if (window.WALKMODE && window.WALKMODE.enabled && window.GAME && window.GAME.renderWalkthrough) {
+            window.GAME.renderWalkthrough();
+        }
         if (window.GAME && window.GAME.saveProgress) window.GAME.saveProgress();
     },
 

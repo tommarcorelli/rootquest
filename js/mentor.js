@@ -18,16 +18,33 @@ window.MENTOR = {
     fired: new Set(),   // Set of rule ids already used this machine (each fires once)
     reconSeenAt: 0,      // cmdCount when the category recon command was first spotted, or 0
 
+    inspected: {},       // path -> times looked at without ever being run
+    _errStreak: 0,
+
     MIN_GAP: 4,          // minimum commands between two nudges
     RECON_THRESHOLD: 7,  // nudge toward recon if not attempted by this many commands
     STUCK_THRESHOLD: 9,  // nudge toward "next step" this many commands after recon was spotted
     LOST_THRESHOLD: 22,  // last-resort meta nudge, points back at the hint button
+    LOOP_THRESHOLD: 3,   // same command this many times in the last few entries
+    IDLE_THRESHOLD: 6,   // commands to sit on a found-but-unused binary before nudging
+
+    // Difficulty changes what "taking a while" means. On an ADVANCED box,
+    // fifteen commands of careful enumeration is good practice, not being
+    // stuck — nudging there would be nagging. Thresholds scale with the tier.
+    TIER_PACE: { EASY: 0.8, MEDIUM: 1, HARD: 1.45, CUSTOM: 1 },
+    pace() {
+        const meta = (window.MACHINE_META && window.GAME && window.MACHINE_META[window.GAME.currentLevel]) || {};
+        return this.TIER_PACE[meta.diff] || 1;
+    },
+    at(threshold) { return Math.round(threshold * this.pace()); },
 
     resetForLevel() {
         this.log = [];
         this.lastNudgeAt = 0;
         this.fired = new Set();
         this.reconSeenAt = 0;
+        this.inspected = {};
+        this._errStreak = 0;
     },
 
     // A rough per-category regex for "the player just did the recon move
@@ -50,7 +67,9 @@ window.MENTOR = {
         DOCKER: /\bid\b|\/etc\/group/i,
         SSH: /\/opt\/backup/i,
         'LD.PRELOAD': /ld\.so\.preload/i,
-        NFS: /showmount/i
+        NFS: /showmount/i,
+        LXD: /\bid\b|\/etc\/group|\blxc\b/i,
+        SYSTEMD: /systemctl|\/etc\/systemd/i
     },
 
     // The category-flavored "have you thought about..." line for the recon
@@ -75,6 +94,8 @@ window.MENTOR = {
         'LD.LIBPATH': { en: "A binary looking for a library by name, not by path, trusts whatever shows up first in its search path. Related to LD_PRELOAD, but not quite the same trick.", fr: "Un binaire qui cherche une bibliothèque par son nom, pas par son chemin, fait confiance à ce qui arrive en premier dans son chemin de recherche. Proche de LD_PRELOAD, mais pas tout à fait la même astuce.", es: "Un binario que busca una biblioteca por su nombre, no por su ruta, confía en lo primero que aparezca en su ruta de búsqueda. Relacionado con LD_PRELOAD, pero no exactamente el mismo truco." },
         NFS: { en: "Some network shares trust the client's claimed user ID a little too much. Worth checking what's exported and whether root gets squashed.", fr: "Certains partages réseau font un peu trop confiance à l'identité déclarée par le client. Ça vaut le coup de vérifier ce qui est exporté et si root est bridé.", es: "Algunas comparticiones de red confían un poco demasiado en el ID de usuario que declara el cliente. Vale la pena comprobar qué se exporta y si root queda restringido." },
         EDITOR: { en: "sudo can let you edit a file as root without ever running it directly — but it still has to launch an editor to do that. Which editor, exactly?", fr: "sudo peut te laisser éditer un fichier en root sans jamais l'exécuter directement — mais il doit quand même lancer un éditeur pour ça. Lequel, au juste ?", es: "sudo puede dejarte editar un archivo como root sin ejecutarlo nunca directamente — pero igualmente tiene que lanzar un editor para hacerlo. ¿Cuál, exactamente?" },
+        LXD: { en: "Being in a certain group can be as good as being root — and docker isn't the only one. Check every group you're in; some of them can drive a daemon that runs as root.", fr: "Appartenir à un certain groupe peut valoir root — et docker n'est pas le seul. Vérifie chaque groupe dont tu fais partie ; certains peuvent piloter un daemon qui tourne en root.", es: "Pertenecer a cierto grupo puede valer tanto como root — y docker no es el único. Revisa cada grupo al que perteneces; algunos pueden manejar un daemon que corre como root." },
+        SYSTEMD: { en: "Something runs on a schedule as root here — but this time look at what starts it, not just the script. Who can write to the unit file itself?", fr: "Quelque chose tourne à intervalle régulier en root ici — mais cette fois regarde ce qui le lance, pas seulement le script. Qui peut écrire dans le fichier d'unité lui-même ?", es: "Algo se ejecuta de forma programada como root aquí — pero esta vez mira qué lo lanza, no solo el script. ¿Quién puede escribir en el propio archivo de unidad?" },
         DEFAULT: { en: "No rush. On a box like this, the first useful move is usually just looking around carefully — who you are, where you are, what's around you.", fr: "Pas de précipitation. Sur ce genre de machine, le premier réflexe utile est en général de bien regarder autour de toi — qui tu es, où tu es, ce qu'il y a autour.", es: "Sin prisa. En una máquina así, el primer movimiento útil suele ser simplemente mirar bien alrededor — quién eres, dónde estás, qué hay a tu alrededor." }
     },
 
@@ -106,9 +127,66 @@ window.MENTOR = {
         };
     },
 
+    loopLine(cmd) {
+        return {
+            en: `You've run \`${cmd}\` several times now and it's answering the same thing each time. It isn't going to change its mind — the next move is a different question, not a louder version of this one.`,
+            fr: `Tu as lancé \`${cmd}\` plusieurs fois et il répond la même chose à chaque fois. Il ne va pas changer d'avis — la suite, c'est une autre question, pas la même en plus insistant.`,
+            es: `Has ejecutado \`${cmd}\` varias veces y responde lo mismo cada vez. No va a cambiar de opinión — el siguiente paso es otra pregunta, no la misma más insistente.`
+        };
+    },
+
+    idleFindLine(path) {
+        return {
+            en: `You found \`${path}\` and you've looked at it more than once, but you've never actually run it. Reading a binary tells you it exists; running it tells you what it hands you.`,
+            fr: `Tu as trouvé \`${path}\` et tu l'as regardé plus d'une fois, mais tu ne l'as jamais lancé. Lire un binaire dit qu'il existe ; l'exécuter dit ce qu'il te donne.`,
+            es: `Encontraste \`${path}\` y lo has mirado más de una vez, pero nunca lo has ejecutado. Leer un binario te dice que existe; ejecutarlo te dice qué te ofrece.`
+        };
+    },
+
+    // ── Observation helpers (pure, so the harness can drive them) ────────
+    // A command is "inspecting" a path when it only reads metadata/content;
+    // it is "using" it when the path is the command word itself.
+    INSPECT_RE: /^\s*(ls|cat|file|stat|getcap|head|tail|strings|less|more)\b/,
+    // Paths worth tracking: things you could plausibly execute.
+    BIN_RE: /(^|\s)(\/(?:usr\/local\/|usr\/|opt\/|s?bin\/)\S+)/,
+
+    // Records interest in a binary the player keeps reading but never runs.
+    observePaths(raw) {
+        const cmd = String(raw || '');
+        const first = cmd.trim().split(/\s+/)[0] || '';
+        // Running it (directly or via sudo/exec) clears it from the watch list.
+        const ran = cmd.match(/(?:^|\s|sudo\s+|exec\s+)(\/(?:usr\/local\/|usr\/|opt\/|s?bin\/)\S+)/);
+        if (ran && !this.INSPECT_RE.test(cmd)) { delete this.inspected[ran[1]]; return; }
+        if (!this.INSPECT_RE.test(cmd)) return;
+        const m = cmd.slice(first.length).match(this.BIN_RE);
+        if (!m) return;
+        const path = m[2].replace(/[;)'"]+$/, '');
+        this.inspected[path] = (this.inspected[path] || 0) + 1;
+    },
+
+    // The path the player has read at least twice and never executed, if any.
+    idleFind() {
+        for (const [path, seen] of Object.entries(this.inspected)) {
+            if (seen >= 2) return path;
+        }
+        return null;
+    },
+
+    // The command repeated LOOP_THRESHOLD times in the recent window, if any.
+    loopingCommand() {
+        const recent = this.log.slice(-6).map(c => String(c).trim()).filter(Boolean);
+        const counts = {};
+        for (const c of recent) counts[c] = (counts[c] || 0) + 1;
+        for (const [cmd, n] of Object.entries(counts)) {
+            if (n >= this.LOOP_THRESHOLD) return cmd;
+        }
+        return null;
+    },
+
     // Called once per line-set the terminal prints for a submitted command.
     onCommand(raw, outLines) {
         if (!window.MENTORMODE || !window.MENTORMODE.enabled) return;
+        if (window.MODES && !window.MODES.assistAllowed()) return;
         if (!window.GAME || !window.SESSION) return;
         if (SESSION.isRoot || SESSION.blueTeam) return;
         const lvl = window.GAME.level && window.GAME.level();
@@ -130,6 +208,7 @@ window.MENTOR = {
         // window would never be counted (only the *nudge itself* should be
         // throttled, not the observation feeding it).
         this._errStreak = errored ? (this._errStreak || 0) + 1 : 0;
+        this.observePaths(raw);
 
         // Rate limit: never more than one nudge per MIN_GAP commands.
         if (cmds - this.lastNudgeAt < this.MIN_GAP) return;
@@ -142,24 +221,45 @@ window.MENTOR = {
             return;
         }
 
-        // Rule 2 — recon not attempted yet after a while.
-        if (!this.reconSeenAt && cmds >= this.RECON_THRESHOLD && !this.fired.has('recon')) {
+        // Rule 2 — the same command over and over. The most common way to be
+        // stuck is not "no idea what to do", it's re-running the last thing
+        // that worked hoping for a different answer.
+        const looping = this.loopingCommand();
+        if (looping && !this.fired.has('loop')) {
+            this.say(this.loopLine(looping));
+            this.fired.add('loop');
+            this.lastNudgeAt = cmds;
+            return;
+        }
+
+        // Rule 3 — recon not attempted yet after a while.
+        if (!this.reconSeenAt && cmds >= this.at(this.RECON_THRESHOLD) && !this.fired.has('recon')) {
             this.say(this.reconLine(cat));
             this.fired.add('recon');
             this.lastNudgeAt = cmds;
             return;
         }
 
-        // Rule 3 — recon happened, but no root a while after.
-        if (this.reconSeenAt && (cmds - this.reconSeenAt) >= this.STUCK_THRESHOLD && !this.fired.has('stuck')) {
+        // Rule 4 — found the vector, keeps re-reading it, never runs it. The
+        // second most common way to be stuck, and the one hints answer worst.
+        const idle = this.idleFind();
+        if (idle && this.reconSeenAt && (cmds - this.reconSeenAt) >= this.at(this.IDLE_THRESHOLD) && !this.fired.has('idle')) {
+            this.say(this.idleFindLine(idle));
+            this.fired.add('idle');
+            this.lastNudgeAt = cmds;
+            return;
+        }
+
+        // Rule 5 — recon happened, but no root a while after.
+        if (this.reconSeenAt && (cmds - this.reconSeenAt) >= this.at(this.STUCK_THRESHOLD) && !this.fired.has('stuck')) {
             this.say(this.stuckLine());
             this.fired.add('stuck');
             this.lastNudgeAt = cmds;
             return;
         }
 
-        // Rule 4 — last resort, only once, points at the existing hint system.
-        if (cmds >= this.LOST_THRESHOLD && !this.fired.has('lost')) {
+        // Rule 6 — last resort, only once, points at the existing hint system.
+        if (cmds >= this.at(this.LOST_THRESHOLD) && !this.fired.has('lost')) {
             this.say(this.lostLine());
             this.fired.add('lost');
             this.lastNudgeAt = cmds;

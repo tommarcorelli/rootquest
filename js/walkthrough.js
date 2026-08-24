@@ -501,5 +501,29 @@ window.WALKTHROUGHS = {
             en: '--eval injects a rule straight into make\'s internal makefile, before it ever reads a Makefile from disk. The rule\'s recipe is just a shell command line, run during the recipe-execution phase with whatever privilege make has: root.',
             fr: "--eval injecte une règle directement dans le makefile interne de make, avant même qu'il ne lise un Makefile sur disque. La recette de la règle est une simple ligne de commande shell, exécutée pendant la phase d'exécution des recettes avec le privilège de make : root.",
             es: '--eval inyecta una regla directamente en el makefile interno de make, antes incluso de leer ningún Makefile del disco. La receta de la regla es simplemente una línea de comando de shell, ejecutada durante la fase de ejecución de recetas con el privilegio que tenga make: root.' } }
+    ],
+    39: [ // lxd group -> privileged container
+        { cmd: 'id', explain: {
+            en: 'Check your groups. Membership of "lxd" (like "docker") means you can drive a daemon that runs as root — group ≈ root.',
+            fr: 'Vérifie tes groupes. Appartenir à "lxd" (comme "docker") signifie que tu peux piloter un daemon qui tourne en root — groupe ≈ root.',
+            es: 'Comprueba tus grupos. Pertenecer a "lxd" (como "docker") significa que puedes manejar un daemon que corre como root — grupo ≈ root.' } },
+        { cmd: 'lxc init alpine r -c security.privileged=true', explain: {
+            en: 'A privileged container drops the isolation that normally keeps a container away from the host. With a disk device pointed at source=/ it bind-mounts the whole host — you are now root over it.',
+            fr: "Un conteneur privilégié tombe l'isolation qui garde normalement un conteneur à distance de l'hôte. Avec un device disk pointé sur source=/ il monte tout l'hôte — tu es maintenant root dessus.",
+            es: 'Un contenedor privilegiado quita el aislamiento que normalmente mantiene un contenedor lejos del host. Con un device disk apuntando a source=/ monta todo el host — ahora eres root sobre él.' } }
+    ],
+    40: [ // world-writable systemd unit
+        { cmd: 'ls -la /etc/systemd/system/backup.service', explain: {
+            en: 'A root timer runs this service on a schedule. The unit file is world-writable (rw-rw-rw-) — the dangerous permission is on the unit itself, not the script it names.',
+            fr: "Un timer root lance ce service à intervalle régulier. Le fichier d'unité est modifiable par tous (rw-rw-rw-) — la permission dangereuse est sur l'unité elle-même, pas sur le script qu'elle nomme.",
+            es: 'Un timer root ejecuta este servicio de forma programada. El archivo de unidad es escribible por todos (rw-rw-rw-) — el permiso peligroso está en la propia unidad, no en el script que nombra.' } },
+        { cmd: 'echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service', explain: {
+            en: 'Rewrite ExecStart to a payload of your choice. When the root timer fires the service next, it runs this line as root — here, making bash SUID so you can drop into a root shell.',
+            fr: "Réécris ExecStart vers un payload de ton choix. Au prochain déclenchement du timer root, il exécute cette ligne en root — ici, rendre bash SUID pour pouvoir ouvrir un shell root.",
+            es: 'Reescribe ExecStart hacia un payload de tu elección. Cuando el timer root dispare el servicio la próxima vez, ejecuta esta línea como root — aquí, haciendo bash SUID para poder abrir un shell root.' } },
+        { cmd: 'wait', explain: {
+            en: 'Wait for the timer to fire. The service runs your ExecStart as root, and the box is yours.',
+            fr: "Attends que le timer se déclenche. Le service exécute ton ExecStart en root, et la box est à toi.",
+            es: 'Espera a que el timer dispare. El servicio ejecuta tu ExecStart como root, y la box es tuya.' } }
     ]
 };

@@ -1957,6 +1957,7 @@ ZW3vYmFja3VwLWtleS1sZWFrZWQtZG8tbm90LXVzZS1pbi1wcm9kAAAAAAECAwQF
         harden: {
             target: '/usr/bin/python3',
             type: 'unset_cap',
+            obj: { en: 'Strip the cap_dac_read_search capability from python3', fr: 'Retire la capability cap_dac_read_search de python3', es: 'Retira la capability cap_dac_read_search de python3' },
             hint: { en: 'setcap -r /usr/bin/python3', fr: 'setcap -r /usr/bin/python3', es: 'setcap -r /usr/bin/python3' }
         },
         debrief: {
@@ -3526,4 +3527,159 @@ echo "healthcheck ok at $(date)" >> /var/log/monitor.log
             }
         }
     }
+    ,{
+        id: 39,
+        codename: 'box-39',
+        title: { en: 'Box-39 · Contained Ambition', fr: 'Box-39 · Ambition conteneurisée', es: 'Box-39 · Ambición contenida' },
+        brief: {
+            en: 'You are in the "lxd" group. Like docker, that is root by another name — the daemon runs as root and will launch a privileged container with the host disk mounted inside if you ask it to.',
+            fr: 'Tu es dans le groupe "lxd". Comme docker, c\'est root sous un autre nom — le daemon tourne en root et lancera pour toi un conteneur privilégié avec le disque hôte monté dedans.',
+            es: 'Estás en el grupo "lxd". Como docker, eso es root con otro nombre — el daemon corre como root y lanzará un contenedor privilegiado con el disco del host montado dentro si se lo pides.'
+        },
+        user: 'player', host: 'box-39', cwd: '/home/player',
+        objectives: {
+            en: ['Confirm your group membership', 'Launch a privileged container', 'Mount the host root and step in as root'],
+            fr: ['Confirmer ton appartenance au groupe', 'Lancer un conteneur privilégié', 'Monter la racine hôte et y entrer en root'],
+            es: ['Confirmar tu pertenencia al grupo', 'Lanzar un contenedor privilegiado', 'Montar la raíz del host y entrar como root']
+        },
+        hints: {
+            en: ['Check your groups: id — "lxd" is a known root-equivalent group.', 'A privileged container drops the isolation: -c security.privileged=true', 'Then bind-mount the host: a disk device with source=/ — the container is now root over the host.'],
+            fr: ['Vérifie tes groupes : id — "lxd" est un groupe équivalent-root connu.', 'Un conteneur privilégié tombe l\'isolation : -c security.privileged=true', 'Puis monte l\'hôte : un device disk avec source=/ — le conteneur est root sur l\'hôte.'],
+            es: ['Comprueba tus grupos: id — "lxd" es un grupo equivalente a root conocido.', 'Un contenedor privilegiado quita el aislamiento: -c security.privileged=true', 'Luego monta el host: un device disk con source=/ — el contenedor ya es root sobre el host.']
+        },
+        flag: 'flag{lxd_group_pwn3d}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'group'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/group': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:\nlxd:x:998:player\nplayer:x:1000:\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{lxd_group_pwn3d}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'id', 'lxc'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/id': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/lxc': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [{ type: 'lxd_group' }],
+        debrief: {
+            en: { vuln: 'Membership of the lxd group', why: 'The lxd group can drive the LXD daemon, which runs as root. Launching a privileged container (security.privileged=true) and attaching a disk device with source=/ bind-mounts the whole host inside a container you fully control — an unrestricted root shell over the host. lxd group ≈ root, exactly like docker.', fix: 'Treat lxd (and docker, kvm, disk) group membership as equivalent to root; grant it only to trusted admins. Prefer rootless tooling and audit these groups regularly.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe/lxd-privilege-escalation' },
+            fr: { vuln: 'Appartenance au groupe lxd', why: 'Le groupe lxd peut piloter le daemon LXD, qui tourne en root. Lancer un conteneur privilégié (security.privileged=true) et y attacher un device disk avec source=/ monte tout l\'hôte dans un conteneur que tu contrôles entièrement — un shell root sans restriction sur l\'hôte. Groupe lxd ≈ root, exactement comme docker.', fix: 'Considère l\'appartenance aux groupes lxd (et docker, kvm, disk) comme équivalente à root ; ne l\'accorde qu\'à des admins de confiance. Privilégie les outils rootless et audite ces groupes régulièrement.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe/lxd-privilege-escalation' },
+            es: { vuln: 'Pertenencia al grupo lxd', why: 'El grupo lxd puede manejar el daemon LXD, que corre como root. Lanzar un contenedor privilegiado (security.privileged=true) y adjuntar un device disk con source=/ monta todo el host dentro de un contenedor que controlas por completo — un shell root sin restricciones sobre el host. Grupo lxd ≈ root, igual que docker.', fix: 'Trata la pertenencia a los grupos lxd (y docker, kvm, disk) como equivalente a root; concédela solo a admins de confianza. Prefiere herramientas rootless y audita estos grupos con regularidad.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation/interesting-groups-linux-pe/lxd-privilege-escalation' }
+        }
+    }
+    ,{
+        id: 40,
+        codename: 'box-40',
+        title: { en: 'Box-40 · Unit of Trust', fr: 'Box-40 · Unité de confiance', es: 'Box-40 · Unidad de confianza' },
+        brief: {
+            en: 'A root-owned systemd timer runs backup.service every minute. The service unit is world-writable — so you decide what root runs.',
+            fr: 'Un timer systemd appartenant à root lance backup.service chaque minute. Le fichier de service est modifiable par tout le monde — c\'est donc toi qui décides ce que root exécute.',
+            es: 'Un timer de systemd propiedad de root ejecuta backup.service cada minuto. El archivo de servicio es escribible por todos — así que tú decides qué ejecuta root.'
+        },
+        user: 'player', host: 'box-40', cwd: '/home/player',
+        objectives: {
+            en: ['Find the scheduled unit and its permissions', 'Point its ExecStart at a payload of your choice', 'Wait for the root timer to fire it'],
+            fr: ['Trouver l\'unité planifiée et ses permissions', 'Faire pointer son ExecStart vers un payload de ton choix', 'Attendre que le timer root la déclenche'],
+            es: ['Encontrar la unidad programada y sus permisos', 'Apuntar su ExecStart a un payload de tu elección', 'Esperar a que el timer root la dispare']
+        },
+        hints: {
+            en: ['List the timers: systemctl list-timers — backup.timer fires backup.service as root.', 'Check the unit file: ls -la /etc/systemd/system/backup.service — it is world-writable.', 'Rewrite ExecStart, e.g. echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service, then wait.'],
+            fr: ['Liste les timers : systemctl list-timers — backup.timer lance backup.service en root.', 'Regarde le fichier d\'unité : ls -la /etc/systemd/system/backup.service — il est modifiable par tous.', 'Réécris ExecStart, ex. echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service, puis wait.'],
+            es: ['Lista los timers: systemctl list-timers — backup.timer ejecuta backup.service como root.', 'Mira el archivo de unidad: ls -la /etc/systemd/system/backup.service — es escribible por todos.', 'Reescribe ExecStart, p. ej. echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service, luego wait.']
+        },
+        flag: 'flag{systemd_unit_writable}',
+        fs: {
+            '/': { type: 'dir', owner: 'root', mode: '755', children: ['home', 'etc', 'usr', 'tmp', 'var', 'root', 'bin'] },
+            '/home': { type: 'dir', owner: 'root', mode: '755', children: ['player'] },
+            '/home/player': { type: 'dir', owner: 'player', mode: '755', children: ['.bashrc'] },
+            '/home/player/.bashrc': { type: 'file', owner: 'player', mode: '644', content: '# ~/.bashrc\n' },
+            '/etc': { type: 'dir', owner: 'root', mode: '755', children: ['passwd', 'systemd'] },
+            '/etc/passwd': { type: 'file', owner: 'root', mode: '644', content: 'root:x:0:0:root:/root:/bin/bash\nplayer:x:1000:1000:player:/home/player:/bin/bash\n' },
+            '/etc/systemd': { type: 'dir', owner: 'root', mode: '755', children: ['system'] },
+            '/etc/systemd/system': { type: 'dir', owner: 'root', mode: '755', children: ['backup.service', 'backup.timer'] },
+            '/etc/systemd/system/backup.service': { type: 'file', owner: 'root', mode: '666', writable_by_all: true, content: '[Unit]\nDescription=Nightly backup\n\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/backup.sh\n' },
+            '/etc/systemd/system/backup.timer': { type: 'file', owner: 'root', mode: '644', content: '[Unit]\nDescription=Run backup every minute\n\n[Timer]\nOnCalendar=*:0/1\nUnit=backup.service\n\n[Install]\nWantedBy=timers.target\n' },
+            '/root': { type: 'dir', owner: 'root', mode: '700', children: ['flag.txt'] },
+            '/root/flag.txt': { type: 'file', owner: 'root', mode: '600', content: 'flag{systemd_unit_writable}\n' },
+            '/usr': { type: 'dir', owner: 'root', mode: '755', children: ['bin', 'local'] },
+            '/usr/bin': { type: 'dir', owner: 'root', mode: '755', children: ['ls', 'cat', 'sh', 'bash', 'id', 'systemctl'] },
+            '/usr/bin/ls': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/cat': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/bash': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/id': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/bin/systemctl': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' },
+            '/usr/local': { type: 'dir', owner: 'root', mode: '755', children: ['bin'] },
+            '/usr/local/bin': { type: 'dir', owner: 'root', mode: '755', children: ['backup.sh'] },
+            '/usr/local/bin/backup.sh': { type: 'file', owner: 'root', mode: '755', content: '#!/bin/sh\n# nightly backup job\ntar czf /var/backups/home.tgz /home 2>/dev/null\n' },
+            '/var': { type: 'dir', owner: 'root', mode: '755', children: [] },
+            '/tmp': { type: 'dir', owner: 'root', mode: '1777', children: [] },
+            '/bin': { type: 'dir', owner: 'root', mode: '755', children: ['sh'] },
+            '/bin/sh': { type: 'file', owner: 'root', mode: '755', content: 'ELF binary' }
+        },
+        wins: [{ type: 'systemd_service', path: '/etc/systemd/system/backup.service' }],
+        harden: {
+            type: 'lock_perms', target: '/etc/systemd/system/backup.service',
+            obj: { en: 'Remove world-write from the backup.service unit', fr: 'Retire le droit d\'écriture pour tous du fichier backup.service', es: 'Quita el permiso de escritura global del archivo backup.service' },
+            hint: { en: 'chmod 644 /etc/systemd/system/backup.service', fr: 'chmod 644 /etc/systemd/system/backup.service', es: 'chmod 644 /etc/systemd/system/backup.service' }
+        },
+        debrief: {
+            en: { vuln: 'World-writable systemd service unit', why: 'A systemd timer runs backup.service as root on a schedule. Because the unit file itself is world-writable, any user can rewrite its ExecStart to an arbitrary command — which then runs with the timer\'s root privilege the next time it fires. The dangerous permission is on the *unit*, not the script it points at, so tightening the script alone would not have helped.', fix: 'Unit files under /etc/systemd/system must be root-owned and not world-writable (chmod 644). Audit ExecStart targets too, and prefer running scheduled work as a dedicated low-privilege user rather than root.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#writable-systemd-path-units' },
+            fr: { vuln: 'Fichier d\'unité systemd modifiable par tous', why: 'Un timer systemd lance backup.service en root à intervalle régulier. Comme le fichier d\'unité lui-même est modifiable par tous, n\'importe quel utilisateur peut réécrire son ExecStart vers une commande arbitraire — qui s\'exécutera avec le privilège root du timer au prochain déclenchement. La permission dangereuse est sur l\'*unité*, pas sur le script qu\'elle pointe : durcir seulement le script n\'aurait rien changé.', fix: 'Les fichiers d\'unité sous /etc/systemd/system doivent appartenir à root et ne pas être modifiables par tous (chmod 644). Audite aussi les cibles ExecStart, et fais tourner les tâches planifiées sous un utilisateur dédié peu privilégié plutôt qu\'en root.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#writable-systemd-path-units' },
+            es: { vuln: 'Archivo de unidad systemd escribible por todos', why: 'Un timer de systemd ejecuta backup.service como root de forma programada. Como el propio archivo de unidad es escribible por todos, cualquier usuario puede reescribir su ExecStart hacia un comando arbitrario — que se ejecutará con el privilegio root del timer en el siguiente disparo. El permiso peligroso está en la *unidad*, no en el script al que apunta, así que endurecer solo el script no habría servido.', fix: 'Los archivos de unidad en /etc/systemd/system deben ser propiedad de root y no escribibles por todos (chmod 644). Audita también los destinos ExecStart, y ejecuta las tareas programadas con un usuario dedicado de bajo privilegio en vez de root.', link: 'https://book.hacktricks.xyz/linux-hardening/privilege-escalation#writable-systemd-path-units' }
+        }
+    }
 ];
+
+// ── Blue-team coverage for sudo boxes ───────────────────────────────────────
+// Hand-written `harden` blocks only ever existed for the boxes whose fix is a
+// single chmod/setcap (11 of them), which left every sudoers-based machine —
+// the largest family in the lab — with no blue-team phase at all. The fix for
+// all of them is the same sentence ("take that rule out of /etc/sudoers"), so
+// writing it out twenty times in three languages would be duplication, not
+// content. This pass attaches a generated block to any box that grants the
+// player a sudo rule and doesn't already declare its own hardening.
+//
+// It's verified the honest way: CMD.checkHardened re-reads the effective sudo
+// rules after the edit, so the box only counts as hardened once the exploit
+// the player just used genuinely stops working.
+(function generateSudoHardening() {
+    for (const lvl of window.LEVELS) {
+        if (lvl.harden) continue;
+        const user = lvl.user || 'player';
+        const entries = (lvl.sudoers && lvl.sudoers[user]) || [];
+        if (!entries.length) continue;
+        const named = entries.map(e => e.cmd).filter(c => c && c !== 'ALL');
+        const bin = named.length ? named[0] : 'ALL';
+        lvl.harden = {
+            type: 'revoke_sudo',
+            target: '/etc/sudoers',
+            bin,
+            obj: {
+                en: `Revoke the sudo rule that lets ${user} run ${bin}`,
+                fr: `Révoque la règle sudo qui autorise ${user} à lancer ${bin}`,
+                es: `Revoca la regla sudo que permite a ${user} ejecutar ${bin}`
+            },
+            // A runnable one-liner rather than prose: the fix has to be
+            // something the player can type and the game can verify. On a real
+            // host you would go through visudo, which syntax-checks before it
+            // saves — locking everyone out of sudo is a genuine hazard here.
+            hint: {
+                en: `sed -i '/^${user}/d' /etc/sudoers`,
+                fr: `sed -i '/^${user}/d' /etc/sudoers`,
+                es: `sed -i '/^${user}/d' /etc/sudoers`
+            }
+        };
+    }
+})();

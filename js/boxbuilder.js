@@ -142,7 +142,12 @@ window.BOXBUILDER = {
             fs['/usr/bin/sudo'] = window.BOXBUILDER.SUID_BIN();
             fs['/usr/bin/' + bin] = window.BOXBUILDER.ELF_BIN();
             fs['/usr/bin'].children.push('sudo', bin);
-            const payload = window.BOXBUILDER.SUDO_PAYLOADS[bin] || window.BOXBUILDER.SUDO_PAYLOADS.find;
+            // The nine baked-in payloads still win for their bins; anything
+            // else falls through to the ingested GTFOBins table, so the
+            // builder can target any technique the escape engine understands.
+            const payload = window.BOXBUILDER.SUDO_PAYLOADS[bin]
+                || (window.GTFOBINS && window.GTFOBINS.payload(bin))
+                || window.BOXBUILDER.SUDO_PAYLOADS.find;
             return {
                 fs,
                 sudoers: { player: [{ cmd: '/usr/bin/' + bin, nopasswd: true, runas: 'root' }] },

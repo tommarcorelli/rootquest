@@ -37,12 +37,14 @@ window.MACHINE_META = [
     { cat: 'CRON',     diff: 'EASY' },
     { cat: 'SUDO',     diff: 'EASY' },
     { cat: 'SUDO',     diff: 'MEDIUM' },
-    { cat: 'SUDO',     diff: 'EASY' }
+    { cat: 'SUDO',     diff: 'EASY' },
+    { cat: 'LXD',      diff: 'HARD' },
+    { cat: 'SYSTEMD',  diff: 'MEDIUM' }
 ];
 
 // Difficulty tiers rendered on the hub, in order. CUSTOM only ever gets
 // entries the player imports — buildHomeGrid skips a tier with none.
-window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD', 'CUSTOM'];
+window.DIFF_TIERS = ['EASY', 'MEDIUM', 'HARD', 'ROGUE', 'CUSTOM'];
 
 // Contextual cheatsheet: the commands worth trying on each machine category.
 window.CHEATS_BY_CAT = {
@@ -62,7 +64,9 @@ window.CHEATS_BY_CAT = {
     'LD.PRELOAD': ['ls -la /etc/ld.so.preload', 'echo /tmp/x.so > /etc/ld.so.preload'],
     'LD.LIBPATH': ['sudo -l', 'cat /usr/local/bin/README.txt', 'gcc -shared -fPIC -nostartfiles -o /tmp/<lib> /tmp/<lib>.c'],
     NFS:        ['showmount -e', 'cat /etc/exports', 'mount -t nfs host:/export /mnt'],
-    EDITOR:     ['sudo -l', 'chmod +x <script>', 'sudo EDITOR=<script> -e <file>']
+    EDITOR:     ['sudo -l', 'chmod +x <script>', 'sudo EDITOR=<script> -e <file>'],
+    LXD:        ['id', 'cat /etc/group', 'lxc init alpine r -c security.privileged=true'],
+    SYSTEMD:    ['systemctl list-timers', 'ls -la /etc/systemd/system/backup.service', 'echo \'ExecStart=/bin/sh -c "chmod +s /bin/bash"\' > /etc/systemd/system/backup.service', 'wait']
 };
 
 // Achievements — checked against a small progress snapshot.
@@ -74,7 +78,13 @@ window.ACHIEVEMENTS = [
     { id: 'defender', icon: '🛡️', name: { en: 'Defender', fr: 'Défenseur', es: 'Defensor' }, desc: { en: 'Harden a box (blue team)', fr: 'Durcir une box (blue team)', es: 'Endurece una box (blue team)' }, check: s => s.hardened >= 1 },
     { id: 'blue_legend', icon: '🔵', name: { en: 'Blue-Team Legend', fr: 'Légende blue team', es: 'Leyenda blue team' }, desc: { en: 'Harden every fixable box', fr: 'Durcir toutes les box corrigeables', es: 'Endurece todas las box corregibles' }, check: s => s.hardened >= s.hardenable },
     { id: 'ghost', icon: '👻', name: { en: 'Ghost', fr: 'Fantôme', es: 'Fantasma' }, desc: { en: 'Earn an S rank (no hints)', fr: 'Obtenir un rang S (sans indice)', es: 'Consigue un rango S (sin pistas)' }, check: s => s.sRank },
-    { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner', es: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s', es: 'Consigue root en una box en menos de 45s' }, check: s => s.speed }
+    { id: 'speedrunner', icon: '🏁', name: { en: 'Speedrunner', fr: 'Speedrunner', es: 'Speedrunner' }, desc: { en: 'Root a box in under 45s', fr: 'Rooter une box en moins de 45s', es: 'Consigue root en una box en menos de 45s' }, check: s => s.speed },
+    // Earned by the challenge modes — each one is proof the constraint held,
+    // not just that the mode was switched on.
+    { id: 'phantom', icon: '🕵️', name: { en: 'Phantom', fr: 'Fantôme absolu', es: 'Fantasma absoluto' }, desc: { en: 'Root a box in stealth mode under 20% detection', fr: 'Rooter une box en mode furtif sous 20 % de détection', es: 'Consigue root en modo sigilo por debajo del 20 % de detección' }, check: s => s.phantom },
+    { id: 'no_net', icon: '🕶️', name: { en: 'No Safety Net', fr: 'Sans filet', es: 'Sin red' }, desc: { en: 'Root a box in hardcore mode', fr: 'Rooter une box en mode hardcore', es: 'Consigue root en modo hardcore' }, check: s => s.hardcore },
+    { id: 'beat_clock', icon: '⏱️', name: { en: 'Beat the Clock', fr: 'Contre le chrono', es: 'Contra el reloj' }, desc: { en: 'Root a box before the time attack countdown runs out', fr: 'Rooter une box avant la fin du compte à rebours', es: 'Consigue root antes de que acabe la cuenta atrás' }, check: s => s.beatClock },
+    { id: 'survivor', icon: '🌪️', name: { en: 'Eye of the Storm', fr: 'Œil du cyclone', es: 'Ojo del huracán' }, desc: { en: 'Root a box in chaos mode', fr: 'Rooter une box en mode chaos', es: 'Consigue root en modo caos' }, check: s => s.survivor }
 ];
 
 // Custom box import/export — validated JSON, no build step, no server.
@@ -146,6 +156,8 @@ window.GAME_CUSTOM = {
             vulnLib: obj.vulnLib,
             wins: obj.wins,
             debrief: obj.debrief,
+            harden: obj.harden,
+            rogue: obj.rogue,   // seed + generated tier, so it survives a reload
             custom: true
         };
     },
@@ -156,7 +168,11 @@ window.GAME_CUSTOM = {
         if (!Array.isArray(saved)) saved = [];
         for (const lvl of saved) {
             window.LEVELS.push(lvl);
-            window.MACHINE_META.push({ cat: 'CUSTOM', diff: 'CUSTOM' });
+            // A rogue box remembers the tier it was generated at, so the hub
+            // and the time-attack budget still make sense after a reload.
+            window.MACHINE_META.push(lvl.rogue
+                ? { cat: 'ROGUE', diff: 'ROGUE', tier: lvl.rogue.diff || 'CUSTOM' }
+                : { cat: 'CUSTOM', diff: 'CUSTOM' });
         }
     },
 
@@ -262,7 +278,7 @@ window.GAME = {
     completed: [],     // level ids completed
     hardened: [],      // level ids also hardened (blue-team bonus)
     achievements: [],  // earned achievement ids
-    flags: { sRank: false, speed: false }, // one-shot achievement triggers
+    flags: { sRank: false, speed: false, phantom: false, hardcore: false, beatClock: false, survivor: false }, // one-shot achievement triggers
     started: false,    // a machine has been entered at least once
     bestTimes: {},     // level id -> best clear time in seconds (speedrun records)
     ghosts: {},        // level id -> recorded command log ([{cmd, dt}]) of the run that set bestTimes[id]
@@ -282,7 +298,7 @@ window.GAME = {
             if (Array.isArray(data.completed)) this.completed = data.completed;
             if (Array.isArray(data.hardened)) this.hardened = data.hardened;
             if (Array.isArray(data.achievements)) this.achievements = data.achievements;
-            if (data.flags && typeof data.flags === 'object') this.flags = { sRank: !!data.flags.sRank, speed: !!data.flags.speed };
+            if (data.flags && typeof data.flags === 'object') this.flags = { sRank: !!data.flags.sRank, speed: !!data.flags.speed, phantom: !!data.flags.phantom, hardcore: !!data.flags.hardcore, beatClock: !!data.flags.beatClock, survivor: !!data.flags.survivor };
             if (data.bestTimes && typeof data.bestTimes === 'object') this.bestTimes = data.bestTimes;
             if (data.ghosts && typeof data.ghosts === 'object') this.ghosts = data.ghosts;
             if (Array.isArray(data.cmdHistory) && window.TERM) window.TERM.history = data.cmdHistory.slice(-300);
@@ -320,7 +336,7 @@ window.GAME = {
         this.completed = [];
         this.hardened = [];
         this.achievements = [];
-        this.flags = { sRank: false, speed: false };
+        this.flags = { sRank: false, speed: false, phantom: false, hardcore: false, beatClock: false, survivor: false };
         this.bestTimes = {};
         this.ghosts = {};
         this.saveProgress();
@@ -329,14 +345,83 @@ window.GAME = {
         this.updateProgress();
     },
 
+    // Hub mode picker, built from MODES.CHALLENGES so adding a mode to the
+    // registry is enough to make it selectable — no markup to keep in sync.
+    buildModeCards() {
+        const wrap = document.getElementById('modeCards');
+        if (!wrap || !window.MODES) return;
+        wrap.innerHTML = '';
+        for (const m of window.MODES.pickable()) {
+            const card = document.createElement('button');
+            card.type = 'button';
+            card.className = 'mode-card';
+            card.setAttribute('data-mode', m.id);
+            card.setAttribute('data-testid', 'mode-card-' + m.id);
+            card.setAttribute('aria-pressed', String(window.MODES.is(m.id)));
+            const mult = m.mult !== 1 ? `<span class="mode-mult">×${m.mult}</span>` : '';
+            card.innerHTML =
+                `<span class="mode-icon">${m.icon}</span>` +
+                `<span class="mode-name">${window.MODES.label(m.id)}</span>${mult}` +
+                `<span class="mode-desc">${window.MODES.desc(m.id)}</span>`;
+            card.addEventListener('click', () => {
+                // Normal is the "off" button — it clears the whole set. The
+                // four modifiers each toggle independently, so they stack.
+                if (m.id === 'normal') window.MODES.set('normal');
+                else window.MODES.toggle(m.id);
+                this.buildModeCards();
+                this.syncModeHud();
+                if (window.SFX && window.SFX.click) window.SFX.click();
+            });
+            wrap.appendChild(card);
+        }
+        window.MODES.sync();
+        // When modifiers stack, the multiplier is their product — show the
+        // running total so the player sees what the run is now worth.
+        const totalEl = document.getElementById('modeStackTotal');
+        if (totalEl) {
+            const mult = window.MODES.multiplier();
+            totalEl.textContent = mult !== 1 ? `×${(Math.round(mult * 100) / 100)}` : '';
+            totalEl.hidden = mult === 1;
+        }
+        const note = document.getElementById('modeAssistNote');
+        if (note) note.hidden = window.MODES.assistAllowed();
+        ['explainBtnHome', 'mentorBtnHome'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = window.MODES.assistAllowed() ? '' : 'none';
+        });
+    },
+
+    // The mode HUD only exists when a challenge mode wants it: stealth brings
+    // the gauge, time attack brings the clock, normal brings neither.
+    syncModeHud() {
+        const hud = document.getElementById('modeHud');
+        if (!hud) return;
+        const stealth = !!(window.MODES && window.MODES.stealthActive());
+        const timed = !!(window.TIMEATTACK && window.TIMEATTACK.budget);
+        const exam = !!(window.EXAM && window.EXAM.active);
+        const chaos = !!(window.MODES && window.MODES.is('chaos'));
+        hud.style.display = (stealth || timed || exam || chaos) ? '' : 'none';
+        if (window.STEALTH) window.STEALTH.render();
+        if (window.TIMEATTACK) window.TIMEATTACK.render();
+        if (window.EXAM) window.EXAM.render();
+        if (window.CHAOS) window.CHAOS.render();
+    },
+
     boot() {
         window.GAME_CUSTOM.loadFromStorage();
         this.importSharedBoxFromUrl();
+        if (window.MODES) window.MODES.init();
+        // An exam in progress outranks the saved modifier set: its clock has
+        // been running since it started, whether or not the tab was open.
+        if (window.EXAM && window.EXAM.restore()) window.MODES.enterSession('exam');
+        if (window.STORY) window.STORY.init();
+        this.buildModeCards();
         TERM.init();
         this.updateAchievements(false); // retroactively sync from saved progress
         this.buildLevelsMap();
         this.buildHomeGrid();
         this.wireUi();
+        this.syncExamUi();
         this.showHome();
         if (this._pendingShareToast) {
             this.simpleToast(this._pendingShareToast);
@@ -372,6 +457,7 @@ window.GAME = {
         SESSION.hintIndex = 0;
         SESSION.pendingCron = false;
         SESSION.cronPayload = null;
+        SESSION.pendingTrigger = null;
         SESSION.cmdCount = 0;
         SESSION.cmdLog = [];
         SESSION.startTime = Date.now();
@@ -379,6 +465,10 @@ window.GAME = {
         SESSION.sudoAuthed = false;
         SESSION.nfsMount = null;
         if (window.MENTOR) window.MENTOR.resetForLevel();
+        if (window.STEALTH) window.STEALTH.resetForLevel();
+        if (window.CHAOS) window.CHAOS.resetForLevel();
+        if (window.TIMEATTACK) window.TIMEATTACK.startForLevel(idx);
+        this.syncModeHud();
         document.body.classList.remove('is-root');
 
         // Load filesystem for level
@@ -495,6 +585,51 @@ window.GAME = {
                 `<span class="hof-name">${esc(title)}</span>` +
                 `<span class="hof-time">${this.formatTime(e.sec)}</span>${ghostBtn}</li>`;
         }).join('') + '</ol>';
+    },
+
+    // GTFOBins reference panel: turns the ingested dataset into a study tool —
+    // a filterable list of the sudo shell-escape techniques the game knows,
+    // grouped by shape, each command click-to-copy, each linking out to the
+    // real GTFOBins page. Pure read of window.GTFOBINS; no gameplay effect.
+    GTFO_CAT_LABEL: { wrapper: 'gtfoCatWrapper', interpreter: 'gtfoCatInterpreter', interactive: 'gtfoCatInteractive' },
+
+    renderGtfoReference(filter) {
+        const list = document.getElementById('gtfoRefList');
+        if (!list || !window.GTFOBINS) return;
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const q = (filter || '').trim().toLowerCase();
+        const entries = window.GTFOBINS.ENTRIES.filter(e => !q || e.bin.toLowerCase().includes(q));
+        if (!entries.length) {
+            list.innerHTML = `<p class="gtfo-ref-empty">${esc(t('gtfoRefEmpty'))}</p>`;
+            return;
+        }
+        // Group by category, categories in a stable teaching order.
+        const order = ['wrapper', 'interpreter', 'interactive'];
+        const byCat = {};
+        for (const e of entries) (byCat[e.cat] = byCat[e.cat] || []).push(e);
+        let html = '';
+        for (const cat of order) {
+            const group = byCat[cat];
+            if (!group || !group.length) continue;
+            html += `<div class="gtfo-cat-title">${esc(t(this.GTFO_CAT_LABEL[cat] || cat))}</div>`;
+            html += group.map(e =>
+                `<div class="gtfo-row">` +
+                `<span class="gtfo-bin">${esc(e.bin)}</span>` +
+                `<code class="gtfo-payload" tabindex="0" role="button" title="${esc(t('cheatInsert'))}">${esc(e.payload.split('\n')[0])}</code>` +
+                `<a class="gtfo-link" href="${esc(window.GTFOBINS.link(e.bin))}" target="_blank" rel="noopener noreferrer" title="GTFOBins ↗">↗</a>` +
+                `</div>`
+            ).join('');
+        }
+        list.innerHTML = html;
+        // Click-to-copy the payload, same affordance as the cheatsheet.
+        list.querySelectorAll('.gtfo-payload').forEach(el => {
+            const copy = () => {
+                try { if (navigator.clipboard) navigator.clipboard.writeText(el.textContent); } catch (e) { /* ignore */ }
+                el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 450);
+            };
+            el.addEventListener('click', copy);
+            el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy(); } });
+        });
     },
 
     // Replays a stored ghost log (the command sequence from the run that set
@@ -696,6 +831,7 @@ window.GAME = {
 
     showHome() {
         this.buildHomeGrid();
+        this.renderStoryBanner();
         document.getElementById('winModal').style.display = 'none';
         document.getElementById('finalModal').style.display = 'none';
         const home = document.getElementById('homeScreen');
@@ -717,38 +853,86 @@ window.GAME = {
         document.getElementById('missionBrief').textContent = lvl.brief[currentLang];
         const list = document.getElementById('objectivesList');
         list.innerHTML = '';
-        for (const obj of lvl.objectives[currentLang]) {
-            const li = document.createElement('li');
-            li.textContent = obj;
-            list.appendChild(li);
+        // Hardcore takes the objectives away too: the brief tells you which
+        // box you're on, working out what to look at is the exercise.
+        const assist = !window.MODES || window.MODES.assistAllowed();
+        const objBlock = list.closest('.objectives');
+        if (objBlock) objBlock.style.display = assist ? '' : 'none';
+        if (assist) {
+            for (const obj of lvl.objectives[currentLang]) {
+                const li = document.createElement('li');
+                li.textContent = obj;
+                list.appendChild(li);
+            }
         }
         document.getElementById('targetInfo').textContent = `${lvl.user}@${lvl.host}`;
         this.renderWalkthrough();
     },
 
-    // "Explanation mode" panel: a fully worked, annotated solution for the
-    // current box, from window.WALKTHROUGHS. Purely informational — never
-    // touches SESSION, scoring, or the hint counter. Hidden unless toggled
-    // on via the 🎓 topbar button.
+    // "Explanation mode" panel: the annotated solution for the current box,
+    // from window.WALKTHROUGHS. Purely informational — never touches SESSION,
+    // scoring, or the hint counter.
+    //
+    // Revealed one step at a time (WALKMODE holds the cursor) so the panel can
+    // answer "what now?" without also answering "and then?". Steps you've
+    // already run are ticked off, and every command is click-to-insert.
     renderWalkthrough() {
         const panel = document.getElementById('walkthroughPanel');
         const list = document.getElementById('walkthroughList');
         if (!panel || !list) return;
-        const on = window.WALKMODE && window.WALKMODE.enabled;
+        const on = window.WALKMODE && window.WALKMODE.enabled
+            && (!window.MODES || window.MODES.assistAllowed());
         panel.style.display = on ? '' : 'none';
         if (!on) return;
         const lvl = this.level();
         const steps = (window.WALKTHROUGHS && window.WALKTHROUGHS[lvl.id]) || null;
         const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const actions = document.getElementById('walkthroughActions');
         if (!steps || !steps.length) {
             list.innerHTML = `<li class="walkthrough-empty">${esc(t('explainEmpty'))}</li>`;
+            if (actions) actions.hidden = true;
             return;
         }
-        list.innerHTML = steps.map((s, i) =>
-            `<li><div class="walkthrough-step">${esc(t('explainStep'))} ${i + 1}</div>` +
-            `<code>${esc(s.cmd)}</code>` +
-            `<p>${esc(s.explain[currentLang] || s.explain.en)}</p></li>`
-        ).join('');
+        window.WALKMODE.setLevel(lvl.id);
+        const shown = Math.min(window.WALKMODE.count(), steps.length);
+        const history = (window.TERM && window.TERM.history) || [];
+
+        list.innerHTML = steps.slice(0, shown).map((s, i) => {
+            const done = window.WALKMODE.wasRun(s.cmd, history);
+            return `<li class="${done ? 'is-done' : ''}">` +
+                `<div class="walkthrough-step">${esc(t('explainStep'))} ${i + 1}` +
+                (done ? ` <span class="walkthrough-done" title="${esc(t('explainDone'))}">✓</span>` : '') +
+                `</div>` +
+                `<code tabindex="0" role="button" title="${esc(t('cheatInsert'))}">${esc(s.cmd)}</code>` +
+                `<p>${esc(s.explain[currentLang] || s.explain.en)}</p></li>`;
+        }).join('');
+        if (!shown) {
+            list.innerHTML = `<li class="walkthrough-empty">${esc(t('explainStart'))}</li>`;
+        }
+        // Same click-to-insert affordance as the cheatsheet — reading the step
+        // and running it shouldn't require retyping it by hand.
+        list.querySelectorAll('code').forEach(el => {
+            el.addEventListener('click', () => this.useCheat(el.textContent, el));
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.useCheat(el.textContent, el); }
+            });
+        });
+
+        if (actions) {
+            const remaining = steps.length - shown;
+            actions.hidden = false;
+            const next = document.getElementById('walkNextBtn');
+            const all = document.getElementById('walkAllBtn');
+            const counter = document.getElementById('walkCounter');
+            if (counter) counter.textContent = `${shown}/${steps.length}`;
+            if (next) next.style.display = remaining > 0 ? '' : 'none';
+            if (all) all.style.display = remaining > 1 ? '' : 'none';
+        }
+    },
+
+    walkthroughSteps() {
+        const lvl = this.level();
+        return (window.WALKTHROUGHS && window.WALKTHROUGHS[lvl.id]) || [];
     },
 
     // Sidebar cheatsheet, tailored to the current machine's category. Click a
@@ -756,6 +940,13 @@ window.GAME = {
     renderCheatsheet() {
         const ul = document.getElementById('cheatList');
         if (!ul) return;
+        const sheet = ul.closest('.cheatsheet');
+        if (window.MODES && !window.MODES.assistAllowed()) {
+            ul.innerHTML = '';
+            if (sheet) sheet.style.display = 'none';
+            return;
+        }
+        if (sheet) sheet.style.display = '';
         const meta = MACHINE_META[this.currentLevel] || {};
         const specific = (window.CHEATS_BY_CAT && window.CHEATS_BY_CAT[meta.cat]) || [];
         const cmds = [...specific, 'id', 'help', 'hint'];
@@ -838,12 +1029,244 @@ window.GAME = {
         });
     },
 
+    // ── Campaign (story) mode ───────────────────────────────────────────
+    // Pure narrative overlay: a briefing, then an ordinary box, then a
+    // debrief. It changes no gameplay rules — STORY.active only tells win()
+    // to show the handler's debrief instead of the plain next-machine flow.
+    renderStoryBanner() {
+        const banner = document.getElementById('storyBanner');
+        if (!banner || !window.STORY) return;
+        const total = window.STORY.CHAPTERS.length;
+        const idx = window.STORY.resumeIndex();
+        const done = window.STORY.complete();
+        const prog = document.getElementById('storyProgress');
+        if (prog) prog.textContent = `${Math.min(window.STORY.reached, total)}/${total}`;
+        const name = document.getElementById('storyChapterName');
+        if (name) {
+            name.textContent = done
+                ? t('storyComplete')
+                : window.STORY.text(window.STORY.CHAPTERS[idx].title);
+        }
+        const label = document.getElementById('storyPlayLabel');
+        if (label) label.textContent = done ? t('storyReplay') : (window.STORY.reached > 0 ? t('storyResume') : t('storyStart'));
+        const resetBtn = document.getElementById('storyResetBtn');
+        if (resetBtn) resetBtn.hidden = window.STORY.reached === 0;
+    },
+
+    startStory() {
+        if (!window.STORY) return;
+        window.STORY.active = true;
+        window.STORY.chapter = window.STORY.resumeIndex();
+        this.showStoryBriefing();
+    },
+
+    resetStory() {
+        if (!window.STORY) return;
+        if (!window.confirm(t('storyResetConfirm'))) return;
+        window.STORY.reached = 0;
+        window.STORY.ending = null;
+        window.STORY.persist();
+        this.renderStoryBanner();
+    },
+
+    // The briefing before a chapter's box (intro) — the handler talking.
+    showStoryBriefing() {
+        const ch = window.STORY.current();
+        if (!ch) return;
+        this.showStoryModal({
+            tag: t('storyIncoming'),
+            title: window.STORY.text(ch.title),
+            body: window.STORY.text(ch.intro),
+            btn: t('storyEnter'),
+            onBtn: () => {
+                document.getElementById('storyModal').style.display = 'none';
+                const idx = LEVELS.findIndex(l => l.id === ch.boxId);
+                if (idx >= 0) this.selectMachine(idx);
+            }
+        });
+    },
+
+    // The debrief after rooting a chapter's box. The finale's text is the
+    // ending the player's Ch.6 choice selected; a chapter carrying a `choice`
+    // offers its branch buttons in place of the plain "next".
+    showStoryDebrief() {
+        const ch = window.STORY.current();
+        if (!ch) return;
+        const isLast = window.STORY.chapter >= window.STORY.CHAPTERS.length - 1;
+        const advance = () => {
+            document.getElementById('storyModal').style.display = 'none';
+            if (isLast) { window.STORY.active = false; this.showHome(); return; }
+            window.STORY.chapter += 1;
+            this.showStoryBriefing();
+        };
+        const opts = {
+            tag: ch.final ? t('storyFinal') : t('storyDebriefTag'),
+            title: window.STORY.text(ch.title),
+            body: window.STORY.text(ch.final ? window.STORY.endingText(ch) : ch.outro)
+        };
+        if (ch.choice) {
+            opts.choicePrompt = window.STORY.text(ch.choice.prompt);
+            opts.choices = ch.choice.options.map(o => ({
+                label: window.STORY.text(o.label),
+                onClick: () => { window.STORY.choose(o.id); advance(); }
+            }));
+        } else {
+            opts.btn = isLast ? t('storyEndBtn') : t('storyNextBtn');
+            opts.onBtn = advance;
+        }
+        this.showStoryModal(opts);
+    },
+
+    showStoryModal({ tag, title, body, btn, onBtn, choicePrompt, choices }) {
+        const modal = document.getElementById('storyModal');
+        if (!modal) { if (choices && choices[0]) choices[0].onClick(); else if (onBtn) onBtn(); return; }
+        const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
+        set('storyModalTag', tag);
+        set('storyModalTitle', title);
+        set('storyModalBody', body);
+
+        const promptEl = document.getElementById('storyChoicePrompt');
+        const choicesEl = document.getElementById('storyChoices');
+        const mainBtn = document.getElementById('storyModalBtn');
+        if (choicesEl) choicesEl.innerHTML = '';
+        if (choices && choices.length) {
+            // Branch point: swap the single button for the options.
+            if (mainBtn) mainBtn.style.display = 'none';
+            if (promptEl) { promptEl.textContent = choicePrompt || ''; promptEl.hidden = !choicePrompt; }
+            if (choicesEl) {
+                for (const c of choices) {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'btn-ghost story-choice-btn';
+                    b.textContent = c.label;
+                    b.addEventListener('click', c.onClick);
+                    choicesEl.appendChild(b);
+                }
+            }
+        } else {
+            if (mainBtn) mainBtn.style.display = '';
+            if (promptEl) promptEl.hidden = true;
+            set('storyModalBtnLabel', btn);
+            if (mainBtn) mainBtn.onclick = onBtn;
+        }
+        ['winModal', 'examModal', 'finalModal'].forEach(id => { const m = document.getElementById(id); if (m) m.style.display = 'none'; });
+        modal.style.display = 'flex';
+    },
+
+    // ── Exam mode ───────────────────────────────────────────────────────
+    // An exam is a session: entering it masks the modifier set (its own rules
+    // take over) without destroying it, so ending the exam brings the player's
+    // modifiers straight back — no need to remember and restore them by hand.
+    startExam(seedText) {
+        if (!window.EXAM) return;
+        const result = window.EXAM.start(seedText);
+        if (!result.ok) { this.simpleToast(t('examErrBoard')); return; }
+        window.MODES.enterSession('exam');
+        this.buildModeCards();
+        this.syncExamUi();
+        this.simpleToast(t('examStarted', result.seed));
+        this.goToExamBox(0);
+    },
+
+    // Board entry n, or the first one still unsolved.
+    goToExamBox(n) {
+        if (!window.EXAM || !window.EXAM.active) return;
+        const board = window.EXAM.board;
+        let entry = board[n];
+        if (!entry) entry = board.find(b => !window.EXAM.results[b.id]) || board[0];
+        const idx = LEVELS.findIndex(l => l.id === entry.id);
+        if (idx >= 0) this.selectMachine(idx);
+    },
+
+    endExam() {
+        if (!window.EXAM) return;
+        window.EXAM.abandon();
+        window.MODES.exitSession();
+        this.buildModeCards();
+        this.syncExamUi();
+        this.showHome();
+    },
+
+    // Keeps the hub panel (start vs. in-progress vs. finished) and the
+    // in-game HUD agreeing with the engine.
+    syncExamUi() {
+        const on = !!(window.EXAM && window.EXAM.active);
+        const idle = document.getElementById('examIdle');
+        const live = document.getElementById('examLive');
+        if (idle) idle.hidden = on;
+        if (live) live.hidden = !on;
+        if (on) {
+            const seedEl = document.getElementById('examSeedShown');
+            if (seedEl) seedEl.textContent = window.EXAM.formatSeed(window.EXAM.seed);
+            const reportBtn = document.getElementById('examReportBtn');
+            if (reportBtn) reportBtn.hidden = !window.EXAM.finished;
+        }
+        if (window.EXAM) window.EXAM.render();
+    },
+
+    // Final report: the same data the Markdown export uses, so the screen and
+    // the file can never disagree.
+    showExamReport() {
+        if (!window.EXAM || !window.EXAM.active) return;
+        const modal = document.getElementById('examModal');
+        if (!modal) return;
+        const r = window.EXAM.report();
+        const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const verdict = document.getElementById('examVerdict');
+        if (verdict) {
+            verdict.textContent = r.passed ? t('examPass') : t('examFail');
+            verdict.className = 'exam-verdict ' + (r.passed ? 'is-pass' : 'is-fail');
+        }
+        const sub = document.getElementById('examVerdictSub');
+        if (sub) sub.textContent = t('examScoreLine', r.score, r.max, r.passMark);
+        const meta = document.getElementById('examReportMeta');
+        if (meta) {
+            meta.innerHTML =
+                `<span>${esc(t('examSeedLabel'))}: <code>${esc(r.seed)}</code></span>` +
+                `<span>${esc(t('examTimeUsed'))}: <code>${esc(window.EXAM.fmt(r.elapsed))}</code> / ${esc(window.EXAM.fmt(r.duration))}</span>`;
+        }
+        const body = document.getElementById('examReportRows');
+        if (body) {
+            body.innerHTML = r.rows.map((row, i) =>
+                `<tr class="${row.rooted ? 'is-rooted' : ''}">` +
+                `<td>${i + 1}</td>` +
+                `<td><code>${esc(row.codename)}</code></td>` +
+                `<td>${esc(t('tier' + row.tier[0] + row.tier.slice(1).toLowerCase()))}</td>` +
+                `<td>${row.earned}/${row.points}</td>` +
+                `<td>${row.rooted ? '✅' : '❌'}</td>` +
+                `<td>${row.at !== null ? esc(window.EXAM.fmt(row.at)) : '—'}</td></tr>`
+            ).join('');
+        }
+        document.getElementById('winModal').style.display = 'none';
+        modal.style.display = 'flex';
+        this.syncExamUi();
+    },
+
+    downloadExamReport() {
+        if (!window.EXAM) return;
+        const md = window.EXAM.markdown();
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `rootquest-exam-${window.EXAM.formatSeed(window.EXAM.seed)}.md`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+
     updateProgress() {
         const pct = (this.completed.length / LEVELS.length) * 100;
         document.getElementById('progressFill').style.width = pct + '%';
     },
 
     giveHint() {
+        // A mode that forbids assistance forbids it from the command line too,
+        // not just by hiding the button.
+        if (window.MODES && !window.MODES.assistAllowed()) {
+            return [{ text: t('hintLockedMode'), cls: 'err' }, { text: '', cls: '' }];
+        }
         const lvl = this.level();
         const hints = lvl.hints[currentLang];
         if (SESSION.hintIndex >= hints.length) return [{ text: t('noMoreHints'), cls: 'dim' }];
@@ -858,11 +1281,25 @@ window.GAME = {
 
     win() {
         const lvl = this.level();
+        if (window.TIMEATTACK) window.TIMEATTACK.stop();
+        // Scored before the modal opens, so the exam HUD and the report agree
+        // with what the player is about to be shown.
+        if (window.EXAM) window.EXAM.onBoxRooted(lvl.id);
         if (!this.completed.includes(lvl.id)) this.completed.push(lvl.id);
         this.saveProgress();
         this.updateLevelsMap();
         this.updateProgress();
         document.getElementById('missionStatus').textContent = t('statusDone');
+
+        // In the campaign, a chapter's debrief (the handler's outro) is the
+        // payoff and drives progression — it stands in for the normal win /
+        // final modal, including on box 38, which is both the last level and
+        // the campaign finale. Achievements still fire (they're count-based).
+        if (window.STORY && window.STORY.active && window.STORY.onBoxRooted(lvl.id)) {
+            this.updateAchievements(true);
+            this.showStoryDebrief();
+            return;
+        }
 
         if (this.currentLevel >= LEVELS.length - 1) {
             // All done
@@ -876,7 +1313,13 @@ window.GAME = {
         this.renderStats();
         this.updateAchievements(true);
         const btBtn = document.getElementById('blueTeamBtn');
-        if (btBtn) btBtn.style.display = (lvl.harden && !this.hardened.includes(lvl.id)) ? '' : 'none';
+        // An exam is offensive and on the clock — hardening isn't scored and
+        // would only burn time the player can't spare.
+        const examLive = !!(window.EXAM && window.EXAM.active && !window.EXAM.finished);
+        if (btBtn) btBtn.style.display = (!examLive && lvl.harden && !this.hardened.includes(lvl.id)) ? '' : 'none';
+        // Clearing the board finishes the exam; EXAM.finish opens the report,
+        // so the victory modal would land underneath it.
+        if (window.EXAM && window.EXAM.active && window.EXAM.finished) { this.showExamReport(); return; }
         document.getElementById('winModal').style.display = 'flex';
     },
 
@@ -904,6 +1347,50 @@ window.GAME = {
         this.saveProgress();
     },
 
+    // What the active mode's difficulty is worth on the scorecard. A mode only
+    // pays out if its constraint actually held: getting caught in stealth or
+    // running the clock out in time attack drops you back to face value.
+    scoreMultiplier() {
+        if (!window.MODES) return 1;
+        let mult = window.MODES.multiplier();
+        if (window.MODES.stealthActive() && window.STEALTH && window.STEALTH.detected) mult = 1;
+        if (window.TIMEATTACK && window.TIMEATTACK.multiplierPenalty()) mult = 1;
+        // The exam multiplier belongs to the exam. Playing a box that isn't on
+        // your board while one is armed is fine — it just isn't worth ×2.5.
+        if (window.MODES.is('exam') && window.EXAM && !window.EXAM.isBoardLevel(this.level().id)) mult = 1;
+        return mult;
+    },
+
+    // Stealth grade cell — only present when the run was actually a stealth run.
+    renderStealthStat() {
+        const cell = document.getElementById('statStealthCell');
+        if (!cell) return;
+        const on = window.MODES && window.MODES.stealthActive() && window.STEALTH;
+        cell.style.display = on ? '' : 'none';
+        if (!on) return;
+        const grade = window.STEALTH.grade();
+        const val = document.getElementById('statStealth');
+        if (val) {
+            val.textContent = `${t('stealthGrade_' + grade)} ${window.STEALTH.detection}%`;
+            val.className = 'stat-val stealth-grade-' + grade.toLowerCase();
+        }
+    },
+
+    // Chaos grade cell — only present when the run was actually a chaos run.
+    renderChaosStat() {
+        const cell = document.getElementById('statChaosCell');
+        if (!cell) return;
+        const on = window.MODES && window.MODES.is('chaos') && window.CHAOS;
+        cell.style.display = on ? '' : 'none';
+        if (!on) return;
+        const grade = window.CHAOS.grade();
+        const val = document.getElementById('statChaos');
+        if (val) {
+            val.textContent = `${t('chaosGrade_' + grade)} · ${window.CHAOS.reaped}🧽`;
+            val.className = 'stat-val chaos-grade-' + grade.toLowerCase();
+        }
+    },
+
     // Victory scorecard: time, hints, commands, score + rank.
     renderStats() {
         const el = document.getElementById('winStats');
@@ -914,17 +1401,28 @@ window.GAME = {
         const hints = SESSION.hintIndex || 0;
         const totalHints = (this.level().hints[currentLang] || []).length;
         const cmds = SESSION.cmdCount || 0;
-        const score = Math.max(50, 1000 - hints * 200 - Math.floor(sec / 10) * 5 - cmds * 3);
+        const base = Math.max(50, 1000 - hints * 200 - Math.floor(sec / 10) * 5 - cmds * 3);
+        const score = Math.round(base * this.scoreMultiplier());
         const rank = hints === 0 ? 'S' : hints === 1 ? 'A' : hints === 2 ? 'B' : 'C';
         const set = (id, v) => { const n = document.getElementById(id); if (n) n.textContent = v; };
         set('statTime', `${mm}:${ss}`);
         set('statHints', `${hints}/${totalHints}`);
         set('statCmds', cmds);
         set('statScore', score);
+        this.renderStealthStat();
+        this.renderChaosStat();
         const rankEl = document.getElementById('statRank');
         if (rankEl) { rankEl.textContent = rank; rankEl.className = 'stat-rank rank-' + rank; }
         if (rank === 'S') this.flags.sRank = true;
         if (sec > 0 && sec < 45) this.flags.speed = true;
+        // Mode achievements: each requires the mode's constraint to have held,
+        // not merely to have been switched on.
+        if (window.MODES) {
+            if (window.MODES.stealthActive() && window.STEALTH && window.STEALTH.grade() === 'GHOST') this.flags.phantom = true;
+            if (window.MODES.is('hardcore')) this.flags.hardcore = true;
+            if (window.MODES.is('timeattack') && window.TIMEATTACK && window.TIMEATTACK.budget && !window.TIMEATTACK.expired) this.flags.beatClock = true;
+            if (window.MODES.is('chaos')) this.flags.survivor = true;
+        }
 
         // Speedrun record for this box — kept across resets of a single level
         // (retrying doesn't erase a personal best, only beating it updates it).
@@ -991,7 +1489,7 @@ window.GAME = {
 
     // ── Achievements ────────────────────────────────────────────
     achState() {
-        return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed };
+        return { owned: this.completed.length, hardened: this.hardened.length, total: LEVELS.length, hardenable: LEVELS.filter(l => l.harden).length, sRank: !!this.flags.sRank, speed: !!this.flags.speed, phantom: !!this.flags.phantom, hardcore: !!this.flags.hardcore, beatClock: !!this.flags.beatClock, survivor: !!this.flags.survivor };
     },
     isThemeUnlocked(name) {
         const req = window.UNLOCKABLE_THEMES && window.UNLOCKABLE_THEMES[name];
@@ -1142,6 +1640,13 @@ window.GAME = {
     },
 
     nextLevel() {
+        // During an exam, "next" means the next machine on the board, not the
+        // next machine in the lab.
+        if (window.EXAM && window.EXAM.active && !window.EXAM.finished) {
+            document.getElementById('winModal').style.display = 'none';
+            this.goToExamBox();
+            return [];
+        }
         if (this.currentLevel < LEVELS.length - 1) {
             document.getElementById('winModal').style.display = 'none';
             this.loadLevel(this.currentLevel + 1);
@@ -1155,6 +1660,68 @@ window.GAME = {
     },
 
     wireUi() {
+        const pickerToggle = document.getElementById('modePickerToggle');
+        const pickerPanel = document.getElementById('modePickerPanel');
+        if (pickerToggle && pickerPanel) {
+            pickerToggle.addEventListener('click', () => {
+                pickerPanel.hidden = !pickerPanel.hidden;
+                pickerToggle.classList.toggle('is-open', !pickerPanel.hidden);
+            });
+        }
+        // The hub copies of the assist toggles carry .explain-btn/.mentor-btn,
+        // so the generic handlers further down already drive them — nothing
+        // extra to wire here beyond the picker itself.
+        const storyPlayBtn = document.getElementById('storyPlayBtn');
+        if (storyPlayBtn) storyPlayBtn.addEventListener('click', () => this.startStory());
+        const storyResetBtn = document.getElementById('storyResetBtn');
+        if (storyResetBtn) storyResetBtn.addEventListener('click', () => this.resetStory());
+        const storyMenuBtn = document.getElementById('storyModalMenuBtn');
+        if (storyMenuBtn) storyMenuBtn.addEventListener('click', () => {
+            document.getElementById('storyModal').style.display = 'none';
+            if (window.STORY) window.STORY.active = false;
+            this.showHome();
+        });
+
+        const examStartBtn = document.getElementById('examStartBtn');
+        if (examStartBtn) examStartBtn.addEventListener('click', () => {
+            const input = document.getElementById('examSeed');
+            this.startExam(input && input.value.trim());
+        });
+        const examResumeBtn = document.getElementById('examResumeBtn');
+        if (examResumeBtn) examResumeBtn.addEventListener('click', () => this.goToExamBox());
+        const examAbandonBtn = document.getElementById('examAbandonBtn');
+        if (examAbandonBtn) examAbandonBtn.addEventListener('click', () => {
+            if (window.confirm(t('examAbandonConfirm'))) this.endExam();
+        });
+        const examReportBtn = document.getElementById('examReportBtn');
+        if (examReportBtn) examReportBtn.addEventListener('click', () => this.showExamReport());
+        const examDownloadBtn = document.getElementById('examDownloadBtn');
+        if (examDownloadBtn) examDownloadBtn.addEventListener('click', () => this.downloadExamReport());
+        const examCloseBtn = document.getElementById('examCloseBtn');
+        if (examCloseBtn) examCloseBtn.addEventListener('click', () => {
+            document.getElementById('examModal').style.display = 'none';
+            // Closing the report on a finished exam ends it: leaving it armed
+            // would keep assistance off with no clock left to justify it.
+            if (window.EXAM && window.EXAM.finished) this.endExam();
+        });
+
+        const rogueBtn = document.getElementById('rogueBtn');
+        if (rogueBtn) rogueBtn.addEventListener('click', () => {
+            const input = document.getElementById('rogueSeed');
+            const result = window.ROGUE.spawn(input && input.value.trim());
+            if (!result.ok) { this.simpleToast(t('rogueErr') + result.errors.join('; ')); return; }
+            if (input) input.value = result.seed;
+            this.buildHomeGrid();
+            this.simpleToast(t('rogueSpawned', result.seed));
+            this.selectMachine(result.index);
+        });
+        const modePill = document.getElementById('modePill');
+        if (modePill) {
+            modePill.addEventListener('click', () => {
+                this.showHome();
+                if (pickerPanel && pickerPanel.hidden && pickerToggle) pickerToggle.click();
+            });
+        }
         document.getElementById('hintBtn').addEventListener('click', () => {
             TERM.print(this.giveHint());
             TERM.scrollToBottom();
@@ -1206,6 +1773,17 @@ window.GAME = {
             });
         });
 
+        const walkNext = document.getElementById('walkNextBtn');
+        if (walkNext) walkNext.addEventListener('click', () => {
+            window.WALKMODE.revealNext(this.walkthroughSteps().length);
+            this.renderWalkthrough();
+        });
+        const walkAll = document.getElementById('walkAllBtn');
+        if (walkAll) walkAll.addEventListener('click', () => {
+            window.WALKMODE.revealAll(this.walkthroughSteps().length);
+            this.renderWalkthrough();
+        });
+
         document.querySelectorAll('.mentor-btn').forEach(b => {
             b.addEventListener('click', () => { if (window.MENTORMODE) window.MENTORMODE.toggle(); });
         });
@@ -1245,6 +1823,18 @@ window.GAME = {
                 if (!Number.isNaN(id)) this.playGhost(id);
             });
         }
+        const gtfoRefToggle = document.getElementById('gtfoRefToggle');
+        const gtfoRefPanel = document.getElementById('gtfoRefPanel');
+        if (gtfoRefToggle && gtfoRefPanel) {
+            gtfoRefToggle.addEventListener('click', () => {
+                const open = gtfoRefPanel.hasAttribute('hidden');
+                if (open) { gtfoRefPanel.removeAttribute('hidden'); this.renderGtfoReference(); }
+                else gtfoRefPanel.setAttribute('hidden', '');
+            });
+        }
+        const gtfoRefSearch = document.getElementById('gtfoRefSearch');
+        if (gtfoRefSearch) gtfoRefSearch.addEventListener('input', () => this.renderGtfoReference(gtfoRefSearch.value));
+
         const customImportBtn = document.getElementById('customImportBtn');
         const customJsonInput = document.getElementById('customJsonInput');
         if (customImportBtn && customJsonInput) {
@@ -1321,6 +1911,10 @@ window.setLanguage = function(lang) {
         b.classList.toggle('active', b.getAttribute('data-lang') === lang);
     });
     window.applyI18n();
+    // Mode cards are built from JS strings, not [data-i18n] nodes, so they
+    // need an explicit rebuild when the language changes.
+    if (window.GAME && window.GAME.buildModeCards) window.GAME.buildModeCards();
+    if (window.GAME && window.GAME.renderStoryBanner) window.GAME.renderStoryBanner();
     if (window.GAME && window.GAME.level) {
         window.GAME.renderMission();
         if (window.GAME.buildHomeGrid) window.GAME.buildHomeGrid();

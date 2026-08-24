@@ -380,11 +380,15 @@ window.CMD = {
         id() {
             if (SESSION.isRoot) return [{ text: 'uid=0(root) gid=0(root) groups=0(root)', cls: '' }];
             const lvl = window.GAME.level();
-            const inDocker = (lvl.wins || []).some(w => w.type === 'docker_sock') && SESSION.user === 'player';
+            const wins = lvl.wins || [];
+            const player = SESSION.user === 'player';
+            const inDocker = wins.some(w => w.type === 'docker_sock') && player;
+            const inLxd = wins.some(w => w.type === 'lxd_group') && player;
             const uid = SESSION.user === 'player' ? 1000 : 1001;
             let groups = `${uid}(${SESSION.user})`;
             if (inDocker) groups += ',999(docker)';
-            return [{ text: `uid=${uid}(${SESSION.user}) gid=${uid}(${SESSION.user}) groups=${groups}`, cls: inDocker ? 'warn' : '' }];
+            if (inLxd) groups += ',998(lxd)';
+            return [{ text: `uid=${uid}(${SESSION.user}) gid=${uid}(${SESSION.user}) groups=${groups}`, cls: (inDocker || inLxd) ? 'warn' : '' }];
         },
 
         pwd() { return [{ text: SESSION.cwd, cls: '' }]; },
@@ -702,7 +706,13 @@ window.CMD = {
                 return { text: `${a}: ASCII text` };
             });
         },
-        history() {
+        history(args) {
+            // `history -c` wipes the in-memory list, exactly like bash — which
+            // also means the ↑ history and Ctrl+R lose it, as they should.
+            if (args && args.includes('-c')) {
+                if (window.TERM) window.TERM.history = [];
+                return [];
+            }
             const h = (window.TERM && window.TERM.history) || [];
             return h.map((c, i) => ({ text: `${String(i + 1).padStart(5)}  ${c}` }));
         },
@@ -766,15 +776,160 @@ window.CMD = {
 
         touch(args) {
             const errors = [];
-            for (const a of args) {
-                if (a.startsWith('-')) continue;
+            // `touch -r <reference> <file>` copies the reference file's
+            // timestamps onto the target — the timestomping move. The sim
+            // keeps no mtimes, so the only thing it has to do is not error
+            // out and not treat the reference as a file to create.
+            const rIdx = args.indexOf('-r');
+            const reference = rIdx >= 0 ? args[rIdx + 1] : null;
+            for (let i = 0; i < args.length; i++) {
+                const a = args[i];
+                if (a.startsWith('-')) { if (a === '-r') i++; continue; }
+                if (a === reference) continue;
                 const n = FS.normalize(a);
                 if (!FS.get(n)) {
                     if (!this.canCreateIn(n)) { errors.push({ text: t('permDenied', a), cls: 'err' }); continue; }
                     FS.createFile(n, '', this.creationOwner(n));
                 }
             }
+            if (reference && !FS.get(FS.normalize(reference))) {
+                errors.push({ text: `touch: failed to get attributes of '${reference}': No such file or directory`, cls: 'err' });
+            }
             return errors;
+        },
+
+        // A deliberately narrow sed: line deletion (`/re/d`) and substitution
+        // (`s/a/b/[g]`), with or without -i. That's the subset an admin
+        // actually uses to pull a line out of a config file, and it's what
+        // makes the blue-team fix on sudo boxes a one-liner you can verify
+        // instead of an interactive editor session.
+        sed(args) {
+            const inPlace = args.some(a => /^-[a-z]*i/.test(a));
+            const rest = args.filter(a => !a.startsWith('-'));
+            const script = rest.shift();
+            const file = rest.shift();
+            if (!script) return [{ text: 'usage: sed [-i] SCRIPT FILE', cls: 'err' }];
+            if (!file) return [{ text: 'sed: no input file', cls: 'err' }];
+            const n = FS.normalize(file);
+            const node = FS.get(n);
+            if (!node) return [{ text: t('noSuchFile', file), cls: 'err' }];
+            if (!FS.canRead(n)) return [{ text: t('permDenied', file), cls: 'err' }];
+
+            const del = script.match(/^\/(.*)\/d$/);
+            const sub = script.match(/^s([/|#,])(.*?)\1(.*?)\1(g?)$/);
+            if (!del && !sub) {
+                return [{ text: `sed: -e expression #1, char 1: unsupported command in this shell (only /re/d and s/a/b/ are emulated)`, cls: 'err' }];
+            }
+            let re;
+            try {
+                re = new RegExp(del ? del[1] : sub[2], sub && sub[4] ? 'g' : '');
+            } catch (e) {
+                return [{ text: `sed: -e expression #1: invalid regex`, cls: 'err' }];
+            }
+            const lines = String(node.content || '').split('\n');
+            const result = del
+                ? lines.filter(l => !re.test(l))
+                : lines.map(l => l.replace(re, sub[3]));
+            const text = result.join('\n');
+
+            if (!inPlace) return result.map(l => ({ text: l, cls: '' }));
+            if (!FS.canWrite(n) && !SESSION.isRoot) return [{ text: t('permDenied', file), cls: 'err' }];
+            FS.writeFile(n, text);
+            return [];
+        },
+
+        // The counterpart to touch. `-p` creates missing parents and, like
+        // the real thing, stays quiet about a directory that already exists.
+        mkdir(args) {
+            const parents = args.some(a => /^-[a-z]*p/.test(a));
+            const targets = args.filter(a => !a.startsWith('-'));
+            if (!targets.length) return [{ text: 'mkdir: missing operand', cls: 'err' }];
+            const out = [];
+            for (const target of targets) {
+                const n = FS.normalize(target);
+                if (FS.get(n)) {
+                    if (!parents) out.push({ text: `mkdir: cannot create directory '${target}': File exists`, cls: 'err' });
+                    continue;
+                }
+                const chain = parents
+                    ? n.split('/').filter(Boolean).map((_, i, all) => '/' + all.slice(0, i + 1).join('/'))
+                    : [n];
+                let failed = null;
+                for (const step of chain) {
+                    if (FS.get(step)) continue;
+                    if (!this.canCreateIn(step)) { failed = step; break; }
+                    FS.createDir(step, this.creationOwner(step));
+                }
+                if (failed) out.push({ text: t('permDenied', target), cls: 'err' });
+                else if (!FS.get(n)) out.push({ text: `mkdir: cannot create directory '${target}': No such file or directory`, cls: 'err' });
+            }
+            return out;
+        },
+
+        // Removes files (and, with -r, directories) through the same
+        // permission rules writes go through: you need write access to the
+        // *containing directory* to unlink something out of it.
+        rm(args) {
+            const opts = args.filter(a => a.startsWith('-')).join('');
+            const recursive = /r|R/.test(opts);
+            const force = opts.includes('f');
+            const targets = args.filter(a => !a.startsWith('-'));
+            if (!targets.length) return force ? [] : [{ text: 'rm: missing operand', cls: 'err' }];
+            const out = [];
+            for (const target of targets) {
+                const n = FS.normalize(target);
+                const node = FS.get(n);
+                if (!node) {
+                    if (!force) out.push({ text: `rm: cannot remove '${target}': No such file or directory`, cls: 'err' });
+                    continue;
+                }
+                if (node.type === 'dir' && !recursive) {
+                    out.push({ text: `rm: cannot remove '${target}': Is a directory`, cls: 'err' });
+                    continue;
+                }
+                // Real rm needs write on the containing directory. FS.canWrite
+                // models the sticky-bit/ownership shortcuts on the *entry*
+                // rather than the directory, so accept either: owning the file
+                // is what actually lets you delete it everywhere in this sim.
+                if (!SESSION.isRoot && !FS.canWrite(n) && !FS.canWrite(FS.parent(n))) {
+                    out.push({ text: t('permDenied', target), cls: 'err' });
+                    continue;
+                }
+                FS.remove(n);
+            }
+            return out;
+        },
+
+        // `truncate -s 0 <file>` — the polite way to empty a log file.
+        truncate(args) {
+            const files = [];
+            let size = null;
+            for (let i = 0; i < args.length; i++) {
+                if (args[i] === '-s') { size = args[++i]; continue; }
+                if (args[i].startsWith('-s')) { size = args[i].slice(2); continue; }
+                if (args[i].startsWith('-')) continue;
+                files.push(args[i]);
+            }
+            if (!files.length) return [{ text: 'truncate: missing file operand', cls: 'err' }];
+            const out = [];
+            for (const f of files) {
+                const n = FS.normalize(f);
+                if (!FS.get(n)) { FS.createFile(n, '', this.creationOwner(n)); continue; }
+                if (!FS.canWrite(n)) { out.push({ text: t('permDenied', f), cls: 'err' }); continue; }
+                FS.writeFile(n, size === '0' || size === null ? '' : (FS.get(n).content || ''));
+            }
+            return out;
+        },
+
+        // The counterpart to `export`: drops a variable from the session
+        // environment. `unset HISTFILE` is the canonical anti-forensics move
+        // stealth mode recognises, but it works on any variable.
+        unset(args) {
+            for (const name of args) {
+                if (!name || name.startsWith('-')) continue;
+                delete SESSION.env[name];
+            }
+            return [];
         },
 
         ssh(args) {
@@ -1005,6 +1160,51 @@ window.CMD = {
             return [{ text: "docker: try  docker run -v /:/mnt -it alpine chroot /mnt sh", cls: 'dim' }];
         },
 
+        // lxc/lxd, the docker cousin: membership of the `lxd` group lets you
+        // ask the daemon (running as root) to launch a *privileged* container
+        // with the host filesystem bind-mounted in. Same escape, different
+        // group. The win fires on the moment that actually matters — a
+        // privileged container or a device pointed at the host root.
+        lxc(args) {
+            const joined = args.join(' ');
+            if (/security\.privileged\s*=\s*true|source\s*=\s*\/(\s|$|:)/.test(joined)) {
+                const win = (window.GAME.level().wins || []).find(w => w.type === 'lxd_group');
+                if (win) return this.spawnShell(true, { via: 'lxc (privileged container, host mounted)', type: 'lxd_group' });
+                return [{ text: 'lxc: not authorized to manage containers', cls: 'err' }];
+            }
+            if (args[0] === 'image' && args[1] === 'list') return [
+                { text: 'ALIAS   FINGERPRINT   PUBLIC   DESCRIPTION           ARCH', cls: 'dim' },
+                { text: 'alpine  b7f2c3a1d9e0  yes      Alpine 3.19 (x86_64)  x86_64', cls: '' }
+            ];
+            if (args[0] === 'list') return [{ text: '+------+-------+------+------+------+-----------+', cls: 'dim' }];
+            return [{ text: 'lxc: try  lxc init alpine r -c security.privileged=true  then add a  source=/  disk device', cls: 'dim' }];
+        },
+
+        // systemctl. An unprivileged user can't start a system unit — that's
+        // the point: the writable unit is dangerous because a *root* timer
+        // starts it on a schedule (modelled by `wait`), not because you can
+        // start it yourself. So this is flavour: inspect the unit, watch the
+        // timer, and let `wait` fire the payload you planted.
+        systemctl(args) {
+            const sub = args.find(a => !a.startsWith('-')) || '';
+            if (sub === 'daemon-reload' || sub === 'daemon-reexec') return [];
+            if (sub === 'start' || sub === 'restart') {
+                return [{ text: `Failed to ${sub} backup.service: Access denied`, cls: 'err' },
+                    { text: 'A root-owned timer already starts it on schedule — plant your payload and wait.', cls: 'dim' }];
+            }
+            if (sub === 'list-timers') return [
+                { text: 'NEXT                        LEFT     UNIT           ACTIVATES', cls: 'dim' },
+                { text: 'Mon 2025-01-01 00:01:00 UTC  <1min    backup.timer   backup.service', cls: 'warn' }
+            ];
+            if (sub === 'status') return [{ text: '● backup.service - Nightly backup\n   Loaded: loaded (/etc/systemd/system/backup.service)\n   Active: inactive (dead) — triggered by backup.timer', cls: 'dim' }];
+            if (sub === 'cat') {
+                const unit = (args[args.length - 1] || '').replace(/\.service$/, '');
+                const node = FS.get(FS.normalize('/etc/systemd/system/' + unit + '.service'));
+                return node ? [{ text: node.content || '', cls: '' }] : [{ text: `No files found for ${unit}.`, cls: 'err' }];
+            }
+            return [{ text: 'systemctl: try  status backup | cat backup | list-timers', cls: 'dim' }];
+        },
+
         python3(args, raw) { return CMD.handlers.python.call(this, args, raw); },
         python(args, raw) {
             // Only support: python3 -c '<code>'
@@ -1134,9 +1334,12 @@ window.CMD = {
                 const p = SESSION.cronPayload;
                 if (p.includes('chmod +s') || p.includes('chmod 4755') || p.includes('/bin/sh') || p.includes('/bin/bash')) {
                     lines.push({ text: '', cls: '' });
-                    // Grant root
-                    lines.push(...this.spawnShell(true, { via: 'cron', type: 'cron_hijack' }));
+                    // Grant root, honouring what armed the trigger (a cron job or
+                    // a systemd unit) so the debrief attributes it correctly.
+                    const trig = SESSION.pendingTrigger || { type: 'cron_hijack', via: 'cron' };
+                    lines.push(...this.spawnShell(true, { via: trig.via, type: trig.type }));
                 }
+                SESSION.pendingTrigger = null;
                 return lines;
             }
 
@@ -1244,21 +1447,104 @@ window.CMD = {
                 const others = parseInt((node.mode || '000').slice(-1), 10);
                 return !node.writable_by_all && !(others & 2);
             }
+            // Not "did the file change?" but "does the exploit still work?" —
+            // the rules are re-read through the same path sudo itself uses, so
+            // a cosmetic edit that leaves the grant intact doesn't count.
+            case 'revoke_sudo': {
+                // Asked about the player's account, not the root shell the
+                // blue-team phase is running in.
+                const entries = this.sudoEntries(level, level.user || 'player');
+                return !entries.some(e =>
+                    e.cmd === 'ALL' || e.cmd === h.bin || (h.bin && String(e.cmd).startsWith(h.bin)));
+            }
             default: return false;
         }
     },
 
+    // ── /etc/sudoers as a real, editable file ───────────────────────────────
+    // Most boxes ship it as an unreadable stub, which is fine while it's just
+    // scenery. Boxes whose blue-team fix *is* editing it need the real thing,
+    // so it gets written out from the level's declared rules at load time and
+    // becomes the authority for that box: delete the line, lose the privilege.
+    SUDOERS_HEADER: [
+        '#',
+        '# This file MUST be edited with the "visudo" command as root.',
+        '# See the man page for details on how to write a sudoers file.',
+        '#',
+        'Defaults        env_reset',
+        'Defaults        mail_badpass',
+        'Defaults        secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
+        '',
+        '# User privilege specification',
+        'root    ALL=(ALL:ALL) ALL',
+        '',
+        '# Allow members of group sudo to execute any command',
+        '%sudo   ALL=(ALL:ALL) ALL',
+        ''
+    ],
+
+    sudoersText(level) {
+        const lines = [...this.SUDOERS_HEADER];
+        for (const [user, entries] of Object.entries(level.sudoers || {})) {
+            for (const e of entries) {
+                lines.push(`${user}    ALL=(${e.runas || 'root'}) ${e.nopasswd ? 'NOPASSWD: ' : ''}${e.cmd}`);
+            }
+        }
+        return lines.join('\n') + '\n';
+    },
+
+    // Called from FS.load — only for boxes that declare a revoke_sudo fix, so
+    // every other box keeps the cheap stub it already had.
+    materializeSudoers(level) {
+        if (!level || !level.harden || level.harden.type !== 'revoke_sudo') return;
+        FS.writeFile('/etc/sudoers', this.sudoersText(level));
+        const node = FS.get('/etc/sudoers');
+        if (node) { node.owner = 'root'; node.mode = '440'; node.type = 'file'; }
+    },
+
+    // Parses `user ALL=(runas) NOPASSWD: cmd` lines for the current user.
+    parseSudoersRules(text, user) {
+        const out = [];
+        for (const line of String(text || '').split('\n')) {
+            if (/^\s*#/.test(line)) continue;
+            const m = line.match(/^\s*(%?[\w.-]+)\s+\S+\s*=\s*\(([^)]*)\)\s*(NOPASSWD:\s*)?(.+?)\s*$/);
+            if (!m) continue;
+            if (m[1] !== user && m[1] !== '%' + user) continue;
+            out.push({ cmd: m[4] === 'ALL' ? 'ALL' : m[4], nopasswd: !!m[3], runas: (m[2] || 'root').split(':')[0] });
+        }
+        return out;
+    },
+
     // Effective sudo rules for the current user: the level's static sudoers plus
     // any rule the player dropped into a writable /etc/sudoers.d (box-14).
-    sudoEntries(level) {
-        const entries = [...(level.sudoers?.[SESSION.user] || [])];
+    sudoEntries(level, asUser) {
+        // Defaults to whoever is at the keyboard, but the blue-team check has to
+        // ask about the *player* account while the session is running as root —
+        // hence the explicit override instead of reading SESSION.user directly.
+        const user = asUser || SESSION.user;
+        // When the box ships a real /etc/sudoers, the file wins over the static
+        // declaration — that's what makes the blue-team edit actually mean
+        // something instead of being cosmetic.
+        const file = FS.get('/etc/sudoers');
+        const live = level && level.harden && level.harden.type === 'revoke_sudo'
+            && file && typeof file.content === 'string' && /=\s*\(/.test(file.content);
+        const declared = level.sudoers?.[user] || [];
+        // The file decides *whether* a rule exists; the level's declaration
+        // still carries the flavour the text form can't express (box-28's
+        // "(ALL, !root)" exclusion, for one), so a surviving rule keeps it.
+        const entries = live
+            ? this.parseSudoersRules(file.content, user).map(e => {
+                const d = declared.find(x => x.cmd === e.cmd);
+                return d ? { ...d, nopasswd: e.nopasswd } : e;
+            })
+            : [...declared];
         const dropDir = FS.get('/etc/sudoers.d');
         if (dropDir && Array.isArray(dropDir.children)) {
             for (const name of dropDir.children) {
                 const f = FS.get('/etc/sudoers.d/' + name);
                 ((f && f.content) || '').split('\n').forEach(line => {
                     const mm = line.match(/^\s*(%?\w+)\s+ALL\s*=\s*\([^)]*\)\s*(NOPASSWD:\s*)?(.+?)\s*$/);
-                    if (mm && (mm[1] === SESSION.user || mm[1] === '%' + SESSION.user)) {
+                    if (mm && (mm[1] === user || mm[1] === '%' + user)) {
                         entries.push({ cmd: mm[3] === 'ALL' ? 'ALL' : mm[3], nopasswd: !!mm[2], runas: 'root' });
                     }
                 });
@@ -1347,7 +1633,10 @@ window.CMD = {
                 // with make's own privilege the moment make executes it.
                 return /--eval/.test(joined) && /\/bin\/(sh|bash)/.test(joined);
             default:
-                return false;
+                // Anything this switch doesn't special-case falls through to
+                // the ingested GTFOBins table, so covering a new binary is a
+                // data edit in gtfobins.js, not another case here.
+                return !!(window.GTFOBINS && window.GTFOBINS.escapes(bin, joined));
         }
     },
 
@@ -1420,16 +1709,24 @@ window.CMD = {
 const _origRunOne = window.CMD.runOne.bind(window.CMD);
 window.CMD.runOne = function(input) {
     const level = window.GAME.level();
-    const cronWin = (level.wins || []).find(w => w.type === 'cron_hijack');
-    if (cronWin && cronWin.path && !SESSION.isRoot) {
+    // Both vectors are "a root-scheduled job runs a file you can write". They
+    // arm the same pending-trigger the same way; only the flavour differs
+    // (a cron script vs. a systemd unit's ExecStart), so `wait` can attribute
+    // the root shell to the right mechanism.
+    const wins = level.wins || [];
+    const armable = wins.find(w => (w.type === 'cron_hijack' || w.type === 'systemd_service') && w.path);
+    if (armable && !SESSION.isRoot) {
         const redirMatch = input.match(/^(.*?)\s*(>>|>)\s*(\S+)\s*$/);
         if (redirMatch) {
             const target = FS.normalize(redirMatch[3]);
-            if (target === FS.normalize(cronWin.path)) {
+            if (target === FS.normalize(armable.path)) {
                 const payload = redirMatch[1].trim();
                 const result = _origRunOne(input);
                 SESSION.pendingCron = true;
                 SESSION.cronPayload = payload;
+                SESSION.pendingTrigger = armable.type === 'systemd_service'
+                    ? { type: 'systemd_service', via: 'systemd timer → backup.service' }
+                    : { type: 'cron_hijack', via: 'cron' };
                 return [
                     ...result,
                     { text: t('cronWaiting'), cls: 'warn' }
